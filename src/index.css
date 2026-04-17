@@ -1,0 +1,115 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 160 10% 99%;
+    --foreground: 170 30% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 170 30% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 170 30% 15%;
+
+    --primary: 180 50% 24%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 170 30% 94%;
+    --secondary-foreground: 180 50% 24%;
+
+    --muted: 170 20% 94%;
+    --muted-foreground: 170 20% 44%;
+
+    --accent: 180 40% 90%;
+    --accent-foreground: 180 50% 24%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 170 20% 90%;
+    --input: 170 20% 90%;
+    --ring: 180 50% 24%;
+
+    --radius: 1rem;
+
+    /* Majal custom tokens */
+    --teal-dark: 180 50% 24%;
+    --teal-mid: 180 48% 33%;
+    --teal-light: 180 36% 46%;
+    --teal-pale: 170 40% 93%;
+    --teal-hero: 160 30% 96%;
+    --teal-cta: 174 42% 30%;
+    --teal-footer: 180 52% 21%;
+    --text-dark: 170 30% 15%;
+    --text-muted: 170 16% 41%;
+
+    --shadow-card: 0 4px 24px hsla(180, 50%, 24%, 0.10);
+    --shadow-hover: 0 12px 36px hsla(180, 50%, 24%, 0.14);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'DM Serif Display', serif;
+  }
+}
+
+/* Fade-up animation */
+.fade-up {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.fade-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Toggle switch */
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: hsl(var(--teal-pale));
+  border-radius: 26px;
+  transition: 0.3s;
+}
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: 0.3s;
+}
+input:checked + .toggle-slider {
+  background: hsl(var(--teal-dark));
+}
+input:checked + .toggle-slider:before {
+  transform: translateX(22px);
+}
