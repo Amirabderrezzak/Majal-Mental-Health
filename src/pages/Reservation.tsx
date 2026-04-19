@@ -89,10 +89,9 @@ const Reservation = () => {
       return;
     }
 
-    // Call backend to generate payment URL
-    const BACKEND = import.meta.env.VITE_BACKEND_URL || "https://majal-mental-health-production.up.railway.app";
+    // Call Vercel serverless function to generate payment URL
     try {
-      const response = await fetch(`${BACKEND}/api/payments/checkout`, {
+      const response = await fetch(`/api/payments/checkout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
