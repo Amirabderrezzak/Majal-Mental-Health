@@ -23,6 +23,7 @@ import EspacePsy from "./pages/EspacePsy";
 import PaymentMock from "./pages/PaymentMock.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
 import AdminRoute from "@/components/AdminRoute";
+import AdminLogin from "./pages/AdminLogin.tsx";
 // Support & Legal
 import FAQ from "./pages/FAQ.tsx";
 import Contact from "./pages/Contact.tsx";
@@ -61,6 +62,7 @@ const App = () => (
               <Route path="/aide" element={<CentreAide />} />
               <Route path="/confidentialite" element={<Confidentialite />} />
               <Route path="/conditions" element={<Conditions />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
 
               {/* ── Protected: patients ─────────────────────── */}
               <Route
