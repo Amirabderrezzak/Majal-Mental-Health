@@ -26,16 +26,18 @@ export default function AdminLogin() {
       }
 
       // Step 2: Verify the account has admin rights
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("is_admin")
         .eq("user_id", data.user.id)
         .single();
 
-      if (!profile?.is_admin) {
-        // Sign them back out — they are NOT admin
+      console.log("Profile:", profile, "Error:", profileError);
+      toast.info(`Debug: is_admin=${profile?.is_admin} | error=${profileError?.message || "none"}`);
+
+      if (profileError || !profile?.is_admin) {
         await supabase.auth.signOut();
-        toast.error("Accès refusé. Ce compte n'a pas les droits administrateur.");
+        toast.error(`Accès refusé — is_admin: ${profile?.is_admin}`);
         setLoading(false);
         return;
       }
