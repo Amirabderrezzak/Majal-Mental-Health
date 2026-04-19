@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import {
   psyProfile, statsData, todaySessions, notifications, recentPatients, weeklyEarnings
 } from "../data/psyData";
+import ChatWindow from "./ChatWindow";
 
 type Page = "dashboard" | "sessions" | "patients" | "messages" | "earnings" | "profile" | "settings";
 
@@ -71,6 +72,9 @@ export default function EspacePsy() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+
+  const [activeChatUserId, setActiveChatUserId] = useState<string | null>(null);
+  const [activeChatUserName, setActiveChatUserName] = useState<string>("");
 
   // Profile form state
   const [profileData, setProfileData] = useState({
@@ -459,17 +463,51 @@ export default function EspacePsy() {
   );
 
   // ── Messages ───────────────────────────────────────────────────────────────
-  const Messages = () => (
-    <div className="p-6 flex items-center justify-center min-h-[400px]">
-      <div className="text-center">
-        <MessageSquare className="w-14 h-14 text-muted-foreground/30 mx-auto mb-4" />
-        <h3 className="font-semibold text-lg text-foreground mb-2">Messagerie</h3>
-        <p className="text-muted-foreground text-sm max-w-sm">
-          La messagerie sécurisée avec vos patients sera disponible prochainement.
-        </p>
+  const Messages = () => {
+    // Unique patients from all bookings
+    const uniquePatients = Array.from(new Map(bookings.map(b => [b.patient_id, b.patient_name])).entries());
+
+    return (
+      <div className="flex h-full min-h-[500px]">
+        {/* Contact List */}
+        <div className="w-1/3 border-r border-border bg-white flex flex-col">
+          <div className="p-4 border-b border-border">
+            <h3 className="font-semibold text-foreground">Conversations</h3>
+          </div>
+          <div className="flex-1 overflow-auto">
+            {uniquePatients.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground mt-8">Aucun patient</p>
+            ) : (
+              uniquePatients.map(([id, name]) => (
+                <button
+                  key={id}
+                  onClick={() => { setActiveChatUserId(id); setActiveChatUserName(name || "Patient"); }}
+                  className={`w-full text-left px-4 py-3 border-b flex items-center gap-3 transition-colors border-none cursor-pointer ${activeChatUserId === id ? "bg-teal-pale" : "hover:bg-accent bg-transparent"}`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-semibold shrink-0">
+                    {getInitials(name)}
+                  </div>
+                  <div className="font-medium text-sm text-foreground truncate">{name}</div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Chat Area */}
+        <div className="flex-1 bg-accent/10">
+          {activeChatUserId ? (
+            <ChatWindow otherUserId={activeChatUserId} otherUserName={activeChatUserName} />
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+              <MessageSquare className="w-12 h-12 mb-3 opacity-20" />
+              <p className="text-sm">Sélectionnez un patient pour démarrer la conversation</p>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // ── Earnings ───────────────────────────────────────────────────────────────
   const Earnings = () => (

@@ -20,7 +20,7 @@ import MotDePasseOublie from "./pages/MotDePasseOublie.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import EspacePsy from "./pages/EspacePsy";
-
+import PaymentMock from "./pages/PaymentMock.tsx";
 // Support & Legal
 import FAQ from "./pages/FAQ.tsx";
 import Contact from "./pages/Contact.tsx";
@@ -76,6 +76,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Reservation />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payment/mock"
+                element={
+                  <ProtectedRoute>
+                    <PaymentMock />
                   </ProtectedRoute>
                 }
               />

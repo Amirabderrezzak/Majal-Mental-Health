@@ -9,12 +9,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import ChatWindow from "@/components/ChatWindow";
+import { getInitials } from "@/lib/utils";
 
-type Page = "dashboard" | "sessions" | "profil" | "notifications";
+type Page = "dashboard" | "sessions" | "messages" | "profil" | "notifications";
 
 const navItems: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: "dashboard",     label: "Tableau de bord",  icon: <LayoutDashboard className="w-4 h-4" /> },
   { id: "sessions",      label: "Mes séances",       icon: <Calendar className="w-4 h-4" /> },
+  { id: "messages",      label: "Messages",          icon: <MessageSquare className="w-4 h-4" /> },
   { id: "profil",        label: "Mon profil",        icon: <User className="w-4 h-4" /> },
   { id: "notifications", label: "Notifications",     icon: <Bell className="w-4 h-4" /> },
 ];
@@ -25,6 +28,8 @@ interface Booking {
   status: "pending" | "confirmed" | "cancelled" | "done";
   duration_minutes: number;
   price: number | null;
+  psychologist_id: string;
+  psychologist_name?: string;
 }
 
 interface Profile {
@@ -48,6 +53,9 @@ export default function MonEspace() {
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
 
+  const [activeChatUserId, setActiveChatUserId] = useState<string | null>(null);
+  const [activeChatUserName, setActiveChatUserName] = useState<string>("");
+
   const locale = lang === "ar" ? "ar-SA" : "fr-FR";
 
   useEffect(() => {
@@ -61,16 +69,30 @@ export default function MonEspace() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("bookings").select("id, booked_at, status, duration_minutes, price")
-      .eq("patient_id", user.id).order("booked_at", { ascending: true })
-      .then(({ data }) => {
-        const now = new Date().toISOString();
-        const all = (data ?? []) as Booking[];
-        setUpcoming(all.filter(b => (b.status === "pending" || b.status === "confirmed") && b.booked_at >= now));
-        setPast(all.filter(b => b.status === "done" || b.status === "cancelled" || b.booked_at < now)
-          .sort((a, b) => new Date(b.booked_at).getTime() - new Date(a.booked_at).getTime()));
-        setBookingsLoading(false);
-      });
+    const fetchB = async () => {
+      const { data } = await supabase.from("bookings").select("id, booked_at, status, duration_minutes, price, psychologist_id")
+        .eq("patient_id", user.id).order("booked_at", { ascending: true });
+        
+      const all: Booking[] = data ? (data as Booking[]) : [];
+      
+      // Fetch psychologist names
+      if (all.length > 0) {
+        const psyIds = [...new Set(all.map(b => b.psychologist_id))];
+        const { data: psyProfiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", psyIds);
+        
+        all.forEach(b => {
+          const p = psyProfiles?.find(x => x.user_id === b.psychologist_id);
+          b.psychologist_name = p?.full_name || "Un Psychologue";
+        });
+      }
+
+      const now = new Date().toISOString();
+      setUpcoming(all.filter(b => (b.status === "pending" || b.status === "confirmed") && b.booked_at >= now));
+      setPast(all.filter(b => b.status === "done" || b.status === "cancelled" || b.booked_at < now)
+        .sort((a, b) => new Date(b.booked_at).getTime() - new Date(a.booked_at).getTime()));
+      setBookingsLoading(false);
+    };
+    fetchB();
   }, [user]);
 
   const saveProfile = async () => {
@@ -101,9 +123,7 @@ export default function MonEspace() {
   const fmt  = (iso: string) => new Date(iso).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" });
   const fmtT = (iso: string) => new Date(iso).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 
-  const initials = profile.full_name
-    ? profile.full_name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
-    : user?.email?.[0].toUpperCase() ?? "?";
+  const initials = getInitials(profile.full_name || user?.email || "?");
 
   // ── Sidebar ──────────────────────────────────────────────────────────────
   const Sidebar = () => (
@@ -340,6 +360,51 @@ export default function MonEspace() {
     </div>
   );
 
+  // ── Messages ───────────────────────────────────────────────────────────────
+  const Messages = () => {
+    const allBookings = [...upcoming, ...past];
+    const uniqueTherapists = Array.from(new Map(allBookings.map(b => [b.psychologist_id, b.psychologist_name])).entries());
+
+    return (
+      <div className="flex h-[calc(100vh-80px)]">
+        <div className="w-[300px] border-r border-border bg-white flex flex-col shrink-0">
+          <div className="p-4 border-b border-border">
+            <h3 className="font-semibold text-foreground">Discussions avec vos psys</h3>
+          </div>
+          <div className="flex-1 overflow-auto">
+            {uniqueTherapists.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground mt-8 px-4">Vous n'avez pas encore de psychologues. Consultez le catalogue !</p>
+            ) : (
+              uniqueTherapists.map(([id, name]) => (
+                <button
+                  key={id}
+                  onClick={() => { setActiveChatUserId(id); setActiveChatUserName(name || "Therapeute"); }}
+                  className={`w-full text-left px-4 py-3 border-b flex items-center gap-3 transition-colors border-none cursor-pointer ${activeChatUserId === id ? "bg-teal-pale" : "hover:bg-accent bg-transparent"}`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xl shrink-0">
+                    👨‍⚕️
+                  </div>
+                  <div className="font-medium text-sm text-foreground truncate">{name}</div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 bg-accent/10">
+          {activeChatUserId ? (
+            <ChatWindow otherUserId={activeChatUserId} otherUserName={activeChatUserName} />
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-6">
+              <MessageSquare className="w-12 h-12 mb-3 opacity-20" />
+              <p className="text-sm text-center">Sélectionnez un psychologue pour partager des documents<br/>ou poser des questions avant votre séance.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // ── Profile ───────────────────────────────────────────────────────────────
   const ProfilePage = () => (
     <div className="p-6 max-w-xl">
@@ -419,11 +484,12 @@ export default function MonEspace() {
 
   const pageTitle: Record<Page, string> = {
     dashboard: "Tableau de bord", sessions: "Mes séances",
+    messages: "Messages",
     profil: "Mon profil", notifications: "Notifications",
   };
 
   const pageContent: Record<Page, React.ReactNode> = {
-    dashboard: <Dashboard />, sessions: <Sessions />,
+    dashboard: <Dashboard />, sessions: <Sessions />, messages: <Messages />,
     profil: <ProfilePage />, notifications: <Notifications />,
   };
 

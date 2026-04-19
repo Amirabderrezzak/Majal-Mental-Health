@@ -73,23 +73,45 @@ const Reservation = () => {
     const bookedAt = new Date(viewYear, viewMonth, selectedDay, hours, minutes);
 
     setBooking(true);
-    const { error } = await supabase.from("bookings").insert({
+    const { data: insertedBooking, error } = await supabase.from("bookings").insert({
       patient_id: user.id,
-      // Note: doc.id is a number from static data — in production this will be the psychologist's auth UUID
-      // For now we use the patient's own id as a placeholder until psychologists are real DB users
       psychologist_id: user.id, // TODO: replace with real psychologist user_id from profiles
       booked_at: bookedAt.toISOString(),
       duration_minutes: 60,
       status: "pending",
       price: doc.price,
-    });
-    setBooking(false);
+    }).select().single();
 
-    if (error) {
+    if (error || !insertedBooking) {
+      setBooking(false);
       console.error("Booking error:", error);
       toast.error("Une erreur est survenue. Veuillez réessayer.");
-    } else {
-      setShowModal(true);
+      return;
+    }
+
+    // Call backend to generate payment URL
+    try {
+      const response = await fetch("http://localhost:3001/api/payments/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          booking_id: insertedBooking.id,
+          price: doc.price,
+        }),
+      });
+      
+      const { url } = await response.json();
+      if (url) {
+        window.location.href = url; // redirect to mock payment gateway
+      } else {
+        throw new Error("Pas d'URL de paiement retournée");
+      }
+    } catch (err) {
+      setBooking(false);
+      console.error("Payment redirect error:", err);
+      toast.error("Erreur de redirection vers le paiement.");
     }
   };
 
