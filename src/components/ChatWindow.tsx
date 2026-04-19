@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Mic, Square, Loader2, FileText, Image as ImageIcon } from "lucide-react";
+import { Send, Paperclip, Mic, Square, Loader2, FileText, Image as ImageIcon, MessageSquare } from "lucide-react";
 import { Message, fetchMessages, sendMessage, subscribeToMessages, uploadAttachment } from "@/services/chatService";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
