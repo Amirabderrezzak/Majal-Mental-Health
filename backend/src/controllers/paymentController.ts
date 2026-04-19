@@ -32,8 +32,9 @@ export const createPaymentSession = async (req: Request, res: Response): Promise
     }
 
     // TODO: Integrate Sofizpay or Stripe API here.
-    // For now, we mock generating a checkout URL, redirecting the user back to the success page
-    const MOCK_CHECKOUT_URL = `http://localhost:8080/payment/mock?booking_id=${booking_id}&amount=${price}`;
+    // For now, we mock generating a checkout URL.
+    const BASE = process.env.FRONTEND_URL || "http://localhost:8080";
+    const MOCK_CHECKOUT_URL = `${BASE}/payment/mock?booking_id=${booking_id}&amount=${price}`;
 
     res.json({ url: MOCK_CHECKOUT_URL });
 

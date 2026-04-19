@@ -1,5 +1,5 @@
 -- ============================================================
--- Admin Panel Migration
+-- Admin Panel Migration (Safe to re-run)
 -- ============================================================
 
 -- 1. Add is_admin flag to profiles
@@ -7,15 +7,23 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false;
 
 -- 2. Add approval_status for therapists
---    pending = awaiting admin review
---    approved = visible on the platform
---    rejected = blocked from listing
 ALTER TABLE public.profiles
-  ADD COLUMN IF NOT EXISTS approval_status TEXT NOT NULL DEFAULT 'approved'
-  CHECK (approval_status IN ('pending', 'approved', 'rejected'));
+  ADD COLUMN IF NOT EXISTS approval_status TEXT NOT NULL DEFAULT 'approved';
 
--- All new psychologue registrations start as pending
--- We handle this logic in the handle_new_user trigger
+-- Add constraint only if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'profiles_approval_status_check'
+  ) THEN
+    ALTER TABLE public.profiles
+      ADD CONSTRAINT profiles_approval_status_check
+      CHECK (approval_status IN ('pending', 'approved', 'rejected'));
+  END IF;
+END $$;
+
+-- 3. Update handle_new_user so new therapists start as 'pending'
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -27,7 +35,6 @@ DECLARE
   v_approval  TEXT;
 BEGIN
   v_user_type := COALESCE(NEW.raw_user_meta_data->>'user_type', 'patient');
-  -- Therapists require admin approval before going live
   IF v_user_type = 'psychologue' THEN
     v_approval := 'pending';
   ELSE
@@ -54,9 +61,16 @@ BEGIN
 END;
 $$;
 
--- 3. Update the public listing policy so only APPROVED psychologists are visible
-DROP POLICY IF EXISTS "Anyone can view psychologist profiles" ON public.profiles;
+-- 4. Recreate policies safely (drop first, then create)
+DROP POLICY IF EXISTS "Anyone can view psychologist profiles"          ON public.profiles;
+DROP POLICY IF EXISTS "Anyone can view approved psychologist profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can read all profiles"                   ON public.profiles;
+DROP POLICY IF EXISTS "Admins can update any profile"                  ON public.profiles;
+DROP POLICY IF EXISTS "Admins can read all bookings"                   ON public.bookings;
+DROP POLICY IF EXISTS "Admins can update any booking"                  ON public.bookings;
+DROP POLICY IF EXISTS "Admins can delete any review"                   ON public.reviews;
 
+-- Only APPROVED psychologists appear in public listings
 CREATE POLICY "Anyone can view approved psychologist profiles"
   ON public.profiles FOR SELECT
   USING (
@@ -64,7 +78,7 @@ CREATE POLICY "Anyone can view approved psychologist profiles"
     OR auth.uid() = user_id
   );
 
--- 4. Admin RLS: Admins can read ALL profiles (for the admin panel)
+-- Admins can read ALL profiles
 CREATE POLICY "Admins can read all profiles"
   ON public.profiles FOR SELECT
   USING (
@@ -74,7 +88,7 @@ CREATE POLICY "Admins can read all profiles"
     )
   );
 
--- 5. Admins can update any profile (to approve therapists, grant admin, etc.)
+-- Admins can update any profile (approve therapists, grant admin)
 CREATE POLICY "Admins can update any profile"
   ON public.profiles FOR UPDATE
   USING (
@@ -84,7 +98,7 @@ CREATE POLICY "Admins can update any profile"
     )
   );
 
--- 6. Admins can read ALL bookings
+-- Admins can read ALL bookings
 CREATE POLICY "Admins can read all bookings"
   ON public.bookings FOR SELECT
   USING (
@@ -94,7 +108,7 @@ CREATE POLICY "Admins can read all bookings"
     )
   );
 
--- 7. Admins can update any booking (for dispute resolution)
+-- Admins can update any booking
 CREATE POLICY "Admins can update any booking"
   ON public.bookings FOR UPDATE
   USING (
@@ -104,7 +118,7 @@ CREATE POLICY "Admins can update any booking"
     )
   );
 
--- 8. Admins can delete inappropriate reviews
+-- Admins can delete inappropriate reviews
 CREATE POLICY "Admins can delete any review"
   ON public.reviews FOR DELETE
   USING (
@@ -115,9 +129,8 @@ CREATE POLICY "Admins can delete any review"
   );
 
 -- ============================================================
--- HOW TO MAKE YOURSELF AN ADMIN
--- After running this migration, run the following command
--- replacing YOUR_EMAIL with your actual account email:
+-- FINAL STEP: Make yourself an admin
+-- Replace YOUR_EMAIL with your Majal account email and run:
 --
 -- UPDATE public.profiles
 -- SET is_admin = true

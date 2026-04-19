@@ -90,8 +90,9 @@ const Reservation = () => {
     }
 
     // Call backend to generate payment URL
+    const BACKEND = import.meta.env.VITE_BACKEND_URL || "https://majal-mental-health-production.up.railway.app";
     try {
-      const response = await fetch("http://localhost:3001/api/payments/checkout", {
+      const response = await fetch(`${BACKEND}/api/payments/checkout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
