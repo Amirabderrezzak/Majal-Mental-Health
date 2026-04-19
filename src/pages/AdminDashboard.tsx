@@ -157,6 +157,15 @@ export default function AdminDashboard() {
     if (error) { toast.error("Échec de la mise à jour"); return; }
     setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, approval_status: status } : u));
     toast.success(`Statut mis à jour : ${status}`);
+
+    // Send email notification to therapist
+    if (status === 'approved' || status === 'rejected') {
+      fetch('/api/admin/notify-therapist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ therapist_id: userId, action: status }),
+      }).catch(console.error);
+    }
   };
 
   const toggleAdmin = async (userId: string, current: boolean) => {
