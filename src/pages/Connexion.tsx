@@ -16,15 +16,16 @@ const Connexion = () => {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  /** Resolve the redirect destination based on user_type */
+  /** Resolve the redirect destination based on user_type and admin status */
   const getRedirectPath = async (userId: string): Promise<string> => {
     const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
     if (from && from !== "/connexion") return from;
     const { data } = await supabase
       .from("profiles")
-      .select("user_type")
+      .select("user_type, is_admin")
       .eq("user_id", userId)
       .single();
+    if (data?.is_admin) return "/admin";
     return data?.user_type === "psychologue" ? "/espace-psy" : "/mon-espace";
   };
 
