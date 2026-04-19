@@ -32,6 +32,9 @@ export type Database = {
           bio: string | null
           price_per_session: number | null
           years_experience: number | null
+          /** Admin fields */
+          is_admin: boolean
+          approval_status: string
         }
         Insert: {
           avatar_url?: string | null
@@ -49,6 +52,8 @@ export type Database = {
           bio?: string | null
           price_per_session?: number | null
           years_experience?: number | null
+          is_admin?: boolean
+          approval_status?: string
         }
         Update: {
           avatar_url?: string | null
@@ -66,6 +71,8 @@ export type Database = {
           bio?: string | null
           price_per_session?: number | null
           years_experience?: number | null
+          is_admin?: boolean
+          approval_status?: string
         }
         Relationships: []
       }
@@ -176,7 +183,10 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      is_admin_user: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
