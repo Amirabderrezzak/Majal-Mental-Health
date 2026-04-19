@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import {
   psyProfile, statsData, todaySessions, notifications, recentPatients, weeklyEarnings
 } from "../data/psyData";
-import ChatWindow from "./ChatWindow";
+import ChatWindow from "@/components/ChatWindow";
 
 type Page = "dashboard" | "sessions" | "patients" | "messages" | "earnings" | "profile" | "settings";
 
