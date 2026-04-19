@@ -21,6 +21,8 @@ import ResetPassword from "./pages/ResetPassword.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import EspacePsy from "./pages/EspacePsy";
 import PaymentMock from "./pages/PaymentMock.tsx";
+import AdminDashboard from "./pages/AdminDashboard.tsx";
+import AdminRoute from "@/components/AdminRoute";
 // Support & Legal
 import FAQ from "./pages/FAQ.tsx";
 import Contact from "./pages/Contact.tsx";
@@ -95,6 +97,16 @@ const App = () => (
                   <ProtectedRoute requiredRole="psychologue">
                     <EspacePsy />
                   </ProtectedRoute>
+                }
+              />
+
+              {/* ── Protected: admin only ────────────────────── */}
+              <Route
+                path="/admin"
+                element={
+                  <AdminRoute>
+                    <AdminDashboard />
+                  </AdminRoute>
                 }
               />
 
