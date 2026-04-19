@@ -54,16 +54,9 @@ app.get('/api/debug', async (req: Request, res: Response) => {
   res.json(checks);
 });
 
-// Example route for fetching profiles (requires Service Role rights for Admin use-case)
-app.get('/api/profiles', async (req: Request, res: Response) => {
-  try {
-    const { data, error } = await supabase.from('profiles').select('*').limit(10);
-    if (error) throw error;
-    res.json({ profiles: data });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// NOTE: All admin data access is handled via Supabase RLS directly from the frontend.
+// No unprotected profile dump routes should exist here.
+
 
 // Start the server
 app.listen(port, () => {

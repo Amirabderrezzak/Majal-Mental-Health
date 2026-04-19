@@ -6,6 +6,14 @@ const supabase = createClient(
 );
 
 export default async function handler(req: any, res: any) {
+  // Require a secret token to access this debug endpoint
+  const secret = process.env.DEBUG_SECRET;
+  const provided = req.headers['x-debug-secret'] || req.query?.secret;
+
+  if (!secret || provided !== secret) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   const checks: Record<string, any> = {
     env: {
       SUPABASE_URL:              !!(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),

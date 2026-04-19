@@ -10,6 +10,16 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // ── Security: verify webhook secret ──────────────────────────────────────
+  const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
+  const providedSecret = req.headers['x-webhook-secret'];
+
+  if (!WEBHOOK_SECRET || providedSecret !== WEBHOOK_SECRET) {
+    console.warn('Webhook rejected: invalid or missing secret');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   try {
     const { booking_id, status } = req.body;
 
