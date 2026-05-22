@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -14,179 +14,189 @@ export type Database = {
   }
   public: {
     Tables: {
+      bookings: {
+        Row: {
+          booked_at: string
+          created_at: string
+          duration_minutes: number
+          id: string
+          notes: string | null
+          patient_id: string
+          price: number | null
+          psychologist_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          booked_at: string
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          notes?: string | null
+          patient_id: string
+          price?: number | null
+          psychologist_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          booked_at?: string
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          price?: number | null
+          psychologist_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          content: string | null
+          created_at: string
+          file_name: string | null
+          file_type: string | null
+          file_url: string | null
+          id: string
+          receiver_id: string
+          sender_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          receiver_id: string
+          sender_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          receiver_id?: string
+          sender_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
+          approval_status: string
           avatar_url: string | null
+          bio: string | null
           city: string | null
           created_at: string
           full_name: string | null
           id: string
+          is_admin: boolean
           language: string | null
           order_number: string | null
           phone: string | null
+          price_per_session: number | null
           specialty: string | null
           updated_at: string
           user_id: string
           user_type: string
-          /** Psychologist fields */
-          bio: string | null
-          price_per_session: number | null
           years_experience: number | null
-          /** Admin fields */
-          is_admin: boolean
-          approval_status: string
         }
         Insert: {
+          approval_status?: string
           avatar_url?: string | null
+          bio?: string | null
           city?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
+          is_admin?: boolean
           language?: string | null
           order_number?: string | null
           phone?: string | null
+          price_per_session?: number | null
           specialty?: string | null
           updated_at?: string
           user_id: string
           user_type?: string
-          bio?: string | null
-          price_per_session?: number | null
           years_experience?: number | null
-          is_admin?: boolean
-          approval_status?: string
         }
         Update: {
+          approval_status?: string
           avatar_url?: string | null
+          bio?: string | null
           city?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
+          is_admin?: boolean
           language?: string | null
           order_number?: string | null
           phone?: string | null
+          price_per_session?: number | null
           specialty?: string | null
           updated_at?: string
           user_id?: string
           user_type?: string
-          bio?: string | null
-          price_per_session?: number | null
           years_experience?: number | null
-          is_admin?: boolean
-          approval_status?: string
         }
         Relationships: []
       }
-      bookings: {
-        Row: {
-          id: string
-          patient_id: string
-          psychologist_id: string
-          booked_at: string
-          duration_minutes: number
-          status: "pending" | "confirmed" | "cancelled" | "done"
-          price: number | null
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          patient_id: string
-          psychologist_id: string
-          booked_at: string
-          duration_minutes?: number
-          status?: "pending" | "confirmed" | "cancelled" | "done"
-          price?: number | null
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          patient_id?: string
-          psychologist_id?: string
-          booked_at?: string
-          duration_minutes?: number
-          status?: "pending" | "confirmed" | "cancelled" | "done"
-          price?: number | null
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bookings_patient_id_fkey"
-            columns: ["patient_id"]
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bookings_psychologist_id_fkey"
-            columns: ["psychologist_id"]
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       reviews: {
         Row: {
-          id: string
           booking_id: string | null
-          patient_id: string
-          psychologist_id: string
-          rating: number
           comment: string | null
           created_at: string
-        }
-        Insert: {
-          id?: string
-          booking_id?: string | null
+          id: string
           patient_id: string
           psychologist_id: string
           rating: number
+        }
+        Insert: {
+          booking_id?: string | null
           comment?: string | null
           created_at?: string
+          id?: string
+          patient_id: string
+          psychologist_id: string
+          rating: number
         }
         Update: {
-          id?: string
           booking_id?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
           patient_id?: string
           psychologist_id?: string
           rating?: number
-          comment?: string | null
-          created_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "reviews_patient_id_fkey"
-            columns: ["patient_id"]
-            referencedRelation: "users"
+            foreignKeyName: "reviews_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "reviews_psychologist_id_fkey"
-            columns: ["psychologist_id"]
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
         ]
       }
     }
     Views: {
       psychologist_ratings: {
         Row: {
-          psychologist_id: string | null
           avg_rating: number | null
+          psychologist_id: string | null
           review_count: number | null
         }
         Relationships: []
       }
     }
     Functions: {
-      is_admin_user: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      is_admin_user: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
