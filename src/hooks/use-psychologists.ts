@@ -62,6 +62,7 @@ export function usePsychologists() {
         .from("profiles")
         .select("user_id, full_name, specialty, city, bio, price_per_session, years_experience, language, avatar_url")
         .eq("user_type", "psychologue")
+        .eq("approval_status", "approved")
         .order("created_at", { ascending: true });
 
       if (error) throw error;

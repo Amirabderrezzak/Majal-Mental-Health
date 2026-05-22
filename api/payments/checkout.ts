@@ -31,9 +31,10 @@ export default async function handler(req: any, res: any) {
 
     // TODO: Integrate Sofizpay or Stripe API here.
     // For now, redirect to a mock payment page on the frontend.
-    const FRONTEND_URL = process.env.FRONTEND_URL || process.env.VERCEL_URL
+    const origin = req.headers.origin || (req.headers.host ? `${req.headers.host.includes('localhost') ? 'http' : 'https'}://${req.headers.host}` : null);
+    const FRONTEND_URL = origin || process.env.FRONTEND_URL || (process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:5173';
+      : 'http://localhost:8080');
 
     const MOCK_CHECKOUT_URL = `${FRONTEND_URL}/payment/mock?booking_id=${booking_id}&amount=${price}`;
 

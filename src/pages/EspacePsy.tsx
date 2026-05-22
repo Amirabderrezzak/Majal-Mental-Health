@@ -7,9 +7,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import {
-  psyProfile, statsData, todaySessions, notifications, recentPatients, weeklyEarnings
-} from "../data/psyData";
+import { psyProfile } from "../data/psyData";
 import ChatWindow from "@/components/ChatWindow";
 
 type Page = "dashboard" | "sessions" | "patients" | "messages" | "earnings" | "profile" | "settings";
@@ -60,13 +58,14 @@ const patientStatusLabels = {
   "needs-attention": "Attention requise",
 };
 
-const maxEarning = Math.max(...weeklyEarnings.map((e) => e.amount));
+
 
 export default function EspacePsy() {
   const { user, signOut } = useAuth();
   const [activePage, setActivePage] = useState<Page>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<string>("approved");
 
   // Live Bookings State
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -92,7 +91,7 @@ export default function EspacePsy() {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("full_name, specialty, bio, city, price_per_session, years_experience, phone")
+      .select("full_name, specialty, bio, city, price_per_session, years_experience, phone, approval_status")
       .eq("user_id", user.id)
       .single()
       .then(({ data }) => {
@@ -106,6 +105,9 @@ export default function EspacePsy() {
             years_experience: data.years_experience ?? 8,
             phone: data.phone ?? "",
           });
+          if (data.approval_status) {
+            setApprovalStatus(data.approval_status);
+          }
         }
       });
   }, [user]);
@@ -141,6 +143,54 @@ export default function EspacePsy() {
     };
     fetchBookings();
   }, [user]);
+
+  // ── Derived real-time stats from bookings ──────────────────────────────────
+  const nowIso = new Date().toISOString();
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const upcomingBookings = bookings.filter(
+    b => (b.status === "pending" || b.status === "confirmed") && b.booked_at >= nowIso
+  );
+  const totalUniquePatients = new Set(bookings.map(b => b.patient_id)).size;
+  const sessionsThisMonth = bookings.filter(b => b.booked_at >= monthStart).length;
+  const earningsThisMonth = bookings
+    .filter(b => (b.status === "confirmed" || b.status === "done") && b.booked_at >= monthStart)
+    .reduce((sum, b) => sum + (b.price || 0), 0);
+  const pendingPayments = bookings
+    .filter(b => b.status === "pending")
+    .reduce((sum, b) => sum + (b.price || 0), 0);
+
+  const dayLabels = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+  const realWeeklyEarnings = dayLabels.map((day, i) => ({
+    day,
+    amount: bookings
+      .filter(b => {
+        const d = new Date(b.booked_at);
+        return d.getDay() === i && b.booked_at >= weekAgo &&
+          (b.status === "confirmed" || b.status === "done");
+      })
+      .reduce((sum, b) => sum + (b.price || 0), 0),
+  }));
+  const maxEarning = Math.max(...realWeeklyEarnings.map(e => e.amount), 0);
+
+  const patientMap = new Map<string, { name: string; sessions: number; lastSeen: string }>();
+  bookings.forEach(b => {
+    const ex = patientMap.get(b.patient_id);
+    if (!ex) {
+      patientMap.set(b.patient_id, { name: b.patient_name || "Patient", sessions: 1, lastSeen: b.booked_at });
+    } else {
+      ex.sessions++;
+      if (b.booked_at > ex.lastSeen) ex.lastSeen = b.booked_at;
+    }
+  });
+  const realPatients = Array.from(patientMap.entries()).map(([id, d]) => ({
+    id,
+    name: d.name,
+    initials: d.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase(),
+    sessions: d.sessions,
+    lastSeen: new Date(d.lastSeen).toLocaleDateString("fr-FR"),
+  }));
 
   const saveProfile = async () => {
     if (!user) return;
@@ -280,10 +330,10 @@ export default function EspacePsy() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Patients total", value: statsData.totalPatients, icon: <Users className="w-5 h-5" />, color: "text-primary bg-teal-pale" },
-          { label: "Sessions ce mois", value: statsData.sessionsThisMonth, icon: <Calendar className="w-5 h-5" />, color: "text-blue-700 bg-blue-50" },
-          { label: "Revenus (DA)", value: `${(statsData.earningsThisMonth / 1000).toFixed(0)}k`, icon: <TrendingUp className="w-5 h-5" />, color: "text-emerald-700 bg-emerald-50" },
-          { label: "À venir", value: statsData.upcomingSessions, icon: <Clock className="w-5 h-5" />, color: "text-amber-700 bg-amber-50" },
+          { label: "Patients total",    value: totalUniquePatients,                                                              icon: <Users className="w-5 h-5" />,     color: "text-primary bg-teal-pale" },
+          { label: "Sessions ce mois",  value: sessionsThisMonth,                                                                icon: <Calendar className="w-5 h-5" />,  color: "text-blue-700 bg-blue-50" },
+          { label: "Revenus (DA)",      value: earningsThisMonth > 0 ? `${(earningsThisMonth / 1000).toFixed(0)}k` : "0",       icon: <TrendingUp className="w-5 h-5" />, color: "text-emerald-700 bg-emerald-50" },
+          { label: "À venir",           value: upcomingBookings.length,                                                         icon: <Clock className="w-5 h-5" />,     color: "text-amber-700 bg-amber-50" },
         ].map((stat) => (
           <div key={stat.label} className="bg-card rounded-xl shadow-card p-5 flex items-start gap-4">
             <div className={`p-2.5 rounded-xl ${stat.color}`}>{stat.icon}</div>
@@ -332,7 +382,7 @@ export default function EspacePsy() {
         <div className="bg-card rounded-xl shadow-card p-6">
           <h3 className="font-semibold text-foreground mb-5">Revenus cette semaine</h3>
           <div className="flex items-end gap-2 h-36">
-            {weeklyEarnings.map((e) => (
+            {realWeeklyEarnings.map((e) => (
               <div key={e.day} className="flex-1 flex flex-col items-center gap-1.5">
                 <div
                   className="w-full rounded-t-md bg-primary/20 relative"
@@ -349,7 +399,7 @@ export default function EspacePsy() {
           <div className="mt-4 pt-4 border-t border-border">
             <div className="text-xs text-muted-foreground">Total cette semaine</div>
             <div className="font-serif text-xl text-primary">
-              {weeklyEarnings.reduce((s, e) => s + e.amount, 0).toLocaleString()} DA
+              {realWeeklyEarnings.reduce((s, e) => s + e.amount, 0).toLocaleString()} DA
             </div>
           </div>
         </div>
@@ -364,18 +414,17 @@ export default function EspacePsy() {
           </button>
         </div>
         <div className="space-y-3">
-          {recentPatients.map((p) => (
+          {realPatients.length === 0 && !bookingsLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Aucun patient pour l'instant.</p>
+          ) : realPatients.slice(0, 4).map((p) => (
             <div key={p.id} className="flex items-center gap-4">
               <div className="w-9 h-9 rounded-full bg-teal-pale flex items-center justify-center text-primary font-semibold text-sm shrink-0">
                 {p.initials}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm text-foreground">{p.name}</div>
-                <div className="text-xs text-muted-foreground">{p.sessions} séances · Vu {p.lastSeen.toLowerCase()}</div>
+                <div className="text-xs text-muted-foreground">{p.sessions} séance{p.sessions > 1 ? "s" : ""} · Dernière visite {p.lastSeen}</div>
               </div>
-              <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium shrink-0 ${patientStatusColors[p.status]}`}>
-                {patientStatusLabels[p.status]}
-              </span>
             </div>
           ))}
         </div>
@@ -437,21 +486,22 @@ export default function EspacePsy() {
     <div className="p-6">
       <div className="bg-card rounded-xl shadow-card overflow-hidden">
         <div className="p-5 border-b border-border">
-          <h3 className="font-semibold text-foreground">Mes patients ({statsData.totalPatients})</h3>
+          <h3 className="font-semibold text-foreground">Mes patients ({realPatients.length})</h3>
         </div>
         <div className="divide-y divide-border">
-          {[...recentPatients, ...recentPatients, ...recentPatients].slice(0, 12).map((p, i) => (
-            <div key={`${p.id}-${i}`} className="flex items-center gap-4 px-5 py-4 hover:bg-teal-hero transition-colors">
+          {bookingsLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+          ) : realPatients.length === 0 ? (
+            <p className="text-center py-10 text-sm text-muted-foreground">Aucun patient pour l'instant.</p>
+          ) : realPatients.map((p) => (
+            <div key={p.id} className="flex items-center gap-4 px-5 py-4 hover:bg-teal-hero transition-colors">
               <div className="w-10 h-10 rounded-full bg-teal-pale flex items-center justify-center text-primary font-semibold text-sm shrink-0">
                 {p.initials}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm text-foreground">{p.name}</div>
-                <div className="text-xs text-muted-foreground">{p.sessions} séances · Dernière visite {p.lastSeen.toLowerCase()}</div>
+                <div className="text-xs text-muted-foreground">{p.sessions} séance{p.sessions > 1 ? "s" : ""} · Dernière visite {p.lastSeen}</div>
               </div>
-              <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium shrink-0 ${patientStatusColors[p.status]}`}>
-                {patientStatusLabels[p.status]}
-              </span>
               <button className="bg-transparent border-none cursor-pointer text-muted-foreground hover:text-foreground">
                 <MoreHorizontal className="w-4 h-4" />
               </button>
@@ -514,9 +564,9 @@ export default function EspacePsy() {
     <div className="p-6 space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: "Revenus ce mois", value: `${(statsData.earningsThisMonth / 1000).toFixed(0)} 000 DA`, sub: "+12% vs mois dernier" },
-          { label: "Paiements en attente", value: `${(statsData.pendingPayments / 1000).toFixed(0)} 000 DA`, sub: `${Math.round(statsData.pendingPayments / 3200)} sessions` },
-          { label: "Revenu moyen / session", value: `${Math.round(statsData.earningsThisMonth / statsData.sessionsThisMonth).toLocaleString()} DA`, sub: `${statsData.sessionsThisMonth} sessions ce mois` },
+          { label: "Revenus ce mois",       value: `${earningsThisMonth.toLocaleString()} DA`,                                                              sub: `${sessionsThisMonth} sessions ce mois` },
+          { label: "Paiements en attente",   value: `${pendingPayments.toLocaleString()} DA`,                                                               sub: `${bookings.filter(b => b.status === "pending").length} sessions en attente` },
+          { label: "Revenu moyen / séance",  value: sessionsThisMonth > 0 ? `${Math.round(earningsThisMonth / sessionsThisMonth).toLocaleString()} DA` : "—", sub: `${sessionsThisMonth} sessions ce mois` },
         ].map((c) => (
           <div key={c.label} className="bg-card rounded-xl shadow-card p-6">
             <div className="text-xs text-muted-foreground mb-1">{c.label}</div>
@@ -528,7 +578,7 @@ export default function EspacePsy() {
       <div className="bg-card rounded-xl shadow-card p-6">
         <h3 className="font-semibold text-foreground mb-5">Revenus par jour (cette semaine)</h3>
         <div className="flex items-end gap-3 h-48">
-          {weeklyEarnings.map((e) => (
+          {realWeeklyEarnings.map((e) => (
             <div key={e.day} className="flex-1 flex flex-col items-center gap-2">
               <span className="text-xs text-muted-foreground">{e.amount > 0 ? `${(e.amount / 1000).toFixed(1)}k` : ""}</span>
               <div
@@ -549,18 +599,21 @@ export default function EspacePsy() {
           <h3 className="font-semibold text-foreground">Transactions récentes</h3>
         </div>
         <div className="divide-y divide-border">
-          {todaySessions.filter((s) => s.status === "confirmed").map((s, i) => (
-            <div key={i} className="flex items-center gap-4 px-5 py-4">
+          {bookings.filter(b => b.status === "confirmed" || b.status === "done").slice(0, 10).map((b) => (
+            <div key={b.id} className="flex items-center gap-4 px-5 py-4">
               <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
                 <DollarSign className="w-4 h-4 text-emerald-600" />
               </div>
               <div className="flex-1">
-                <div className="font-medium text-sm text-foreground">{s.patientName}</div>
-                <div className="text-xs text-muted-foreground">{s.type}</div>
+                <div className="font-medium text-sm text-foreground">{b.patient_name}</div>
+                <div className="text-xs text-muted-foreground">{new Date(b.booked_at).toLocaleDateString("fr-FR")}</div>
               </div>
-              <div className="text-sm font-semibold text-emerald-600">+3 200 DA</div>
+              <div className="text-sm font-semibold text-emerald-600">+{(b.price || 0).toLocaleString()} DA</div>
             </div>
           ))}
+          {bookings.filter(b => b.status === "confirmed" || b.status === "done").length === 0 && (
+            <p className="text-center py-8 text-sm text-muted-foreground">Aucune transaction pour l'instant.</p>
+          )}
         </div>
       </div>
     </div>
@@ -682,6 +735,35 @@ export default function EspacePsy() {
 
       <main className="flex-1 lg:ml-64 min-h-screen flex flex-col">
         <TopBar title={pageTitle[activePage]} />
+
+        {/* Verification Status Banner */}
+        {approvalStatus === "pending" && (
+          <div className="mx-6 mt-6 p-4 rounded-xl border border-amber-200/50 bg-amber-50/60 backdrop-blur-md shadow-sm flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="p-2 rounded-lg bg-amber-100/80 text-amber-700 shrink-0">
+              <Clock className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-sm text-amber-900">Profil en attente de validation</h4>
+              <p className="text-xs text-amber-800/85 mt-0.5 leading-relaxed">
+                Votre compte est en cours d'examen par notre équipe médicale. Votre profil sera visible sur l'annuaire public et réservable par les patients dès qu'il sera approuvé.
+              </p>
+            </div>
+          </div>
+        )}
+        {approvalStatus === "rejected" && (
+          <div className="mx-6 mt-6 p-4 rounded-xl border border-red-200/50 bg-red-50/60 backdrop-blur-md shadow-sm flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="p-2 rounded-lg bg-red-100/80 text-red-700 shrink-0">
+              <X className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-sm text-red-900">Demande d'approbation rejetée</h4>
+              <p className="text-xs text-red-800/85 mt-0.5 leading-relaxed">
+                Votre profil n'a pas pu être validé par notre équipe. Veuillez vérifier vos informations, notamment votre numéro d'ordre national, ou contacter notre service support pour plus d'informations.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 overflow-auto">
           {pageContent[activePage]}
         </div>

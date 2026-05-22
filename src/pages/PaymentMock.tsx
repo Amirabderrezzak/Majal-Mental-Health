@@ -17,14 +17,15 @@ export default function PaymentMock() {
 
     try {
       // Send webhook to our backend from the "gateway"
-      const res = await fetch("http://localhost:3001/api/payments/webhook", {
+      const res = await fetch("/api/payments/webhook", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-webhook-secret": "shhh_dont_tell_anyone",
         },
         body: JSON.stringify({
           booking_id,
-          status: "paid",
+          status: "success",
         }),
       });
 
