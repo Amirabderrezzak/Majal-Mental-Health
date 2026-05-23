@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { doctors, type Doctor } from "@/data/doctors";
 
 export interface PsyProfile {
   id: string;            // supabase user_id (UUID)
-  staticId?: number;     // fallback for static data routing
+  staticId?: number;     // kept for backward compatibility if any
   name: string;
   specialty: string;
   city: string | null;
@@ -15,7 +14,6 @@ export interface PsyProfile {
   dispo: string;
   emoji: string;
   avatar_url: string | null;
-  // These come from the psychologist_ratings view
   rating: number;
   reviews: number;
 }
@@ -50,9 +48,7 @@ function mapProfile(row: {
 }
 
 /**
- * Fetches psychologist profiles from Supabase.
- * Falls back to static mock data if the DB returns 0 results
- * (useful during development before any psy accounts are registered).
+ * Fetches approved psychologist profiles from Supabase.
  */
 export function usePsychologists() {
   return useQuery({
@@ -66,30 +62,32 @@ export function usePsychologists() {
         .order("created_at", { ascending: true });
 
       if (error) throw error;
+      if (!data) return [];
 
-      // If no real psychologists are registered yet, show the static demo data
-      if (!data || data.length === 0) {
-        return doctors.map(
-          (d): PsyProfile => ({
-            id: `static-${d.id}`,
-            staticId: d.id,
-            name: d.name,
-            specialty: d.specialty,
-            city: null,
-            bio: null,
-            price: d.price,
-            exp: d.exp,
-            langs: d.langs,
-            dispo: d.dispo,
-            emoji: d.emoji,
-            avatar_url: null,
-            rating: d.rating,
-            reviews: d.reviews,
-          })
-        );
+      // Fetch psychologist ratings view
+      const { data: ratingsData, error: ratingsError } = await supabase
+        .from("psychologist_ratings")
+        .select("psychologist_id, avg_rating, review_count");
+
+      const ratingsMap = new Map<string, { avg_rating: number; review_count: number }>();
+      if (!ratingsError && ratingsData) {
+        for (const r of ratingsData) {
+          ratingsMap.set(r.psychologist_id, {
+            avg_rating: Number(r.avg_rating || 0),
+            review_count: Number(r.review_count || 0),
+          });
+        }
       }
 
-      return data.map(mapProfile);
+      return data.map((row) => {
+        const profile = mapProfile(row);
+        const ratingInfo = ratingsMap.get(row.user_id);
+        if (ratingInfo) {
+          profile.rating = ratingInfo.avg_rating;
+          profile.reviews = ratingInfo.review_count;
+        }
+        return profile;
+      });
     },
     staleTime: 1000 * 60 * 5,
   });

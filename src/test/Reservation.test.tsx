@@ -2,7 +2,6 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import Reservation from "../pages/Reservation";
-import { supabase } from "@/integrations/supabase/client";
 
 // Mock Supabase client
 vi.mock("@/integrations/supabase/client", () => {
@@ -76,18 +75,18 @@ describe("Reservation Component", () => {
     vi.clearAllMocks();
   });
 
-  it("should load mock static doctor details correctly when ID is a number", async () => {
+  it("should redirect to directory when the psychologist ID is invalid", async () => {
     render(
-      <MemoryRouter initialEntries={["/reservation/1"]}>
+      <MemoryRouter initialEntries={["/reservation/invalid-uuid"]}>
         <Routes>
           <Route path="/reservation/:id" element={<Reservation />} />
+          <Route path="/psychologues" element={<div>Directory Page</div>} />
         </Routes>
       </MemoryRouter>
     );
 
-    // Dr. Amina Benali is doctor #1 in doctors.ts
     await waitFor(() => {
-      expect(screen.getAllByText(/Amina Benali/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/Directory Page/i)).toBeInTheDocument();
     });
   });
 

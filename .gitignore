@@ -7,3 +7,5 @@ dist/
 skills/
 skills-lock.json
 *.log
+.vercel/
+.supabase/

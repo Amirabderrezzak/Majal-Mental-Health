@@ -5,7 +5,6 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { getDoctorById } from "@/data/doctors";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -60,15 +59,10 @@ const Reservation = () => {
           setLoading(false);
         });
     } else {
-      const staticDoc = getDoctorById(parseInt(id || "1"));
-      setDocName(staticDoc.name);
-      setDocSpecialty(staticDoc.specialty);
-      setDocPrice(staticDoc.price);
-      setDocEmoji(staticDoc.emoji);
-      setDocAvatarUrl(null);
-      setLoading(false);
+      toast.error("ID de psychologue invalide.");
+      navigate("/psychologues");
     }
-  }, [id, isUUID]);
+  }, [id, isUUID, navigate]);
 
   // Live slot availability query from Supabase bookings table
   const [bookedTimes, setBookedTimes] = useState<string[]>([]);
@@ -153,7 +147,7 @@ const Reservation = () => {
     const bookedAt = new Date(viewYear, viewMonth, selectedDay, hours, minutes);
 
     setBooking(true);
-    const psychologistId = isUUID ? id! : user.id; // Correct database psychologist_id mapping
+    const psychologistId = id!;
 
     const { data: insertedBooking, error } = await supabase.from("bookings").insert({
       patient_id: user.id,

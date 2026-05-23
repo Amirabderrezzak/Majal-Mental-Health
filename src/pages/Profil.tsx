@@ -8,7 +8,6 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { getDoctorById } from "@/data/doctors";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -73,12 +72,13 @@ const Profil = () => {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [userAlreadyReviewed, setUserAlreadyReviewed] = useState(false);
 
-  // ── Static fallback data ──────────────────────────────────────────────────
-  const staticDoc = !isUUID ? getDoctorById(parseInt(id ?? "1")) : null;
-
   // ── Fetch real profile ────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isUUID) return;
+    if (!isUUID) {
+      toast.error("ID de psychologue invalide.");
+      navigate("/psychologues");
+      return;
+    }
     setLoading(true);
 
     Promise.all([
@@ -98,8 +98,14 @@ const Profil = () => {
         .from("psychologist_ratings")
         .select("avg_rating, review_count")
         .eq("psychologist_id", id)
-        .single(),
+        .maybeSingle(),
     ]).then(([profileRes, reviewsRes, ratingRes]) => {
+      if (profileRes.error) {
+        console.error("Error fetching psychologist profile:", profileRes.error);
+        toast.error("Impossible de charger le profil.");
+        navigate("/psychologues");
+        return;
+      }
       if (profileRes.data) setPsyProfile(profileRes.data as PsyProfile);
       if (reviewsRes.data) {
         setReviews(reviewsRes.data as Review[]);
@@ -107,24 +113,28 @@ const Profil = () => {
           setUserAlreadyReviewed(reviewsRes.data.some((r: Review) => r.patient_id === user.id));
         }
       }
-      if (ratingRes.data) setRatingStats(ratingRes.data as RatingStats);
+      if (ratingRes.data) {
+        setRatingStats(ratingRes.data as RatingStats);
+      } else {
+        setRatingStats({ avg_rating: 0, review_count: 0 });
+      }
       setLoading(false);
     });
-  }, [id, isUUID, user]);
+  }, [id, isUUID, user, navigate]);
 
   // ── Derived display values ────────────────────────────────────────────────
-  const name       = psyProfile?.full_name ?? staticDoc?.name ?? "Psychologue";
-  const specialty  = psyProfile?.specialty ?? staticDoc?.specialty ?? "";
+  const name       = psyProfile?.full_name ?? "Psychologue";
+  const specialty  = psyProfile?.specialty ?? "";
   const city       = psyProfile?.city ?? null;
   const bio        = psyProfile?.bio ?? null;
-  const price      = psyProfile?.price_per_session ?? staticDoc?.price ?? 3500;
-  const exp        = psyProfile?.years_experience ?? staticDoc?.exp ?? 0;
-  const langs      = psyProfile?.language ? [psyProfile.language] : staticDoc?.langs ?? ["Français"];
+  const price      = psyProfile?.price_per_session ?? 3500;
+  const exp        = psyProfile?.years_experience ?? 0;
+  const langs      = psyProfile?.language ? [psyProfile.language] : ["Français"];
   const avatarUrl  = psyProfile?.avatar_url ?? null;
-  const emoji      = staticDoc?.emoji ?? "🧑‍⚕️";
-  const avgRating  = ratingStats.avg_rating ?? staticDoc?.rating ?? 0;
-  const reviewCount = ratingStats.review_count ?? staticDoc?.reviews ?? 0;
-  const bookingId  = isUUID ? id : staticDoc?.id?.toString();
+  const emoji      = "🧑‍⚕️";
+  const avgRating  = ratingStats.avg_rating ?? 0;
+  const reviewCount = ratingStats.review_count ?? 0;
+  const bookingId  = id;
 
   const locale = lang === "ar" ? "ar-SA" : "fr-FR";
   const formatDate = (iso: string) =>

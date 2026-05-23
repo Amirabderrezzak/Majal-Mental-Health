@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Calendar, Search, User, Bell, LogOut,
   Menu, X, Clock, Check, Video, MessageSquare, ChevronRight,
-  Loader2, TrendingUp, Heart,
+  Loader2, TrendingUp, Heart, Lock,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,18 +36,75 @@ interface Profile {
   full_name: string;
   phone: string;
   language: string;
+  avatar_url?: string;
 }
 
 export default function MonEspace() {
   const { user, signOut } = useAuth();
-  const { t, lang } = useLanguage();
+  const { t, lang, dir } = useLanguage();
   const navigate = useNavigate();
   const [activePage, setActivePage] = useState<Page>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
 
-  const [profile, setProfile] = useState<Profile>({ full_name: "", phone: "", language: "Français" });
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      toast.error("Le mot de passe doit contenir au moins 6 caractères.");
+      return;
+    }
+    setChangingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setChangingPassword(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("✅ Mot de passe mis à jour avec succès !");
+      setNewPassword("");
+    }
+  };
+
+  const [profile, setProfile] = useState<Profile>({ full_name: "", phone: "", language: "Français", avatar_url: "" });
   const [profileLoading, setProfileLoading] = useState(true);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploadingAvatar(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const filePath = `${user.id}/avatar-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: publicUrl })
+        .eq("user_id", user.id);
+
+      if (updateError) throw updateError;
+
+      setProfile((p) => ({ ...p, avatar_url: publicUrl }));
+      toast.success("✅ Photo de profil mise à jour !");
+    } catch (err: any) {
+      console.error("Avatar upload error:", err);
+      toast.error(err.message || "Erreur lors de l'upload de l'avatar");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
   const [upcoming, setUpcoming] = useState<Booking[]>([]);
   const [past, setPast]       = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
@@ -60,9 +117,9 @@ export default function MonEspace() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("full_name, phone, language").eq("user_id", user.id).single()
+    supabase.from("profiles").select("full_name, phone, language, avatar_url").eq("user_id", user.id).single()
       .then(({ data }) => {
-        if (data) setProfile({ full_name: data.full_name ?? "", phone: data.phone ?? "", language: data.language ?? "Français" });
+        if (data) setProfile({ full_name: data.full_name ?? "", phone: data.phone ?? "", language: data.language ?? "Français", avatar_url: data.avatar_url ?? "" });
         setProfileLoading(false);
       });
   }, [user]);
@@ -260,7 +317,7 @@ export default function MonEspace() {
                     className="flex items-center gap-1.5 px-3.5 py-2 border border-destructive/30 text-destructive bg-transparent rounded-lg text-xs font-medium cursor-pointer hover:bg-destructive/5 transition-colors disabled:opacity-50"
                   >
                     {cancelling === b.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
-                    Annuler
+                    {t("space.cancel")}
                   </button>
                 </div>
               </div>
@@ -272,10 +329,10 @@ export default function MonEspace() {
       {/* CTA to find a psy */}
       <div className="bg-gradient-to-br from-teal-cta to-teal-light rounded-xl p-7 text-center">
         <TrendingUp className="w-8 h-8 text-primary-foreground mx-auto mb-3 opacity-80" />
-        <h3 className="font-serif text-xl text-primary-foreground mb-1">Continuez votre parcours</h3>
-        <p className="text-sm text-primary-foreground/80 mb-5">Trouvez un professionnel qui vous correspond.</p>
+        <h3 className="font-serif text-xl text-primary-foreground mb-1">{t("space.continuePath")}</h3>
+        <p className="text-sm text-primary-foreground/80 mb-5">{t("space.findPsySubtitle")}</p>
         <Link to="/psychologues" className="inline-block px-7 py-3 bg-card text-primary rounded-full text-sm font-semibold no-underline hover:-translate-y-0.5 hover:shadow-card-hover transition-all">
-          Trouver un psychologue
+          {t("space.findPsyBtn")}
         </Link>
       </div>
     </div>
@@ -286,14 +343,14 @@ export default function MonEspace() {
     <div className="p-6 space-y-6">
       {/* Upcoming */}
       <div className="bg-card rounded-xl shadow-card p-6">
-        <h3 className="font-semibold text-foreground mb-5">Séances à venir ({upcoming.length})</h3>
+        <h3 className="font-semibold text-foreground mb-5">{t("space.upcomingSessionsCount")} ({upcoming.length})</h3>
         {bookingsLoading ? <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>
         : upcoming.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground">
             <Calendar className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm mb-4">Aucune séance planifiée.</p>
+            <p className="text-sm mb-4">{t("space.noSessionsPlanned")}</p>
             <Link to="/psychologues" className="inline-block px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium no-underline hover:bg-teal-mid transition-colors">
-              Réserver une séance
+              {t("space.bookSession")}
             </Link>
           </div>
         ) : (
@@ -302,13 +359,13 @@ export default function MonEspace() {
               <div key={b.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
                 <div className="w-12 h-12 rounded-full bg-teal-pale flex items-center justify-center text-2xl shrink-0">👩‍⚕️</div>
                 <div className="flex-1">
-                  <div className="font-medium text-sm text-foreground">Séance</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{fmt(b.booked_at)} · {fmtT(b.booked_at)} · {b.duration_minutes} min</div>
-                  {b.price && <div className="text-xs text-muted-foreground">{b.price.toLocaleString()} DZD</div>}
+                  <div className="font-medium text-sm text-foreground">{t("space.sessionLabel")}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{fmt(b.booked_at)} · {fmtT(b.booked_at)} · {b.duration_minutes} {t("space.minutesLabel")}</div>
+                  {b.price && <div className="text-xs text-muted-foreground">{b.price.toLocaleString()} {t("space.priceCurrency")}</div>}
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium ${b.status === "confirmed" ? "bg-teal-pale text-primary" : "bg-amber-50 text-amber-700"}`}>
-                    {b.status === "confirmed" ? "Confirmée" : "En attente"}
+                    {b.status === "confirmed" ? t("space.status.confirmed") : t("space.status.pending")}
                   </span>
                   <button 
                     onClick={() => handleCancelBooking(b.id)}
@@ -316,7 +373,7 @@ export default function MonEspace() {
                     className="text-xs text-destructive bg-transparent border-none cursor-pointer hover:underline disabled:opacity-50 flex items-center gap-1"
                   >
                     {cancelling === b.id ? <Loader2 className="w-3 h-3 animate-spin"/> : null} 
-                    Annuler la séance
+                    {t("space.cancelSessionBtn")}
                   </button>
                 </div>
               </div>
@@ -327,10 +384,10 @@ export default function MonEspace() {
 
       {/* History */}
       <div className="bg-card rounded-xl shadow-card p-6">
-        <h3 className="font-semibold text-foreground mb-5">Historique ({past.length})</h3>
+        <h3 className="font-semibold text-foreground mb-5">{t("space.historyCount")} ({past.length})</h3>
         {bookingsLoading ? <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>
         : past.length === 0 ? (
-          <p className="text-center py-8 text-sm text-muted-foreground">Aucune séance dans l'historique.</p>
+          <p className="text-center py-8 text-sm text-muted-foreground">{t("space.noHistory")}</p>
         ) : (
           <div className="relative pl-8">
             <div className="absolute left-[15px] top-2 bottom-2 w-[2px] bg-border" />
@@ -344,11 +401,11 @@ export default function MonEspace() {
                   <div className={`bg-card rounded-xl p-4 flex items-center gap-4 ms-3 border-s-4 shadow-card ${done ? "border-s-primary" : "border-s-destructive"}`}>
                     <div className="w-10 h-10 rounded-full bg-teal-pale flex items-center justify-center text-xl shrink-0">👩‍⚕️</div>
                     <div className="flex-1">
-                      <div className="font-medium text-sm text-foreground">Séance</div>
+                      <div className="font-medium text-sm text-foreground">{t("space.sessionLabel")}</div>
                       <div className="text-xs text-muted-foreground mt-0.5">{fmt(b.booked_at)} · {fmtT(b.booked_at)}</div>
                     </div>
                     <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium ${done ? "bg-teal-pale text-primary" : "bg-destructive/10 text-destructive"}`}>
-                      {done ? "Terminée" : "Annulée"}
+                      {done ? t("space.status.done") : t("space.status.cancelled")}
                     </span>
                   </div>
                 </div>
@@ -369,16 +426,16 @@ export default function MonEspace() {
       <div className="flex h-[calc(100vh-80px)]">
         <div className="w-[300px] border-r border-border bg-white flex flex-col shrink-0">
           <div className="p-4 border-b border-border">
-            <h3 className="font-semibold text-foreground">Discussions avec vos psys</h3>
+            <h3 className="font-semibold text-foreground">{t("space.discussionsTitle")}</h3>
           </div>
           <div className="flex-1 overflow-auto">
             {uniqueTherapists.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground mt-8 px-4">Vous n'avez pas encore de psychologues. Consultez le catalogue !</p>
+              <p className="text-center text-sm text-muted-foreground mt-8 px-4">{t("space.noTherapistsMessage")}</p>
             ) : (
               uniqueTherapists.map(([id, name]) => (
                 <button
                   key={id}
-                  onClick={() => { setActiveChatUserId(id); setActiveChatUserName(name || "Therapeute"); }}
+                  onClick={() => { setActiveChatUserId(id); setActiveChatUserName(name || t("space.defaultTherapistName")); }}
                   className={`w-full text-left px-4 py-3 border-b flex items-center gap-3 transition-colors border-none cursor-pointer ${activeChatUserId === id ? "bg-teal-pale" : "hover:bg-accent bg-transparent"}`}
                 >
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xl shrink-0">
@@ -397,7 +454,7 @@ export default function MonEspace() {
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-6">
               <MessageSquare className="w-12 h-12 mb-3 opacity-20" />
-              <p className="text-sm text-center">Sélectionnez un psychologue pour partager des documents<br/>ou poser des questions avant votre séance.</p>
+              <p className="text-sm text-center">{t("space.selectPsyMessage")}</p>
             </div>
           )}
         </div>
@@ -409,36 +466,46 @@ export default function MonEspace() {
   const ProfilePage = () => (
     <div className="p-6 max-w-xl">
       <div className="bg-card rounded-xl shadow-card p-7 mb-5">
-        <div className="flex items-center gap-4 mb-7">
-          <div className="w-16 h-16 rounded-full bg-teal-pale flex items-center justify-center text-primary text-2xl font-bold">{initials}</div>
+        <div className="flex items-center gap-4 mb-7 pb-6 border-b border-border">
+          {profile.avatar_url ? (
+            <img src={profile.avatar_url} alt="Avatar" className="w-16 h-16 rounded-full object-cover border border-border shrink-0" />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-teal-pale flex items-center justify-center text-primary text-2xl font-bold shrink-0">{initials}</div>
+          )}
           <div>
-            <div className="font-semibold text-foreground">{profile.full_name || "Votre nom"}</div>
-            <div className="text-sm text-muted-foreground">{user?.email}</div>
+            <div className="font-semibold text-foreground">{profile.full_name || t("space.yourName")}</div>
+            <div className="text-sm text-muted-foreground font-sans">{user?.email}</div>
+            <div className="mt-2">
+              <label htmlFor="avatar-upload" className="text-xs font-medium text-primary hover:underline cursor-pointer">
+                {uploadingAvatar ? "Upload..." : "Changer la photo"}
+              </label>
+              <input type="file" id="avatar-upload" accept="image/*" onChange={handleAvatarUpload} disabled={uploadingAvatar} className="hidden" />
+            </div>
           </div>
         </div>
-        <h3 className="font-semibold text-foreground mb-5">Informations personnelles</h3>
+        <h3 className="font-semibold text-foreground mb-5">{t("space.personalInfo")}</h3>
         {profileLoading ? <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div> : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-muted-foreground">Nom complet</label>
+              <label className="text-[13px] font-medium text-muted-foreground">{t("space.fullName")}</label>
               <input type="text" value={profile.full_name} onChange={e => setProfile(p => ({ ...p, full_name: e.target.value }))}
                 className="px-4 py-3 border border-border rounded-[10px] text-[15px] bg-teal-hero outline-none focus:border-teal-light focus:bg-card transition-colors font-sans" />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-muted-foreground">Email</label>
+              <label className="text-[13px] font-medium text-muted-foreground">{t("auth.email")}</label>
               <input type="email" value={user?.email ?? ""} readOnly
                 className="px-4 py-3 border border-border rounded-[10px] text-[15px] bg-teal-hero opacity-60 cursor-not-allowed font-sans" />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-muted-foreground">Téléphone</label>
+              <label className="text-[13px] font-medium text-muted-foreground">{t("space.phone")}</label>
               <input type="tel" value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))}
                 className="px-4 py-3 border border-border rounded-[10px] text-[15px] bg-teal-hero outline-none focus:border-teal-light focus:bg-card transition-colors font-sans" />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-muted-foreground">Langue</label>
+              <label className="text-[13px] font-medium text-muted-foreground">{t("space.language")}</label>
               <select value={profile.language} onChange={e => setProfile(p => ({ ...p, language: e.target.value }))}
                 className="px-4 py-3 border border-border rounded-[10px] text-[15px] bg-teal-hero outline-none focus:border-teal-light focus:bg-card transition-colors font-sans cursor-pointer">
-                <option>Français</option><option>Arabe</option><option>Anglais</option>
+                <option>{t("space.lang.french")}</option><option>{t("space.lang.arabic")}</option><option>{t("space.lang.english")}</option>
               </select>
             </div>
           </div>
@@ -447,8 +514,33 @@ export default function MonEspace() {
       <button onClick={saveProfile} disabled={saving}
         className="w-full py-4 rounded-xl bg-primary text-primary-foreground text-base font-medium border-none cursor-pointer hover:bg-teal-mid transition-colors disabled:opacity-70 flex items-center justify-center gap-2 font-sans">
         {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-        Enregistrer les modifications
+        {saving ? t("space.saving") : t("space.save")}
       </button>
+
+      <div className="bg-card rounded-xl shadow-card p-7 mt-5">
+        <h3 className="font-semibold text-foreground mb-5">{t("psy.settings.security") || "Sécurité"}</h3>
+        <form onSubmit={handlePasswordChange} className="flex flex-col gap-3 max-w-sm">
+          <label className="text-[13px] font-medium text-muted-foreground">{t("reset.newPassword") || "Nouveau mot de passe"}</label>
+          <div className="flex items-center gap-2.5 border border-border rounded-xl px-4 py-2.5 bg-teal-hero focus-within:border-teal-light focus-within:bg-card transition-colors">
+            <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+            <input
+              type="password"
+              required
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="••••••••"
+              className="border-none bg-transparent outline-none text-[15px] text-foreground w-full placeholder:text-muted-foreground font-sans"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={changingPassword}
+            className="w-full sm:w-auto self-start px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium border-none cursor-pointer hover:bg-teal-mid transition-colors disabled:opacity-50 mt-1 font-sans"
+          >
+            {changingPassword ? "Mise à jour..." : t("psy.settings.changePassword") || "Changer le mot de passe"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 
@@ -456,12 +548,12 @@ export default function MonEspace() {
   const Notifications = () => (
     <div className="p-6 max-w-xl">
       <div className="bg-card rounded-xl shadow-card p-7">
-        <h3 className="font-semibold text-foreground mb-5">Préférences de notifications</h3>
+        <h3 className="font-semibold text-foreground mb-5">{t("space.notifPreferences")}</h3>
         {[
-          { title: "Rappels de séances", desc: "Recevez un rappel 1h avant chaque séance", checked: true },
-          { title: "Confirmation de réservation", desc: "Email de confirmation après chaque réservation", checked: true },
-          { title: "Notifications SMS", desc: "Rappels par SMS sur votre téléphone", checked: false },
-          { title: "Offres et actualités", desc: "Nouvelles fonctionnalités et conseils bien-être", checked: false },
+          { title: t("space.notif.remindersTitle"), desc: t("space.notif.remindersDesc"), checked: true },
+          { title: t("space.notif.confirmTitle"), desc: t("space.notif.confirmDesc"), checked: true },
+          { title: t("space.notif.smsTitle"), desc: t("space.notif.smsDesc"), checked: false },
+          { title: t("space.notif.offersTitle"), desc: t("space.notif.offersDesc"), checked: false },
         ].map((n, i, arr) => (
           <div key={i} className={`flex items-center justify-between py-4 ${i < arr.length - 1 ? "border-b border-border" : ""}`}>
             <div>
@@ -475,17 +567,17 @@ export default function MonEspace() {
           </div>
         ))}
         <button className="mt-5 w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-medium border-none cursor-pointer hover:bg-teal-mid transition-colors font-sans"
-          onClick={() => toast.success("✅ Préférences enregistrées !")}>
-          Enregistrer
+          onClick={() => toast.success(t("space.notif.successSave"))}>
+          {t("space.notif.save")}
         </button>
       </div>
     </div>
   );
 
   const pageTitle: Record<Page, string> = {
-    dashboard: "Tableau de bord", sessions: "Mes séances",
-    messages: "Messages",
-    profil: "Mon profil", notifications: "Notifications",
+    dashboard: t("space.dashboard"), sessions: t("space.nav.sessions"),
+    messages: t("space.nav.messages"),
+    profil: t("space.profile"), notifications: t("space.notifications"),
   };
 
   const pageContent: Record<Page, React.ReactNode> = {
@@ -497,7 +589,7 @@ export default function MonEspace() {
     <div className="flex min-h-screen bg-accent/30">
       {sidebarOpen && <div className="fixed inset-0 bg-foreground/30 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
       <Sidebar />
-      <main className="flex-1 lg:ml-64 min-h-screen flex flex-col">
+      <main className={`flex-1 ${dir === "rtl" ? "lg:mr-64" : "lg:ml-64"} min-h-screen flex flex-col`}>
         <TopBar title={pageTitle[activePage]} />
         <div className="flex-1 overflow-auto">{pageContent[activePage]}</div>
       </main>
