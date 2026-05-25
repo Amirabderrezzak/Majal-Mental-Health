@@ -52,6 +52,17 @@ interface Profile {
   avatar_url?: string;
 }
 
+// Static tab wrappers defined outside to prevent React from unmounting/remounting child components on parent re-renders
+const DashboardWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const SessionsWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const MessagesWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const ExploreWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const ForumWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const JournalWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const CopingWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const ProfilWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const NotificationsWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+
 export default function MonEspace() {
   const { user, signOut } = useAuth();
   const { t, lang, dir } = useLanguage();
@@ -2287,15 +2298,15 @@ export default function MonEspace() {
   };
 
   const pageContent: Record<Page, React.ReactNode> = {
-    dashboard: <Dashboard />,
-    sessions: <Sessions />,
-    messages: <Messages />,
-    explore: <ExplorePage />,
-    forum: <ForumPage />,
-    journal: <JournalPage />,
-    coping: <CopingPage />,
-    profil: <ProfilePage />,
-    notifications: <Notifications />,
+    dashboard: <DashboardWrapper render={Dashboard} />,
+    sessions: <SessionsWrapper render={Sessions} />,
+    messages: <MessagesWrapper render={Messages} />,
+    explore: <ExploreWrapper render={ExplorePage} />,
+    forum: <ForumWrapper render={ForumPage} />,
+    journal: <JournalWrapper render={JournalPage} />,
+    coping: <CopingWrapper render={CopingPage} />,
+    profil: <ProfilWrapper render={ProfilePage} />,
+    notifications: <NotificationsWrapper render={Notifications} />,
   };
 
   return (

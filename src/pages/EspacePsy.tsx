@@ -34,6 +34,16 @@ const statusColors = {
 
 
 
+// Static tab wrappers defined outside to prevent React from unmounting/remounting child components on parent re-renders
+const DashboardWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const SessionsWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const PatientsWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const MessagesWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const ContentCreatorWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const EarningsWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const ProfileWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const SettingsWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+
 export default function EspacePsy() {
   const { user, signOut } = useAuth();
   const { t, dir } = useLanguage();
@@ -2144,14 +2154,14 @@ export default function EspacePsy() {
   };
 
   const pageContent: Record<Page, React.ReactNode> = {
-    dashboard: <Dashboard />,
-    sessions: <Sessions />,
-    patients: <Patients />,
-    messages: <Messages />,
-    content:  <ContentCreatorPage />,
-    earnings: <Earnings />,
-    profile: <ProfileEditor />,
-    settings: <SettingsPage />,
+    dashboard: <DashboardWrapper render={Dashboard} />,
+    sessions: <SessionsWrapper render={Sessions} />,
+    patients: <PatientsWrapper render={Patients} />,
+    messages: <MessagesWrapper render={Messages} />,
+    content:  <ContentCreatorWrapper render={ContentCreatorPage} />,
+    earnings: <EarningsWrapper render={Earnings} />,
+    profile: <ProfileWrapper render={ProfileEditor} />,
+    settings: <SettingsWrapper render={SettingsPage} />,
   };
 
   return (

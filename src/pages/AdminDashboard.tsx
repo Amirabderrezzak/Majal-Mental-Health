@@ -86,6 +86,13 @@ async function enrichWithNames(items: any[], patientField: string, psyField: str
   }));
 }
 
+// Static tab wrappers defined outside to prevent React from unmounting/remounting child components on parent re-renders
+const DashboardTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const UsersTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const BookingsTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const ReviewsTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const AdminsTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
   const [tab, setTab]           = useState<Tab>("dashboard");
@@ -404,11 +411,11 @@ export default function AdminDashboard() {
   };
 
   const tabMap: Record<Tab, React.ReactNode> = {
-    dashboard: <DashboardTab />,
-    users:     <UsersTab />,
-    bookings:  <BookingsTab />,
-    reviews:   <ReviewsTab />,
-    admins:    <AdminsTab />,
+    dashboard: <DashboardTabWrapper render={DashboardTab} />,
+    users:     <UsersTabWrapper render={UsersTab} />,
+    bookings:  <BookingsTabWrapper render={BookingsTab} />,
+    reviews:   <ReviewsTabWrapper render={ReviewsTab} />,
+    admins:    <AdminsTabWrapper render={AdminsTab} />,
   };
 
   return (
