@@ -206,7 +206,7 @@ const Reservation = () => {
   return (
     <div>
       <Navbar />
-      <div className="max-w-[1200px] mx-auto px-[5%] py-10 pb-20">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-[5%] py-10 pb-20">
         <Link to={`/profil/${id}`} className="inline-flex items-center gap-1.5 text-muted-foreground text-sm no-underline mb-6 hover:text-primary transition-colors">
           <ChevronLeft className="w-4 h-4" /> {t("res.back")}
         </Link>
@@ -216,7 +216,7 @@ const Reservation = () => {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-7 items-start">
           <div>
             {/* Calendar */}
-            <div className="bg-card rounded-lg shadow-card p-8">
+            <div className="bg-card rounded-lg shadow-card p-4 sm:p-8">
               <div className="text-[17px] font-semibold text-foreground mb-6 font-sans">{t("res.selectDate")}</div>
               <div className="flex items-center justify-between mb-5">
                 <button onClick={() => changeMonth(-1)} className="w-9 h-9 border border-border rounded-lg flex items-center justify-center text-primary cursor-pointer hover:bg-teal-pale transition-colors bg-transparent">
@@ -250,7 +250,7 @@ const Reservation = () => {
             </div>
 
             {/* Time Slots */}
-            <div className="bg-card rounded-lg shadow-card p-8 mt-6">
+            <div className="bg-card rounded-lg shadow-card p-4 sm:p-8 mt-6">
               <div className="text-[17px] font-semibold text-foreground mb-6 font-sans">{t("res.selectTime")}</div>
               {slotGroups.map((g) => (
                 <div key={g.label}>

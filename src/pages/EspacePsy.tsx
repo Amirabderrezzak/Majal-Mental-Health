@@ -452,7 +452,7 @@ export default function EspacePsy() {
   );
 
   const TopBar = ({ title }: { title: string }) => (
-    <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-border/60 px-6 py-4 flex items-center justify-between shadow-sm">
+    <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-border/60 px-4 sm:px-6 py-4 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-4">
         <button
           onClick={() => setSidebarOpen(true)}
@@ -473,7 +473,7 @@ export default function EspacePsy() {
 
   // ── Dashboard ──────────────────────────────────────────────────────────────
   const Dashboard = () => (
-    <div className="p-6 space-y-8 animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 space-y-8 animate-in fade-in duration-500">
       {/* Welcome */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -488,7 +488,7 @@ export default function EspacePsy() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           { label: t("psy.dashboard.stat.totalPatients"),   value: totalUniquePatients,                                                              icon: <Users className="w-5 h-5" />,     color: "text-primary bg-teal-pale border-primary/10" },
           { label: t("psy.dashboard.stat.sessionsMonth"),   value: sessionsThisMonth,                                                                icon: <Calendar className="w-5 h-5" />,  color: "text-blue-700 bg-blue-50 border-blue-100" },
@@ -684,7 +684,7 @@ export default function EspacePsy() {
   );
 
   const Sessions = () => (
-    <div className="p-6 space-y-6 animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 space-y-6 animate-in fade-in duration-500">
       <div className="dashboard-card overflow-hidden">
         <div className="p-5 border-b border-border/40 flex items-center justify-between bg-white">
           <h3 className="font-serif text-lg font-semibold text-foreground">{t("psy.dashboard.allSessions")}</h3>
@@ -695,7 +695,7 @@ export default function EspacePsy() {
            bookings.length === 0 ? <div className="text-muted-foreground text-center py-12 text-sm">{t("psy.dashboard.noSessions")}</div> :
            bookings.map((s) => (
             <div key={s.id} className="flex items-center gap-4 px-5 py-4 hover:bg-teal-hero/30 transition-colors flex-wrap justify-between">
-              <div className="flex items-center gap-3.5 min-w-[240px]">
+              <div className="flex items-center gap-3.5 min-w-0 flex-1">
                 {s.patient_avatar ? (
                   <img src={s.patient_avatar} alt={s.patient_name} className="w-11 h-11 rounded-full object-cover border border-primary/10 shrink-0 shadow-sm" />
                 ) : (
@@ -836,7 +836,7 @@ export default function EspacePsy() {
 
   // ── Patients ───────────────────────────────────────────────────────────────
   const Patients = () => (
-    <div className="p-6 space-y-6 animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <h3 className="font-serif text-2xl text-foreground font-semibold">{t("psy.dashboard.myPatients")}</h3>
         <span className="text-xs font-semibold px-3 py-1 bg-teal-pale text-primary rounded-full border border-primary/5">{realPatients.length} patients</span>
@@ -1086,7 +1086,7 @@ export default function EspacePsy() {
 
   // ── Earnings ───────────────────────────────────────────────────────────────
   const Earnings = () => (
-    <div className="p-6 space-y-6 animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 space-y-6 animate-in fade-in duration-500">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
           { label: t("psy.earnings.thisMonth"),    value: `${earningsThisMonth.toLocaleString()} DA`,                                                              sub: `${sessionsThisMonth} ${t("psy.earnings.sessionsMonth")}` },
@@ -1179,7 +1179,7 @@ export default function EspacePsy() {
 
   // ── Profile Editor ─────────────────────────────────────────────────────────
   const ProfileEditor = () => (
-    <div className="p-6 max-w-3xl space-y-6 animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 max-w-3xl space-y-6 animate-in fade-in duration-500">
       <div className="dashboard-card p-6 md:p-8">
         <h3 className="font-serif text-lg font-semibold text-foreground mb-6 pb-4 border-b border-border/40">{t("psy.dashboard.profile.professionalInfo")}</h3>
 
@@ -1261,7 +1261,7 @@ export default function EspacePsy() {
 
   // ── Settings ───────────────────────────────────────────────────────────────
   const SettingsPage = () => (
-    <div className="p-6 max-w-2xl space-y-6 animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 max-w-2xl space-y-6 animate-in fade-in duration-500">
       {/* Clinic & Availability Settings */}
       <div className="dashboard-card p-6 md:p-8 space-y-6">
         <h3 className="font-serif text-lg font-semibold text-foreground pb-4 border-b border-border/40">
@@ -1700,7 +1700,7 @@ export default function EspacePsy() {
     };
 
     return (
-      <div className="p-6 space-y-6 max-w-5xl animate-in fade-in duration-500 font-sans">
+      <div className="p-4 sm:p-6 space-y-6 max-w-5xl animate-in fade-in duration-500 font-sans">
         
         {/* Navigation tabs */}
         <div className="flex border-b border-border/40 pb-px gap-4 select-none">

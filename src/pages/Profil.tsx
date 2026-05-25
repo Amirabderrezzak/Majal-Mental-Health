@@ -196,7 +196,7 @@ const Profil = () => {
   return (
     <div>
       <Navbar />
-      <div className="max-w-[1200px] mx-auto px-[5%] py-9 pb-20">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-[5%] py-9 pb-20">
         <Link to="/psychologues" className="inline-flex items-center gap-1.5 text-muted-foreground text-sm no-underline mb-7 hover:text-primary transition-colors">
           <ChevronLeft className="w-4 h-4" /> {t("prof.back")}
         </Link>
@@ -293,14 +293,14 @@ const Profil = () => {
             {/* ── À propos tab ─────────────────────────────────────────── */}
             {tab === "apropos" && (
               <>
-                <div className="bg-card rounded-lg shadow-card p-7">
+                <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
                   <h2 className="font-serif text-xl text-primary mb-4">{t("prof.bio")}</h2>
                   <p className="text-[15px] text-foreground leading-[1.75]">
                     {bio ?? "Psychologue clinicien spécialisé dans l'accompagnement des adultes et des adolescents. Mon approche thérapeutique est basée sur l'écoute active, l'empathie et des méthodes éprouvées comme la thérapie cognitivo-comportementale (TCC) et la thérapie d'acceptation et d'engagement (ACT)."}
                   </p>
                 </div>
 
-                <div className="bg-card rounded-lg shadow-card p-7">
+                <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
                   <h2 className="font-serif text-xl text-primary mb-4">{t("prof.approach")}</h2>
                   <div className="flex flex-col gap-3">
                     {["Thérapie cognitivo-comportementale (TCC)", "Thérapie d'acceptation et d'engagement (ACT)", "Pleine conscience (Mindfulness)", "Approche centrée sur la personne"].map(a => (
@@ -311,7 +311,7 @@ const Profil = () => {
                   </div>
                 </div>
 
-                <div className="bg-card rounded-lg shadow-card p-7">
+                <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
                   <h2 className="font-serif text-xl text-primary mb-4 flex items-center gap-2.5">
                     <GraduationCap className="w-[22px] h-[22px]" /> {t("prof.training")}
                   </h2>
@@ -325,9 +325,9 @@ const Profil = () => {
                 </div>
 
                 {/* Disponibilités */}
-                <div className="bg-card rounded-lg shadow-card p-7">
+                <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
                   <h2 className="font-serif text-xl text-primary mb-5">{t("prof.slots")}</h2>
-                  <div className="grid grid-cols-3 gap-5 mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
                     {[
                       { label: t("res.morning"),   slots: ["09:00", "10:00", "11:00"] },
                       { label: t("res.afternoon"), slots: ["14:00", "15:00", "16:00"] },
@@ -355,7 +355,7 @@ const Profil = () => {
 
             {/* ── Avis tab ─────────────────────────────────────────────── */}
             {tab === "avis" && (
-              <div className="bg-card rounded-lg shadow-card p-7">
+              <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
                 {/* Rating summary */}
                 <div className="flex items-center gap-6 p-5 bg-teal-hero rounded-xl mb-6">
                   <div className="text-center shrink-0">

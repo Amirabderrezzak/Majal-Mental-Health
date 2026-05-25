@@ -396,7 +396,7 @@ export default function MonEspace() {
   );
 
   const TopBar = ({ title }: { title: string }) => (
-    <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-border/60 px-6 py-4 flex items-center gap-4 shadow-sm">
+    <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-border/60 px-4 sm:px-6 py-4 flex items-center gap-4 shadow-sm">
       <button onClick={() => setSidebarOpen(true)} className="lg:hidden bg-transparent border-none cursor-pointer text-foreground hover:text-primary transition-colors">
         <Menu className="w-5 h-5" />
       </button>
@@ -647,7 +647,7 @@ export default function MonEspace() {
     const activePrimaryMood = moods.find(m => m.id === primaryMood);
 
     return (
-      <div className="p-6 space-y-6 max-w-4xl animate-in fade-in duration-500">
+      <div className="p-4 sm:p-6 space-y-6 max-w-4xl animate-in fade-in duration-500">
         <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-6">
           <div className="space-y-6">
             {/* New Entry Form */}
@@ -849,7 +849,7 @@ export default function MonEspace() {
     ];
 
     return (
-      <div className="p-6 space-y-8 max-w-4xl animate-in fade-in duration-500">
+      <div className="p-4 sm:p-6 space-y-8 max-w-4xl animate-in fade-in duration-500">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           
           {/* Breathing Guide */}
@@ -1306,7 +1306,7 @@ export default function MonEspace() {
     };
 
     return (
-      <div className="p-6 space-y-8 max-w-5xl animate-in fade-in duration-500 font-sans">
+      <div className="p-4 sm:p-6 space-y-8 max-w-5xl animate-in fade-in duration-500 font-sans">
         
         {/* Section 1: Stories row */}
         <div className="space-y-3">
@@ -1388,7 +1388,7 @@ export default function MonEspace() {
               </div>
 
               {/* Gratitudes Sticky Cards */}
-              <div className="grid grid-cols-2 gap-4 py-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
                 {gratitudes.map((g) => (
                   <div
                     key={g.id}
@@ -1607,7 +1607,7 @@ export default function MonEspace() {
       : forumThreads.filter(t => t.category === forumCategory);
 
     return (
-      <div className="p-6 space-y-6 max-w-5xl animate-in fade-in duration-500 font-sans">
+      <div className="p-4 sm:p-6 space-y-6 max-w-5xl animate-in fade-in duration-500 font-sans">
         
         {/* Header summary */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-solid border-border/40">
@@ -1830,7 +1830,7 @@ export default function MonEspace() {
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   const Dashboard = () => (
-    <div className="p-6 space-y-8 animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="font-serif text-3xl text-foreground tracking-tight">
@@ -1977,7 +1977,7 @@ export default function MonEspace() {
   const Sessions = () => {
     const rtl = dir === "rtl";
     return (
-      <div className="p-6 space-y-8 animate-in fade-in duration-500">
+      <div className="p-4 sm:p-6 space-y-8 animate-in fade-in duration-500">
         {/* Upcoming */}
         <div className="dashboard-card p-6">
           <h3 className="font-serif text-lg font-semibold text-foreground mb-6 pb-4 border-b border-border/40">
@@ -2141,7 +2141,7 @@ export default function MonEspace() {
 
   // ── Profile ───────────────────────────────────────────────────────────────
   const ProfilePage = () => (
-    <div className="p-6 max-w-2xl space-y-8 animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 max-w-2xl space-y-8 animate-in fade-in duration-500">
       <div className="dashboard-card p-6 md:p-8">
         <h3 className="font-serif text-lg font-semibold text-foreground mb-6 pb-4 border-b border-border/40">{t("space.personalInfo")}</h3>
         
@@ -2253,7 +2253,7 @@ export default function MonEspace() {
 
   // ── Notifications ─────────────────────────────────────────────────────────
   const Notifications = () => (
-    <div className="p-6 max-w-2xl animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 max-w-2xl animate-in fade-in duration-500">
       <div className="dashboard-card p-6 md:p-8">
         <h3 className="font-serif text-lg font-semibold text-foreground mb-6 pb-4 border-b border-border/40">{t("space.notifPreferences")}</h3>
         <div className="space-y-1">

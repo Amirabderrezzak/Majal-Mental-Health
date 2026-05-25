@@ -28,7 +28,7 @@ const Index = () => {
       <Navbar />
 
       {/* Hero */}
-      <section className="bg-teal-hero px-[5%] pt-20 pb-0 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center min-h-[calc(100vh-72px)]">
+      <section className="bg-teal-hero px-[5%] pt-12 sm:pt-20 pb-0 grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-16 items-center min-h-[calc(100vh-72px)]">
         <div className="pb-20 lg:pb-20 fade-up">
           <h1 className="font-serif text-primary text-[clamp(42px,5vw,64px)] font-normal leading-[1.1] mb-5">
             {t("hero.title")}
@@ -82,7 +82,7 @@ const Index = () => {
             { icon: "📅", title: t("how.step2.title"), desc: t("how.step2.desc") },
             { icon: "💬", title: t("how.step3.title"), desc: t("how.step3.desc") },
           ].map((c, i) => (
-            <div key={i} className="bg-card rounded-lg p-10 text-start shadow-card fade-up" style={{ transitionDelay: `${i * 0.1}s` }}>
+            <div key={i} className="bg-card rounded-lg p-6 sm:p-10 text-start shadow-card fade-up" style={{ transitionDelay: `${i * 0.1}s` }}>
               <span className="text-[40px] block mb-5">{c.icon}</span>
               <h3 className="text-[17px] font-semibold text-primary mb-2.5 font-sans">{c.title}</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">{c.desc}</p>

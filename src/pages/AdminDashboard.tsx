@@ -435,7 +435,7 @@ export default function AdminDashboard() {
             {user?.email?.[0]?.toUpperCase()}
           </div>
         </header>
-        <main className="p-6 max-w-6xl mx-auto">{tabMap[tab]}</main>
+        <main className="p-4 sm:p-6 max-w-6xl mx-auto">{tabMap[tab]}</main>
       </div>
     </div>
   );
