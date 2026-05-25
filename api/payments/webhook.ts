@@ -12,7 +12,11 @@ export default async function handler(req: any, res: any) {
   }
 
   // ── Security: verify webhook secret ──────────────────────────────────────
-  const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'shhh_dont_tell_anyone';
+  const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
+  if (!WEBHOOK_SECRET) {
+    console.error("WEBHOOK_SECRET env variable is not configured");
+    return res.status(500).json({ error: "Webhook secret is not configured on server" });
+  }
   const providedSecret = req.headers['x-webhook-secret'];
   if (providedSecret !== WEBHOOK_SECRET) {
     console.warn('Webhook rejected: invalid or missing secret');

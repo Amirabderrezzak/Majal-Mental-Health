@@ -50,9 +50,16 @@ export const sendMessage = async (
 };
 
 export const uploadAttachment = async (file: File) => {
-  // Generate a unique path for the file
+  // Retrieve current user ID to scope the folder path
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) {
+    throw new Error("User must be authenticated to upload files.");
+  }
+
+  // Generate a unique path scoped by user ID
   const fileExt = file.name.split('.').pop();
-  const filePath = `${crypto.randomUUID()}.${fileExt}`;
+  const filePath = `${userId}/${crypto.randomUUID()}.${fileExt}`;
 
   const { data, error } = await supabase.storage
     .from('chat_attachments')

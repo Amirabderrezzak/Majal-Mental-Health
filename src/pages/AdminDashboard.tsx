@@ -100,56 +100,59 @@ export default function AdminDashboard() {
   useEffect(() => {
     setLoading(true);
 
-    if (tab === "dashboard") {
-      Promise.all([
-        supabase.from("profiles").select("*", { count: "exact", head: true }).eq("user_type", "patient"),
-        supabase.from("profiles").select("*", { count: "exact", head: true }).eq("user_type", "psychologue"),
-        supabase.from("profiles").select("*", { count: "exact", head: true }).eq("user_type", "psychologue").eq("approval_status", "pending"),
-        supabase.from("bookings").select("*", { count: "exact", head: true }),
-        supabase.from("bookings").select("*", { count: "exact", head: true }).eq("status", "confirmed"),
-        supabase.from("bookings").select("price").eq("status", "confirmed"),
-      ]).then(([patients, therapists, pending, allB, confirmedB, revenue]) => {
-        const totalRevenue = (revenue.data ?? []).reduce((s: number, b: any) => s + (b.price || 0), 0);
-        setStats({
-          totalPatients:     patients.count   ?? 0,
-          totalTherapists:   therapists.count ?? 0,
-          pendingTherapists: pending.count    ?? 0,
-          totalBookings:     allB.count       ?? 0,
-          confirmedBookings: confirmedB.count ?? 0,
-          totalRevenue,
-        });
-      }).catch(() => toast.error("Erreur statistiques"))
-        .finally(() => setLoading(false));
-
-    } else if (tab === "users" || tab === "admins") {
-      supabase.from("profiles")
-        .select("user_id, full_name, user_type, approval_status, is_admin, created_at, city, specialty")
-        .order("created_at", { ascending: false })
-        .then(({ data, error }) => {
+    const fetchData = async () => {
+      try {
+        if (tab === "dashboard") {
+          const [patients, therapists, pending, allB, confirmedB, revenue] = await Promise.all([
+            supabase.from("profiles").select("*", { count: "exact", head: true }).eq("user_type", "patient"),
+            supabase.from("profiles").select("*", { count: "exact", head: true }).eq("user_type", "psychologue"),
+            supabase.from("profiles").select("*", { count: "exact", head: true }).eq("user_type", "psychologue").eq("approval_status", "pending"),
+            supabase.from("bookings").select("*", { count: "exact", head: true }),
+            supabase.from("bookings").select("*", { count: "exact", head: true }).eq("status", "confirmed"),
+            supabase.from("bookings").select("price").eq("status", "confirmed"),
+          ]);
+          
+          const totalRevenue = (revenue.data ?? []).reduce((s: number, b: any) => s + (b.price || 0), 0);
+          setStats({
+            totalPatients:     patients.count   ?? 0,
+            totalTherapists:   therapists.count ?? 0,
+            pendingTherapists: pending.count    ?? 0,
+            totalBookings:     allB.count       ?? 0,
+            confirmedBookings: confirmedB.count ?? 0,
+            totalRevenue,
+          });
+        } else if (tab === "users" || tab === "admins") {
+          const { data, error } = await supabase.from("profiles")
+            .select("user_id, full_name, user_type, approval_status, is_admin, created_at, city, specialty")
+            .order("created_at", { ascending: false });
           if (error) { toast.error("Erreur utilisateurs"); return; }
           setUsers((data ?? []) as UserProfile[]);
-        }).finally(() => setLoading(false));
-
-    } else if (tab === "bookings") {
-      supabase.from("bookings")
-        .select("id, booked_at, status, duration_minutes, price, patient_id, psychologist_id")
-        .order("booked_at", { ascending: false })
-        .then(async ({ data, error }) => {
+        } else if (tab === "bookings") {
+          const { data, error } = await supabase.from("bookings")
+            .select("id, booked_at, status, duration_minutes, price, patient_id, psychologist_id")
+            .order("booked_at", { ascending: false });
           if (error) { toast.error("Erreur réservations"); return; }
           const enriched = await enrichWithNames(data ?? [], "patient_id", "psychologist_id");
           setBookings(enriched as Booking[]);
-        }).finally(() => setLoading(false));
-
-    } else if (tab === "reviews") {
-      supabase.from("reviews")
-        .select("id, rating, comment, created_at, patient_id, psychologist_id")
-        .order("created_at", { ascending: false })
-        .then(async ({ data, error }) => {
+        } else if (tab === "reviews") {
+          const { data, error } = await supabase.from("reviews")
+            .select("id, rating, comment, created_at, patient_id, psychologist_id")
+            .order("created_at", { ascending: false });
           if (error) { toast.error("Erreur avis"); return; }
           const enriched = await enrichWithNames(data ?? [], "patient_id", "psychologist_id");
           setReviews(enriched as Review[]);
-        }).finally(() => setLoading(false));
-    }
+        }
+      } catch (err) {
+        console.error(err);
+        if (tab === "dashboard") {
+          toast.error("Erreur statistiques");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, [tab]);
 
   const updateStatus = async (userId: string, status: string) => {
