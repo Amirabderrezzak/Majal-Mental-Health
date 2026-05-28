@@ -10,6 +10,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import ChatWindow from "@/components/ChatWindow";
+import { useNotifications } from "@/hooks/useNotifications";
+
 
 type Page = "dashboard" | "sessions" | "patients" | "messages" | "earnings" | "profile" | "settings" | "content";
 
@@ -47,6 +49,8 @@ const SettingsWrapper = ({ render }: { render: () => React.ReactNode }) => <>{re
 export default function EspacePsy() {
   const { user, signOut } = useAuth();
   const { t, dir } = useLanguage();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [activePage, setActivePage] = useState<Page>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -355,17 +359,35 @@ export default function EspacePsy() {
 
   const updateBookingStatus = async (id: string, newStatus: Booking["status"]) => {
     setUpdating(id);
-    const { error } = await (supabase as any).from("bookings").update({ status: newStatus }).eq("id", id);
-    setUpdating(null);
-    if (error) {
-      toast.error(t("space.errorUpdate"));
-    } else {
-      toast.success(t("space.successUpdate"));
-      setBookings((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, status: newStatus } : b))
-      );
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    try {
+      const response = await fetch("/api/bookings/update-status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ booking_id: id, status: newStatus })
+      });
+      const data = await response.json();
+      setUpdating(null);
+
+      if (!response.ok || data.error) {
+        toast.error(t("space.errorUpdate") || data.error || "Erreur de mise à jour");
+      } else {
+        toast.success(t("space.successUpdate"));
+        setBookings((prev) =>
+          prev.map((b) => (b.id === id ? { ...b, status: newStatus } : b))
+        );
+      }
+    } catch (err) {
+      setUpdating(null);
+      toast.error(t("space.errorUpdate") || "Erreur de connexion");
     }
   };
+
 
   const getInitials = (name?: string) => {
     if (!name) return "P";
@@ -476,13 +498,84 @@ export default function EspacePsy() {
         <h1 className="font-serif text-xl font-semibold text-foreground leading-none">{title}</h1>
       </div>
       <div className="flex items-center gap-3">
-        <button className="relative bg-transparent border-none cursor-pointer text-muted-foreground hover:text-primary transition-colors p-1.5 rounded-full hover:bg-accent/40">
-          <Bell className="w-5 h-5" />
-          <span className={`absolute top-0.5 ${dir === "rtl" ? "left-0.5" : "right-0.5"} w-4 h-4 bg-primary text-primary-foreground text-[9px] font-bold rounded-full flex items-center justify-center shadow-sm`}>2</span>
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
+            className="relative bg-transparent border-none cursor-pointer text-muted-foreground hover:text-primary transition-colors p-1.5 rounded-full hover:bg-accent/40 flex items-center justify-center"
+          >
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className={`absolute top-0.5 ${dir === "rtl" ? "left-0.5" : "right-0.5"} w-4 h-4 bg-primary text-primary-foreground text-[9px] font-bold rounded-full flex items-center justify-center shadow-sm`}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {notifDropdownOpen && (
+            <div className={`absolute ${dir === "rtl" ? "left-0" : "right-0"} mt-2 w-80 bg-white border border-border/50 rounded-2xl shadow-xl z-50 overflow-hidden font-sans`}>
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 bg-accent/20">
+                <span className="text-xs font-semibold text-foreground">{t("space.notifications")}</span>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={() => {
+                      markAllAsRead();
+                      setNotifDropdownOpen(false);
+                    }}
+                    className="text-[10px] text-primary hover:text-teal-mid font-semibold bg-transparent border-none cursor-pointer"
+                  >
+                    {t("space.notif.markAllRead")}
+                  </button>
+                )}
+              </div>
+              <div className="max-h-80 overflow-y-auto divide-y divide-border/30">
+                {notifications.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-muted-foreground">
+                    {t("space.notif.empty")}
+                  </div>
+                ) : (
+                  notifications.map((notif) => (
+                    <div
+                      key={notif.id}
+                      onClick={async () => {
+                        await markAsRead(notif.id);
+                        setNotifDropdownOpen(false);
+                        if (notif.link) {
+                          const match = notif.link.match(/page=([^&]+)/);
+                          if (match && match[1]) {
+                            setActivePage(match[1] as Page);
+                          } else {
+                            window.location.href = notif.link;
+                          }
+                        }
+                      }}
+                      className={`flex flex-col p-4 text-start hover:bg-accent/30 cursor-pointer transition-colors ${!notif.is_read ? "bg-primary/5" : ""}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                          notif.type === 'booking' ? 'bg-blue-50 text-blue-700' :
+                          notif.type === 'message' ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {t(`space.notif.${notif.type}`) || notif.type}
+                        </span>
+                        <span className="text-[9px] text-muted-foreground">
+                          {new Date(notif.created_at).toLocaleDateString('fr-FR', {
+                            hour: '2-digit', minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-semibold text-foreground mt-1.5 leading-snug">{notif.title}</h4>
+                      <p className="text-[11px] text-muted-foreground mt-1 leading-normal">{notif.content}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
+
 
   // ── Dashboard ──────────────────────────────────────────────────────────────
   const Dashboard = () => (

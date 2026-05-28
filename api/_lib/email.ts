@@ -131,3 +131,44 @@ export async function sendTherapistRejected(opts: {
     `),
   });
 }
+
+// ── 5. Booking Status Update (patient or therapist) ─────────────────────────
+export async function sendBookingStatusUpdate(opts: {
+  recipientEmail: string;
+  recipientName: string;
+  partnerName: string;
+  date: string;
+  status: string;
+  userType: 'patient' | 'psychologue';
+}) {
+  const statusFr = opts.status === 'confirmed' ? 'confirmée' : opts.status === 'cancelled' ? 'annulée' : 'terminée';
+  
+  const subject = opts.userType === 'patient'
+    ? `📅 Votre séance est ${statusFr} — Majal`
+    : `📅 Séance ${statusFr} — Majal`;
+
+  const heading = opts.userType === 'patient'
+    ? `Mise à jour de votre séance`
+    : `Mise à jour d'une séance`;
+
+  const bodyText = opts.userType === 'patient'
+    ? `Votre séance avec le <strong>Dr. ${opts.partnerName}</strong> du <strong>${opts.date}</strong> a été <strong>${statusFr}</strong>.`
+    : `La séance avec le patient <strong>${opts.partnerName}</strong> du <strong>${opts.date}</strong> a été <strong>${statusFr}</strong>.`;
+
+  const redirectLink = opts.userType === 'patient'
+    ? `${SITE}/mon-espace?page=sessions`
+    : `${SITE}/espace-psy?page=sessions`;
+
+  return resend.emails.send({
+    from: FROM,
+    to: opts.recipientEmail,
+    subject: subject,
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">${heading}</h2>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${opts.recipientName}</strong>,</p>
+      <p style="color:#374151;font-size:15px;line-height:1.6;">${bodyText}</p>
+      ${btn('Accéder à mon espace', redirectLink)}
+    `),
+  });
+}
+
