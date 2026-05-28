@@ -290,10 +290,17 @@ export default function MonEspace() {
         });
       }
 
-      const now = new Date().toISOString();
-      setUpcoming(all.filter(b => (b.status === "pending" || b.status === "confirmed") && b.booked_at >= now));
-      setPast(all.filter(b => b.status === "done" || b.status === "cancelled" || b.booked_at < now)
-        .sort((a, b) => new Date(b.booked_at).getTime() - new Date(a.booked_at).getTime()));
+      const now = new Date();
+      setUpcoming(all.filter(b => {
+        const isUpcomingOrActiveStatus = b.status === "pending" || b.status === "confirmed";
+        const sessionEndTime = new Date(new Date(b.booked_at).getTime() + b.duration_minutes * 60 * 1000);
+        return isUpcomingOrActiveStatus && sessionEndTime >= now;
+      }));
+      setPast(all.filter(b => {
+        const isPastOrCancelledStatus = b.status === "done" || b.status === "cancelled";
+        const sessionEndTime = new Date(new Date(b.booked_at).getTime() + b.duration_minutes * 60 * 1000);
+        return isPastOrCancelledStatus || sessionEndTime < now;
+      }).sort((a, b) => new Date(b.booked_at).getTime() - new Date(a.booked_at).getTime()));
       setBookingsLoading(false);
     };
     fetchB();

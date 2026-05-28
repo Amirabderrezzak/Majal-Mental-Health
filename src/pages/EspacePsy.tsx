@@ -287,13 +287,15 @@ export default function EspacePsy() {
   }, [user]);
 
   // ── Derived real-time stats from bookings ──────────────────────────────────
-  const nowIso = new Date().toISOString();
+  const now = new Date();
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const upcomingBookings = bookings.filter(
-    b => (b.status === "pending" || b.status === "confirmed") && b.booked_at >= nowIso
-  );
+  const upcomingBookings = bookings.filter(b => {
+    const isUpcomingOrActiveStatus = b.status === "pending" || b.status === "confirmed";
+    const sessionEndTime = new Date(new Date(b.booked_at).getTime() + b.duration_minutes * 60 * 1000);
+    return isUpcomingOrActiveStatus && sessionEndTime >= now;
+  });
   const totalUniquePatients = new Set(bookings.map(b => b.patient_id)).size;
   const sessionsThisMonth = bookings.filter(b => b.booked_at >= monthStart).length;
   const earningsThisMonth = bookings
