@@ -273,6 +273,17 @@ export default function EspacePsy() {
       setBookingsLoading(false);
     };
     fetchBookings();
+
+    const bookingsChannel = supabase
+      .channel(`public:bookings:psy:${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, () => {
+        fetchBookings();
+      })
+      .subscribe();
+
+    return () => {
+      bookingsChannel.unsubscribe();
+    };
   }, [user]);
 
   // ── Derived real-time stats from bookings ──────────────────────────────────

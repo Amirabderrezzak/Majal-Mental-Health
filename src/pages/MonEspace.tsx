@@ -297,6 +297,17 @@ export default function MonEspace() {
       setBookingsLoading(false);
     };
     fetchB();
+
+    const bookingsChannel = supabase
+      .channel(`public:bookings:${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, () => {
+        fetchB();
+      })
+      .subscribe();
+
+    return () => {
+      bookingsChannel.unsubscribe();
+    };
   }, [user]);
 
   const saveProfile = async () => {
