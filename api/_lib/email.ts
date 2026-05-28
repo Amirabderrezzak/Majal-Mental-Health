@@ -2,7 +2,7 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.EMAIL_FROM || 'Majal <noreply@majal.dz>';
-const SITE = process.env.FRONTEND_URL || 'https://majal-mental-health.vercel.app';
+const SITE = process.env.FRONTEND_URL || 'https://majalpsy.com';
 
 // ── HTML wrapper ────────────────────────────────────────────────────────────
 function wrap(content: string): string {
@@ -23,7 +23,7 @@ function wrap(content: string): string {
         <tr><td style="padding:40px;">${content}</td></tr>
         <!-- Footer -->
         <tr><td style="background:#f8fafb;padding:24px 40px;text-align:center;border-top:1px solid #e5e9eb;">
-          <p style="margin:0;color:#9ca3af;font-size:12px;">© ${new Date().getFullYear()} Majal · <a href="${SITE}" style="color:#0d9488;text-decoration:none;">majal-mental-health.vercel.app</a></p>
+          <p style="margin:0;color:#9ca3af;font-size:12px;">© ${new Date().getFullYear()} Majal · <a href="${SITE}" style="color:#0d9488;text-decoration:none;">majalpsy.com</a></p>
           <p style="margin:4px 0 0;color:#9ca3af;font-size:11px;">Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
         </td></tr>
       </table>
