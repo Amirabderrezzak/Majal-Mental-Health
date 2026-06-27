@@ -261,6 +261,13 @@ export default function MonEspace() {
   const [activeChatUserId, setActiveChatUserId] = useState<string | null>(null);
   const [activeChatUserName, setActiveChatUserName] = useState<string>("");
 
+  // ── Reschedule state ─────────────────────────────────────────────────────
+  const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
+  const [rescheduleStep, setRescheduleStep] = useState(1);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+  const [rescheduling, setRescheduling] = useState(false);
+
   const locale = lang === "ar" ? "ar-SA" : "fr-FR";
 
   useEffect(() => {
@@ -359,6 +366,49 @@ export default function MonEspace() {
     } catch (err) {
       setCancelling(null);
       toast.error("Erreur de connexion lors de l'annulation.");
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!rescheduleBooking || !rescheduleDate || !rescheduleTime) return;
+    setRescheduling(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    const newDateTime = new Date(`${rescheduleDate}T${rescheduleTime}:00`).toISOString();
+
+    try {
+      const response = await fetch("/api/bookings/reschedule", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          booking_id: rescheduleBooking.id,
+          new_booked_at: newDateTime
+        })
+      });
+      const data = await response.json();
+      setRescheduling(false);
+
+      if (!response.ok || data.error) {
+        toast.error(data.error || "Erreur lors du report.");
+      } else {
+        toast.success("✅ Séance reportée avec succès !");
+        setUpcoming(prev => prev.map(b =>
+          b.id === rescheduleBooking.id
+            ? { ...b, booked_at: newDateTime }
+            : b
+        ));
+        setRescheduleBooking(null);
+        setRescheduleStep(1);
+        setRescheduleDate("");
+        setRescheduleTime("");
+      }
+    } catch (err) {
+      setRescheduling(false);
+      toast.error("Erreur de connexion lors du report.");
     }
   };
 
@@ -1020,7 +1070,6 @@ export default function MonEspace() {
               </button>
             </div>
           </div>
-
         </div>
       </div>
     );
@@ -2020,6 +2069,174 @@ export default function MonEspace() {
   // ── Sessions ──────────────────────────────────────────────────────────────
   const Sessions = () => {
     const rtl = dir === "rtl";
+
+    // Generate available time slots for the selected date
+    const getAvailableSlots = () => {
+      if (!rescheduleDate) return [];
+      const slots = [];
+      for (let h = 8; h < 20; h++) {
+        slots.push(`${String(h).padStart(2, "0")}:00`);
+        slots.push(`${String(h).padStart(2, "0")}:30`);
+      }
+      return slots;
+    };
+
+    const RescheduleModal = () => {
+      if (!rescheduleBooking) return null;
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setRescheduleBooking(null); setRescheduleStep(1); setRescheduleDate(""); setRescheduleTime(""); }} />
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl p-6 md:p-8 animate-in zoom-in-95 duration-200">
+
+            {/* Step indicator */}
+            <div className="flex items-center justify-center gap-2 mb-6">
+              {[1, 2, 3, 4].map(step => (
+                <div key={step} className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                    rescheduleStep >= step ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {rescheduleStep > step ? <Check className="w-4 h-4" /> : step}
+                  </div>
+                  {step < 4 && <div className={`w-8 h-0.5 ${rescheduleStep > step ? "bg-primary" : "bg-muted"}`} />}
+                </div>
+              ))}
+            </div>
+
+            {/* Step 1: Confirm selection */}
+            {rescheduleStep === 1 && (
+              <div className="space-y-4">
+                <h3 className="font-serif text-lg font-semibold text-foreground">Reporter cette séance</h3>
+                <p className="text-sm text-muted-foreground">Vous allez reporter votre séance avec :</p>
+                <div className="p-4 rounded-2xl border border-border/50 bg-teal-hero/10 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-teal-pale flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                    {getInitials(rescheduleBooking.psychologist_name)}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm text-foreground">{rescheduleBooking.psychologist_name}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {fmt(rescheduleBooking.booked_at)} · {fmtT(rescheduleBooking.booked_at)}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setRescheduleStep(2)}
+                  className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid transition-all"
+                >
+                  Choisir un nouveau créneau
+                </button>
+              </div>
+            )}
+
+            {/* Step 2: Pick date */}
+            {rescheduleStep === 2 && (
+              <div className="space-y-4">
+                <h3 className="font-serif text-lg font-semibold text-foreground">Choisir une nouvelle date</h3>
+                <input
+                  type="date"
+                  value={rescheduleDate}
+                  min={new Date().toISOString().split("T")[0]}
+                  onChange={e => setRescheduleDate(e.target.value)}
+                  className="w-full px-4 py-3 border border-border/70 rounded-xl text-sm bg-teal-hero/30 outline-none focus:border-primary focus:bg-card transition-all font-sans"
+                />
+                <div className="flex gap-3">
+                  <button onClick={() => setRescheduleStep(1)} className="px-4 py-3 border border-border/50 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer hover:bg-accent/40 transition-all">Retour</button>
+                  <button
+                    onClick={() => rescheduleDate && setRescheduleStep(3)}
+                    disabled={!rescheduleDate}
+                    className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid transition-all disabled:opacity-50"
+                  >
+                    Continuer
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Pick time */}
+            {rescheduleStep === 3 && (
+              <div className="space-y-4">
+                <h3 className="font-serif text-lg font-semibold text-foreground">Choisir un horaire</h3>
+                <p className="text-xs text-muted-foreground">{new Date(rescheduleDate).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</p>
+                <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
+                  {getAvailableSlots().map(slot => (
+                    <button
+                      key={slot}
+                      onClick={() => setRescheduleTime(slot)}
+                      className={`px-3 py-2.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                        rescheduleTime === slot
+                          ? "bg-primary border-primary text-primary-foreground shadow-sm"
+                          : "bg-white border-border/50 hover:bg-accent/40 text-foreground"
+                      }`}
+                    >
+                      {slot}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => setRescheduleStep(2)} className="px-4 py-3 border border-border/50 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer hover:bg-accent/40 transition-all">Retour</button>
+                  <button
+                    onClick={() => rescheduleTime && setRescheduleStep(4)}
+                    disabled={!rescheduleTime}
+                    className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid transition-all disabled:opacity-50"
+                  >
+                    Confirmer
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Confirm */}
+            {rescheduleStep === 4 && (
+              <div className="space-y-4">
+                <h3 className="font-serif text-lg font-semibold text-foreground">Confirmer le report</h3>
+                <div className="p-5 rounded-2xl border border-border/50 bg-teal-hero/10 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-teal-pale flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                      {getInitials(rescheduleBooking.psychologist_name)}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-sm text-foreground">{rescheduleBooking.psychologist_name}</div>
+                      <div className="text-xs text-muted-foreground">Psychologue</div>
+                    </div>
+                  </div>
+                  <div className="border-t border-border/30 pt-3 space-y-1.5">
+                    <div className="flex items-center gap-2 text-sm text-foreground">
+                      <Calendar className="w-4 h-4 text-primary shrink-0" />
+                      <span className="font-semibold">{new Date(rescheduleDate).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-foreground">
+                      <Clock className="w-4 h-4 text-primary shrink-0" />
+                      <span className="font-semibold">{rescheduleTime}</span>
+                      <span className="text-muted-foreground">· {rescheduleBooking.duration_minutes} min</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">Un email de confirmation sera envoyé au thérapeute.</p>
+                <div className="flex gap-3">
+                  <button onClick={() => setRescheduleStep(3)} className="px-4 py-3 border border-border/50 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer hover:bg-accent/40 transition-all">Retour</button>
+                  <button
+                    onClick={handleReschedule}
+                    disabled={rescheduling}
+                    className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {rescheduling && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {rescheduling ? "Report en cours..." : "Confirmer le report"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Close button */}
+            <button
+              onClick={() => { setRescheduleBooking(null); setRescheduleStep(1); setRescheduleDate(""); setRescheduleTime(""); }}
+              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-accent/40 text-muted-foreground hover:text-foreground transition-all border-none bg-transparent cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      );
+    };
     return (
       <div className="p-4 sm:p-6 space-y-8 animate-in fade-in duration-500">
         {/* Upcoming */}
@@ -2067,6 +2284,18 @@ export default function MonEspace() {
                     >
                       {cancelling === b.id ? <Loader2 className="w-3 h-3 animate-spin"/> : null} 
                       {t("space.cancelSessionBtn")}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setRescheduleBooking(b);
+                        setRescheduleStep(1);
+                        setRescheduleDate("");
+                        setRescheduleTime("");
+                      }}
+                      className="text-xs text-primary bg-transparent border-none cursor-pointer hover:underline hover:text-teal-mid font-semibold flex items-center gap-1"
+                    >
+                      <Calendar className="w-3 h-3" />
+                      Reporter
                     </button>
                   </div>
                 </div>
@@ -2118,6 +2347,8 @@ export default function MonEspace() {
             </div>
           )}
         </div>
+
+        <RescheduleModal />
       </div>
     );
   };
