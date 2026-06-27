@@ -49,7 +49,7 @@ const SettingsWrapper = ({ render }: { render: () => React.ReactNode }) => <>{re
 
 export default function EspacePsy() {
   const { user, signOut } = useAuth();
-  const { t, dir } = useLanguage();
+  const { t, lang, dir } = useLanguage();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [activePage, setActivePage] = useState<Page>("dashboard");
