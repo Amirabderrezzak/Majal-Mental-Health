@@ -62,6 +62,7 @@ export default function EspacePsy() {
   const [videoUrl, setVideoUrl] = useState("");
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [savingVideo, setSavingVideo] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [psySpecs, setPsySpecs] = useState<{ category_id: string; subcategory_id: string }[]>([]);
   const [savingSpecs, setSavingSpecs] = useState(false);
   const [immediateRequests, setImmediateRequests] = useState<{
@@ -188,24 +189,76 @@ export default function EspacePsy() {
     return () => clearTimeout(timeout);
   }, [isAvailableNow, user]);
 
-  const handleSaveVideo = async () => {
-    if (!user || !videoUrl) return;
-    setSavingVideo(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ video_url: videoUrl })
-      .eq("user_id", user.id);
-    setSavingVideo(false);
-    if (error) {
-      toast.error("Erreur lors de la sauvegarde.");
-    } else {
-      setVideoPreviewUrl(videoUrl);
+  const handleSaveVideo = async (file: File) => {
+    if (!user) return;
+
+    // Validate file type
+    const validTypes = ["video/mp4", "video/webm", "video/ogg", "video/quicktime"];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Format non supporté. Utilisez MP4, WebM ou OGG.");
+      return;
+    }
+
+    // Validate duration (max 59 seconds)
+    setUploadingVideo(true);
+    try {
+      const duration = await new Promise<number>((resolve, reject) => {
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.onloadedmetadata = () => {
+          URL.revokeObjectURL(video.src);
+          resolve(video.duration);
+        };
+        video.onerror = () => reject(new Error("Impossible de lire le fichier vidéo."));
+        video.src = URL.createObjectURL(file);
+      });
+
+      if (duration > 59) {
+        setUploadingVideo(false);
+        toast.error(`Vidéo trop longue (${Math.round(duration)}s). Maximum autorisé : 59 secondes.`);
+        return;
+      }
+
+      // Upload to Supabase Storage
+      const filePath = `${user.id}/presentation-${Date.now()}.${file.name.split(".").pop()}`;
+      const { error: uploadError } = await supabase.storage
+        .from("presentation_videos")
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("presentation_videos")
+        .getPublicUrl(filePath);
+
+      // Save to profile
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ video_url: publicUrl })
+        .eq("user_id", user.id);
+
+      if (updateError) throw updateError;
+
+      setVideoUrl(publicUrl);
+      setVideoPreviewUrl(publicUrl);
       toast.success("✅ Vidéo enregistrée !");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de l'upload.");
+    } finally {
+      setUploadingVideo(false);
     }
   };
 
   const handleRemoveVideo = async () => {
-    if (!user) return;
+    if (!user || !videoPreviewUrl) return;
+    // Try to delete from storage
+    try {
+      const urlParts = videoPreviewUrl.split("/");
+      const storagePath = urlParts.slice(urlParts.indexOf("presentation_videos") + 1).join("/");
+      if (storagePath) {
+        await supabase.storage.from("presentation_videos").remove([storagePath]);
+      }
+    } catch (e) { /* ignore */ }
     const { error } = await supabase
       .from("profiles")
       .update({ video_url: null })
@@ -1854,11 +1907,10 @@ export default function EspacePsy() {
         {videoPreviewUrl ? (
           <div className="space-y-3">
             <div className="aspect-video rounded-xl overflow-hidden border border-border">
-              <iframe
+              <video
                 src={videoPreviewUrl}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
+                controls
+                className="w-full h-full object-cover"
               />
             </div>
             <div className="flex gap-2">
@@ -1873,23 +1925,34 @@ export default function EspacePsy() {
         ) : (
           <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/30 transition-colors">
             <Video className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground mb-3">
-              {lang === "ar" ? "الصق رابط فيديو YouTube أو Vimeo" : "Collez un lien YouTube ou Vimeo"}
+            <p className="text-sm text-muted-foreground mb-1">
+              {lang === "ar" ? "ارفع فيديو تعريفي (حد أقصى 59 ثانية)" : "Téléchargez une vidéo de présentation (max 59 secondes)"}
             </p>
-            <input
-              type="url"
-              placeholder="https://youtube.com/watch?v=..."
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              className="w-full max-w-md px-4 py-3 border border-border/70 rounded-xl text-sm bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card transition-all font-sans mb-3"
-            />
-            <button
-              onClick={handleSaveVideo}
-              disabled={!videoUrl || savingVideo}
-              className="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-teal-mid transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              {savingVideo ? "..." : t("psy.settings.video.upload")}
-            </button>
+            <p className="text-xs text-muted-foreground/70 mb-4">MP4, WebM ou OGG</p>
+            <label className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-teal-mid transition-colors cursor-pointer">
+              {uploadingVideo ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {lang === "ar" ? "جارٍ الرفع..." : "Upload..."}
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  {t("psy.settings.video.upload")}
+                </>
+              )}
+              <input
+                type="file"
+                accept="video/mp4,video/webm,video/ogg,video/quicktime"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleSaveVideo(file);
+                  e.target.value = "";
+                }}
+                disabled={uploadingVideo}
+                className="hidden"
+              />
+            </label>
           </div>
         )}
       </div>

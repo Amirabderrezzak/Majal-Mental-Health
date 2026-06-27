@@ -312,12 +312,12 @@ const Profil = () => {
                 {psyProfile?.video_url && (
                   <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
                     <h2 className="font-serif text-xl text-primary mb-4">{t("psy.videoPresentation")}</h2>
-                    <div className="aspect-video rounded-xl overflow-hidden border border-border">
-                      <iframe
+                    <div className="aspect-video rounded-xl overflow-hidden border border-border bg-black">
+                      <video
                         src={psyProfile.video_url}
-                        className="w-full h-full"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
+                        controls
+                        className="w-full h-full object-cover"
+                        poster=""
                       />
                     </div>
                   </div>

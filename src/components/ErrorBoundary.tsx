@@ -38,7 +38,7 @@ export default class ErrorBoundary extends React.Component<
               <RefreshCw className="w-4 h-4" />
               Rafraîchir la page
             </button>
-            {this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <pre className="mt-6 text-left text-xs bg-red-50 text-red-700 p-4 rounded-lg overflow-auto max-h-40">
                 {this.state.error.message}
               </pre>
