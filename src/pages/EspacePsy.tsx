@@ -180,7 +180,10 @@ export default function EspacePsy() {
         .from("profiles")
         .update({ is_available_now: isAvailableNow })
         .eq("user_id", user.id);
-      if (error) console.error("Failed to update availability:", error);
+      if (error) {
+        console.error("Failed to update availability:", error);
+        toast.error("Erreur lors de la mise à jour. Veuillez exécuter la migration SQL d'abord.");
+      }
     }, 500);
     return () => clearTimeout(timeout);
   }, [isAvailableNow, user]);
