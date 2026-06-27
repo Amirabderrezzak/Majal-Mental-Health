@@ -223,11 +223,15 @@ export default function EspacePsy() {
   useEffect(() => {
     if (!user) return;
     const loadSpecs = async () => {
-      const { data } = await supabase
-        .from("psy_specializations")
-        .select("category_id, subcategory_id")
-        .eq("psychologist_id", user.id);
-      if (data) setPsySpecs(data);
+      try {
+        const { data } = await supabase
+          .from("psy_specializations")
+          .select("category_id, subcategory_id")
+          .eq("psychologist_id", user.id);
+        if (data) setPsySpecs(data);
+      } catch (e) {
+        // Table may not exist yet — migration pending
+      }
     };
     loadSpecs();
   }, [user]);
@@ -236,41 +240,47 @@ export default function EspacePsy() {
   useEffect(() => {
     if (!user) return;
 
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
     const loadRequests = async () => {
-      const { data } = await supabase
-        .from("immediate_session_requests")
-        .select("id, patient_id, status, created_at")
-        .eq("psychologist_id", user.id)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
-      if (data) setImmediateRequests(data);
+      try {
+        const { data } = await supabase
+          .from("immediate_session_requests")
+          .select("id, patient_id, status, created_at")
+          .eq("psychologist_id", user.id)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false });
+        if (data) setImmediateRequests(data);
+
+        channel = supabase
+          .channel("immediate-requests")
+          .on("postgres_changes", {
+            event: "INSERT",
+            schema: "public",
+            table: "immediate_session_requests",
+            filter: `psychologist_id=eq.${user.id}`,
+          }, (payload) => {
+            const req = payload.new;
+            setImmediateRequests((prev) => [{ id: req.id, patient_id: req.patient_id, status: req.status, created_at: req.created_at }, ...prev]);
+            toast.info("Nouvelle demande de session immédiate !");
+          })
+          .on("postgres_changes", {
+            event: "UPDATE",
+            schema: "public",
+            table: "immediate_session_requests",
+            filter: `psychologist_id=eq.${user.id}`,
+          }, (payload) => {
+            const req = payload.new;
+            setImmediateRequests((prev) => prev.filter((r) => r.id !== req.id || req.status === "pending"));
+          })
+          .subscribe();
+      } catch (e) {
+        // Table may not exist yet — migration pending
+      }
     };
     loadRequests();
 
-    const channel = supabase
-      .channel("immediate-requests")
-      .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "immediate_session_requests",
-        filter: `psychologist_id=eq.${user.id}`,
-      }, (payload) => {
-        const req = payload.new;
-        setImmediateRequests((prev) => [{ id: req.id, patient_id: req.patient_id, status: req.status, created_at: req.created_at }, ...prev]);
-        toast.info("Nouvelle demande de session immédiate !");
-      })
-      .on("postgres_changes", {
-        event: "UPDATE",
-        schema: "public",
-        table: "immediate_session_requests",
-        filter: `psychologist_id=eq.${user.id}`,
-      }, (payload) => {
-        const req = payload.new;
-        setImmediateRequests((prev) => prev.filter((r) => r.id !== req.id || req.status === "pending"));
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    return () => { if (channel) supabase.removeChannel(channel); };
   }, [user]);
 
   const handleRequestResponse = async (requestId: string, accept: boolean) => {
@@ -294,29 +304,33 @@ export default function EspacePsy() {
       (s) => s.category_id === categoryId && s.subcategory_id === subcategoryId
     );
     setSavingSpecs(true);
-    if (exists) {
-      const { error } = await supabase
-        .from("psy_specializations")
-        .delete()
-        .eq("psychologist_id", user.id)
-        .eq("category_id", categoryId)
-        .eq("subcategory_id", subcategoryId);
-      if (!error) {
-        setPsySpecs((prev) => prev.filter(
-          (s) => !(s.category_id === categoryId && s.subcategory_id === subcategoryId)
-        ));
+    try {
+      if (exists) {
+        const { error } = await supabase
+          .from("psy_specializations")
+          .delete()
+          .eq("psychologist_id", user.id)
+          .eq("category_id", categoryId)
+          .eq("subcategory_id", subcategoryId);
+        if (!error) {
+          setPsySpecs((prev) => prev.filter(
+            (s) => !(s.category_id === categoryId && s.subcategory_id === subcategoryId)
+          ));
+        }
+      } else {
+        const { error } = await supabase
+          .from("psy_specializations")
+          .insert({
+            psychologist_id: user.id,
+            category_id: categoryId,
+            subcategory_id: subcategoryId,
+          });
+        if (!error) {
+          setPsySpecs((prev) => [...prev, { category_id: categoryId, subcategory_id: subcategoryId }]);
+        }
       }
-    } else {
-      const { error } = await supabase
-        .from("psy_specializations")
-        .insert({
-          psychologist_id: user.id,
-          category_id: categoryId,
-          subcategory_id: subcategoryId,
-        });
-      if (!error) {
-        setPsySpecs((prev) => [...prev, { category_id: categoryId, subcategory_id: subcategoryId }]);
-      }
+    } catch (e) {
+      toast.error("Veuillez exécuter la migration SQL des spécialisations.");
     }
     setSavingSpecs(false);
   };
