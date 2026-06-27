@@ -22,6 +22,8 @@ interface PsyProfile {
   language: string | null;
   avatar_url: string | null;
   order_number: string | null;
+  video_url: string | null;
+  is_available_now: boolean | null;
 }
 
 interface Review {
@@ -275,7 +277,7 @@ const Profil = () => {
               <div className="h-px bg-border my-4" />
               <Link to={`/reservation/${bookingId}`}
                 className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-[15px] font-medium no-underline flex items-center justify-center gap-2 hover:bg-teal-mid transition-colors mb-2.5">
-                <Calendar className="w-4 h-4" /> {t("prof.book")}
+                <Calendar className="w-4 h-4" /> {t("prof.bookNow")}
               </Link>
               <button className="w-full py-3 rounded-xl border border-border bg-teal-hero text-primary text-[15px] font-medium flex items-center justify-center gap-2 hover:border-primary transition-colors cursor-pointer">
                 <MessageSquare className="w-4 h-4" /> {t("prof.message")}

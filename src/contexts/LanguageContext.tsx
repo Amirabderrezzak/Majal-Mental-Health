@@ -199,6 +199,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "prof.about": { fr: "À propos", ar: "حول" },
   "prof.reviews": { fr: "Avis", ar: "التقييمات" },
   "prof.book": { fr: "Réserver une séance", ar: "احجز جلسة" },
+  "prof.bookNow": { fr: "Réserver maintenant", ar: "احجز الآن" },
   "prof.message": { fr: "Envoyer un message", ar: "إرسال رسالة" },
   "prof.experience": { fr: "ans d'expérience", ar: "سنوات خبرة" },
   "prof.languages": { fr: "Langues", ar: "اللغات" },
