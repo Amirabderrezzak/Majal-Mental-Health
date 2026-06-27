@@ -64,6 +64,12 @@ export default function EspacePsy() {
   const [savingVideo, setSavingVideo] = useState(false);
   const [psySpecs, setPsySpecs] = useState<{ category_id: string; subcategory_id: string }[]>([]);
   const [savingSpecs, setSavingSpecs] = useState(false);
+  const [immediateRequests, setImmediateRequests] = useState<{
+    id: string;
+    patient_id: string;
+    status: string;
+    created_at: string;
+  }[]>([]);
 
   const handleStartCall = async (bookingId: string) => {
     const booking = bookings.find(b => b.id === bookingId);
@@ -222,6 +228,62 @@ export default function EspacePsy() {
     };
     loadSpecs();
   }, [user]);
+
+  // Load and subscribe to incoming immediate session requests
+  useEffect(() => {
+    if (!user) return;
+
+    const loadRequests = async () => {
+      const { data } = await supabase
+        .from("immediate_session_requests")
+        .select("id, patient_id, status, created_at")
+        .eq("psychologist_id", user.id)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+      if (data) setImmediateRequests(data);
+    };
+    loadRequests();
+
+    const channel = supabase
+      .channel("immediate-requests")
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "immediate_session_requests",
+        filter: `psychologist_id=eq.${user.id}`,
+      }, (payload) => {
+        const req = payload.new;
+        setImmediateRequests((prev) => [{ id: req.id, patient_id: req.patient_id, status: req.status, created_at: req.created_at }, ...prev]);
+        toast.info("Nouvelle demande de session immédiate !");
+      })
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "immediate_session_requests",
+        filter: `psychologist_id=eq.${user.id}`,
+      }, (payload) => {
+        const req = payload.new;
+        setImmediateRequests((prev) => prev.filter((r) => r.id !== req.id || req.status === "pending"));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
+  const handleRequestResponse = async (requestId: string, accept: boolean) => {
+    const { error } = await supabase
+      .from("immediate_session_requests")
+      .update({
+        status: accept ? "accepted" : "declined",
+        responded_at: new Date().toISOString(),
+      })
+      .eq("id", requestId);
+
+    if (!error) {
+      setImmediateRequests((prev) => prev.filter((r) => r.id !== requestId));
+      toast.success(accept ? "Demande acceptée !" : "Demande refusée.");
+    }
+  };
 
   const toggleSpec = async (categoryId: string, subcategoryId: string) => {
     if (!user) return;
@@ -754,6 +816,41 @@ export default function EspacePsy() {
           </div>
         ))}
       </div>
+
+      {/* Incoming Immediate Requests */}
+      {immediateRequests.length > 0 && (
+        <div className="dashboard-card p-6 border-l-4 border-emerald-500">
+          <h3 className="font-serif text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Phone className="w-5 h-5 text-emerald-600" />
+            {t("psy.incomingRequests") || "Demandes de session immédiate"}
+            <span className="ml-2 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">{immediateRequests.length}</span>
+          </h3>
+          <div className="space-y-3">
+            {immediateRequests.map((req) => (
+              <div key={req.id} className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/50 border border-emerald-100">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Patient demande une session immédiate</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{new Date(req.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleRequestResponse(req.id, true)}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors cursor-pointer"
+                  >
+                    {t("psy.accept") || "Accepter"}
+                  </button>
+                  <button
+                    onClick={() => handleRequestResponse(req.id, false)}
+                    className="px-4 py-2 rounded-xl bg-red-100 text-red-700 text-xs font-semibold hover:bg-red-200 transition-colors cursor-pointer"
+                  >
+                    {t("psy.decline") || "Refuser"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
         {/* Upcoming Sessions */}

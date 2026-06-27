@@ -1,20 +1,30 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Search, SlidersHorizontal, Clock, DollarSign, Loader2, X } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Search, SlidersHorizontal, Clock, DollarSign, Loader2, X, Phone, PhoneOff, CheckCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { usePsychologists, type PsyProfile } from "@/hooks/use-psychologists";
 import { CATEGORIES, type CategoryId, type SubcategoryId } from "@/lib/categories";
 
 const Psychologues = () => {
   const { t, lang } = useLanguage();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<SubcategoryId | null>(null);
   const [langFilter, setLangFilter] = useState("");
   const [price, setPrice] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+
+  // Immediate session request state
+  const [requestingPsyId, setRequestingPsyId] = useState<string | null>(null);
+  const [requestStatus, setRequestStatus] = useState<"sending" | "pending" | "accepted" | "declined" | "expired" | null>(null);
+  const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
 
   const { data: psychologists = [], isLoading, isError } = usePsychologists();
 
@@ -62,6 +72,73 @@ const Psychologues = () => {
   };
 
   const hasActiveFilters = selectedCategory || selectedSubcategory || langFilter || price || query;
+
+  const handleImmediateRequest = async (psyId: string) => {
+    if (!user) {
+      navigate("/connexion");
+      return;
+    }
+    setRequestingPsyId(psyId);
+    setRequestStatus("sending");
+
+    const { data, error } = await supabase
+      .from("immediate_session_requests")
+      .insert({
+        patient_id: user.id,
+        psychologist_id: psyId,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      toast.error("Erreur lors de l'envoi de la demande.");
+      setRequestStatus(null);
+      setRequestingPsyId(null);
+      return;
+    }
+
+    setActiveRequestId(data.id);
+    setRequestStatus("pending");
+
+    // Subscribe to realtime updates on this request
+    const channel = supabase
+      .channel(`request-${data.id}`)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "immediate_session_requests",
+        filter: `id=eq.${data.id}`,
+      }, (payload) => {
+        const newStatus = payload.new.status;
+        setRequestStatus(newStatus);
+        if (newStatus === "accepted") {
+          toast.success("Le psychologue a accepté ! Redirection vers la session...");
+          setTimeout(() => navigate("/mes-sessions"), 2000);
+        } else if (newStatus === "declined") {
+          toast.error("Le psychologue n'est pas disponible pour le moment.");
+        } else if (newStatus === "expired") {
+          toast.error("La demande a expiré. Le psychologue n'a pas répondu.");
+        }
+        setTimeout(() => {
+          setRequestStatus(null);
+          setRequestingPsyId(null);
+          setActiveRequestId(null);
+          supabase.removeChannel(channel);
+        }, 3000);
+      })
+      .subscribe();
+
+    // Expiration timer (90s)
+    setTimeout(async () => {
+      if (activeRequestId) {
+        await supabase
+          .from("immediate_session_requests")
+          .update({ status: "expired", responded_at: new Date().toISOString() })
+          .eq("id", data.id)
+          .eq("status", "pending");
+      }
+    }, 90000);
+  };
 
   const DoctorCard = ({ d }: { d: PsyProfile }) => (
     <Link to={profileLink(d)} className="no-underline block">
@@ -129,10 +206,18 @@ const Psychologues = () => {
             {d.dispo}
           </div>
           {d.is_available_now && (
-            <div className="flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-[10px] bg-emerald-50 border border-emerald-200 text-[13px] font-semibold text-emerald-700 mb-3.5">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleImmediateRequest(d.id);
+              }}
+              disabled={requestStatus !== null}
+              className="flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-[10px] bg-emerald-50 border border-emerald-200 text-[13px] font-semibold text-emerald-700 mb-3.5 w-full cursor-pointer hover:bg-emerald-100 transition-colors disabled:opacity-60"
+            >
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              {t("psy.availableNow")}
-            </div>
+              {requestingPsyId === d.id && requestStatus === "sending" ? t("psy.requestSending") : t("psy.talkNow")}
+            </button>
           )}
           <Link
             to={bookingLink(d)}
@@ -322,6 +407,63 @@ const Psychologues = () => {
           </>
         )}
       </section>
+
+      {/* Immediate Request Status Modal */}
+      {requestStatus && requestStatus !== "sending" && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-card rounded-2xl shadow-lg max-w-sm w-full p-8 text-center space-y-4">
+            {requestStatus === "pending" && (
+              <>
+                <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto">
+                  <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
+                </div>
+                <h3 className="font-serif text-lg font-semibold text-foreground">{t("psy.requestPending")}</h3>
+                <p className="text-sm text-muted-foreground">{t("psy.requestPendingDesc")}</p>
+                <div className="w-full bg-border rounded-full h-2">
+                  <div className="bg-amber-500 h-2 rounded-full animate-pulse" style={{ width: "60%" }} />
+                </div>
+              </>
+            )}
+            {requestStatus === "accepted" && (
+              <>
+                <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto">
+                  <CheckCircle className="w-8 h-8 text-emerald-600" />
+                </div>
+                <h3 className="font-serif text-lg font-semibold text-foreground">{t("psy.requestAccepted")}</h3>
+                <p className="text-sm text-muted-foreground">{t("psy.requestAcceptedDesc")}</p>
+              </>
+            )}
+            {requestStatus === "declined" && (
+              <>
+                <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto">
+                  <PhoneOff className="w-8 h-8 text-red-600" />
+                </div>
+                <h3 className="font-serif text-lg font-semibold text-foreground">{t("psy.requestDeclined")}</h3>
+                <p className="text-sm text-muted-foreground">{t("psy.requestDeclinedDesc")}</p>
+              </>
+            )}
+            {requestStatus === "expired" && (
+              <>
+                <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center mx-auto">
+                  <Clock className="w-8 h-8 text-orange-600" />
+                </div>
+                <h3 className="font-serif text-lg font-semibold text-foreground">{t("psy.requestExpired")}</h3>
+                <p className="text-sm text-muted-foreground">{t("psy.requestExpiredDesc")}</p>
+              </>
+            )}
+            <button
+              onClick={() => {
+                setRequestStatus(null);
+                setRequestingPsyId(null);
+                setActiveRequestId(null);
+              }}
+              className="w-full py-2.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-teal-pale transition-colors cursor-pointer"
+            >
+              {t("psy.requestClose")}
+            </button>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>
