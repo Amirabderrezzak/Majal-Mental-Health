@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Search, SlidersHorizontal, Clock, DollarSign, Loader2, X, Phone, PhoneOff, CheckCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -25,6 +25,15 @@ const Psychologues = () => {
   const [requestingPsyId, setRequestingPsyId] = useState<string | null>(null);
   const [requestStatus, setRequestStatus] = useState<"sending" | "pending" | "accepted" | "declined" | "expired" | null>(null);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
+  const expirationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const channelRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (expirationTimerRef.current) clearTimeout(expirationTimerRef.current);
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
+    };
+  }, []);
 
   const { data: psychologists = [], isLoading, isError } = usePsychologists();
 
@@ -133,17 +142,21 @@ const Psychologues = () => {
       })
       .subscribe();
 
+    channelRef.current = channel;
+
     // Expiration timer (90s)
-    setTimeout(async () => {
-      if (data.id) {
-        await supabase
-          .from("immediate_session_requests")
-          .update({ status: "expired", responded_at: new Date().toISOString() })
-          .eq("id", data.id)
-          .eq("status", "pending");
-        setRequestStatus(null);
-        setRequestingPsyId(null);
-        setActiveRequestId(null);
+    expirationTimerRef.current = setTimeout(async () => {
+      await supabase
+        .from("immediate_session_requests")
+        .update({ status: "expired", responded_at: new Date().toISOString() })
+        .eq("id", data.id)
+        .eq("status", "pending");
+      setRequestStatus(null);
+      setRequestingPsyId(null);
+      setActiveRequestId(null);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
     }, 90000);
   };

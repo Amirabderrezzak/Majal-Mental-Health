@@ -18,8 +18,8 @@ export default async function handler(req: any, res: any) {
   }
 
   if (!supabase) {
-    console.error("Supabase client is not initialized. URL:", supabaseUrl ? "Present" : "Missing", "Key:", supabaseKey ? "Present" : "Missing");
-    return res.status(500).json({ error: 'Database client configuration error: Missing Supabase URL or Service Role Key' });
+    console.error("Missing env vars: SUPABASE_URL=" + !!process.env.SUPABASE_URL + " SUPABASE_SERVICE_ROLE_KEY=" + !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+    return res.status(500).json({ error: 'Database client configuration error' });
   }
 
   const authHeader = req.headers.authorization;
@@ -39,10 +39,9 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // 1. Verify the user is a psychologist and the psychologist assigned to this booking
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .select('id, psychologist_id, status')
+      .select('id, psychologist_id, status, video_room_url')
       .eq('id', booking_id)
       .single();
 
@@ -54,50 +53,65 @@ export default async function handler(req: any, res: any) {
       return res.status(403).json({ error: 'You are not authorized to start calls for this booking' });
     }
 
-    // 2. Generate Daily.co room URL dynamically
-    const DAILY_API_KEY = process.env.DAILY_API_KEY;
-    // Fallback unique room URL for development/demo testing if Daily API key is not configured
-    let roomUrl = `https://majal.daily.co/booking-${booking_id}`;
-
-    if (DAILY_API_KEY) {
-      try {
-        const dailyResponse = await fetch('https://api.daily.co/v1/rooms', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${DAILY_API_KEY}`,
-          },
-          body: JSON.stringify({
-            name: `booking-${booking_id}`,
-            privacy: 'public', // Set to public for simplified guest access, or private with meeting tokens
-            properties: {
-              enable_chat: true,
-              start_video_off: false,
-              start_audio_off: false,
-              exp: Math.round(Date.now() / 1000) + 3600 * 2, // expires in 2 hours
-            },
-          }),
-        });
-
-        const dailyData = await dailyResponse.json();
-        if (dailyResponse.ok && dailyData.url) {
-          roomUrl = dailyData.url;
-        } else {
-          console.warn('Daily.co room creation failed, using fallback:', dailyData);
-        }
-      } catch (err) {
-        console.error('Failed to contact Daily.co API:', err);
-      }
+    if (booking.status === 'cancelled') {
+      return res.status(400).json({ error: 'Cannot start a video call for a cancelled session' });
     }
 
-    // 3. Update the booking row with the video room URL
+    if (booking.status === 'done') {
+      return res.status(400).json({ error: 'This session has already ended' });
+    }
+
+    if (booking.video_room_url) {
+      return res.json({ success: true, url: booking.video_room_url });
+    }
+
+    const DAILY_API_KEY = process.env.DAILY_API_KEY;
+    if (!DAILY_API_KEY) {
+      console.error("DAILY_API_KEY is not set");
+      return res.status(500).json({ error: 'Video service not configured. Please contact support.' });
+    }
+
+    let roomUrl: string | null = null;
+
+    try {
+      const dailyResponse = await fetch('https://api.daily.co/v1/rooms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${DAILY_API_KEY}`,
+        },
+        body: JSON.stringify({
+          name: `booking-${booking_id}`,
+          privacy: 'public',
+          properties: {
+            enable_chat: true,
+            start_video_off: false,
+            start_audio_off: false,
+            exp: Math.round(Date.now() / 1000) + 3600 * 2,
+          },
+        }),
+      });
+
+      const dailyData = await dailyResponse.json();
+      if (dailyResponse.ok && dailyData.url) {
+        roomUrl = dailyData.url;
+      } else {
+        console.error('Daily.co API error:', dailyData);
+        return res.status(500).json({ error: 'Failed to create video room. Please try again.' });
+      }
+    } catch (err) {
+      console.error('Failed to contact Daily.co API:', err);
+      return res.status(500).json({ error: 'Video service unavailable. Please try again.' });
+    }
+
     const { error: updateError } = await supabase
       .from('bookings')
       .update({ video_room_url: roomUrl })
       .eq('id', booking_id);
 
     if (updateError) {
-      return res.status(500).json({ error: updateError.message });
+      console.error('Failed to update booking:', updateError);
+      return res.status(500).json({ error: 'Failed to save video room URL' });
     }
 
     res.json({ success: true, url: roomUrl });

@@ -46,54 +46,70 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    // Clean up any expired requests first
+    await supabase.rpc('expire_immediate_requests').catch(() => {});
+
     const { data: request, error: reqError } = await supabase
       .from('immediate_session_requests')
-      .select('id, psychologist_id, status')
+      .select('id, psychologist_id, status, expires_at')
       .eq('id', request_id)
       .eq('psychologist_id', psychologist_id)
-      .eq('status', 'pending')
       .single();
 
     if (reqError || !request) {
-      return res.status(404).json({ error: 'Request not found or already processed' });
+      return res.status(404).json({ error: 'Request not found' });
     }
 
-    const roomId = `instant-${user.id}-${psychologist_id}-${Date.now()}`;
+    if (request.status !== 'pending') {
+      return res.status(400).json({ error: `Request already ${request.status}` });
+    }
+
+    if (request.expires_at && new Date(request.expires_at) < new Date()) {
+      await supabase
+        .from('immediate_session_requests')
+        .update({ status: 'expired', responded_at: new Date().toISOString() })
+        .eq('id', request_id);
+      return res.status(400).json({ error: 'This request has expired' });
+    }
 
     const DAILY_API_KEY = process.env.DAILY_API_KEY;
-    let roomUrl = `https://majal.daily.co/${roomId}`;
+    if (!DAILY_API_KEY) {
+      console.error("DAILY_API_KEY is not set");
+      return res.status(500).json({ error: 'Video service not configured. Please contact support.' });
+    }
 
-    if (DAILY_API_KEY) {
-      try {
-        const dailyResponse = await fetch('https://api.daily.co/v1/rooms', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${DAILY_API_KEY}`,
+    const roomId = `instant-${psychologist_id}-${Date.now()}`;
+    let roomUrl: string | null = null;
+
+    try {
+      const dailyResponse = await fetch('https://api.daily.co/v1/rooms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${DAILY_API_KEY}`,
+        },
+        body: JSON.stringify({
+          name: roomId,
+          privacy: 'public',
+          properties: {
+            enable_chat: true,
+            start_video_off: false,
+            start_audio_off: false,
+            exp: Math.round(Date.now() / 1000) + 3600,
           },
-          body: JSON.stringify({
-            name: roomId,
-            privacy: 'public',
-            properties: {
-              enable_chat: true,
-              start_video_off: false,
-              start_audio_off: false,
-              exp: Math.round(Date.now() / 1000) + 3600,
-            },
-          }),
-        });
+        }),
+      });
 
-        const dailyData = await dailyResponse.json();
-        if (dailyResponse.ok && dailyData.url) {
-          roomUrl = dailyData.url;
-        } else {
-          console.error('Daily.co API error:', dailyData);
-        }
-      } catch (err) {
-        console.error('Daily.co API error:', err);
+      const dailyData = await dailyResponse.json();
+      if (dailyResponse.ok && dailyData.url) {
+        roomUrl = dailyData.url;
+      } else {
+        console.error('Daily.co API error:', dailyData);
+        return res.status(500).json({ error: 'Failed to create video room. Please try again.' });
       }
-    } else {
-      console.warn('DAILY_API_KEY not set — using fallback room URL');
+    } catch (err) {
+      console.error('Failed to contact Daily.co API:', err);
+      return res.status(500).json({ error: 'Video service unavailable. Please try again.' });
     }
 
     const { error: updateError } = await supabase.from('immediate_session_requests').update({

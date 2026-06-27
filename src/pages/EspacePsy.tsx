@@ -65,6 +65,7 @@ export default function EspacePsy() {
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [psySpecs, setPsySpecs] = useState<{ category_id: string; subcategory_id: string }[]>([]);
   const [savingSpecs, setSavingSpecs] = useState(false);
+  const [respondingToRequest, setRespondingToRequest] = useState<string | null>(null);
   const [immediateRequests, setImmediateRequests] = useState<{
     id: string;
     patient_id: string;
@@ -337,8 +338,8 @@ export default function EspacePsy() {
   }, [user]);
 
   const handleRequestResponse = async (requestId: string, accept: boolean) => {
+    setRespondingToRequest(requestId);
     if (accept) {
-      // Create instant Daily.co room
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const res = await fetch("/api/calls/create-instant-room", {
@@ -358,25 +359,32 @@ export default function EspacePsy() {
           toast.success("Session ouverte !");
           window.open(data.url, "_blank");
         } else {
-          throw new Error(data.error || "Erreur lors de la création du salon.");
+          toast.error(data.error || "Erreur lors de la création du salon.");
         }
       } catch (err: any) {
         toast.error(err.message || "Impossible de créer la session.");
       }
     } else {
-      const { error } = await supabase
-        .from("immediate_session_requests")
-        .update({
-          status: "declined",
-          responded_at: new Date().toISOString(),
-        })
-        .eq("id", requestId);
+      try {
+        const { error } = await supabase
+          .from("immediate_session_requests")
+          .update({
+            status: "declined",
+            responded_at: new Date().toISOString(),
+          })
+          .eq("id", requestId);
 
-      if (!error) {
-        setImmediateRequests((prev) => prev.filter((r) => r.id !== requestId));
-        toast.success("Demande refusée.");
+        if (error) {
+          toast.error("Erreur lors du refus de la demande.");
+        } else {
+          setImmediateRequests((prev) => prev.filter((r) => r.id !== requestId));
+          toast.success("Demande refusée.");
+        }
+      } catch (err: any) {
+        toast.error("Erreur de connexion.");
       }
     }
+    setRespondingToRequest(null);
   };
 
   const toggleSpec = async (categoryId: string, subcategoryId: string) => {
@@ -933,14 +941,18 @@ export default function EspacePsy() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleRequestResponse(req.id, true)}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors cursor-pointer"
+                    disabled={respondingToRequest === req.id}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                   >
+                    {respondingToRequest === req.id && <Loader2 className="w-3 h-3 animate-spin" />}
                     {t("psy.accept") || "Accepter"}
                   </button>
                   <button
                     onClick={() => handleRequestResponse(req.id, false)}
-                    className="px-4 py-2 rounded-xl bg-red-100 text-red-700 text-xs font-semibold hover:bg-red-200 transition-colors cursor-pointer"
+                    disabled={respondingToRequest === req.id}
+                    className="px-4 py-2 rounded-xl bg-red-100 text-red-700 text-xs font-semibold hover:bg-red-200 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                   >
+                    {respondingToRequest === req.id && <Loader2 className="w-3 h-3 animate-spin" />}
                     {t("psy.decline") || "Refuser"}
                   </button>
                 </div>
