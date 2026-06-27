@@ -377,7 +377,7 @@ export default function MonEspace() {
             <div className="w-8 h-8 border-2 border-primary rounded-lg flex items-center justify-center font-serif text-[13px] text-primary bg-teal-pale/30">MJ</div>
             <span className="text-base font-serif text-foreground font-semibold">Majal</span>
           </div>
-          <span className="text-[10px] text-primary font-semibold tracking-wider mt-1 block">MON ESPACE</span>
+          <span className="text-[10px] text-primary font-semibold tracking-wider mt-1 block">{t("space.title").toUpperCase()}</span>
         </div>
         <button onClick={() => setSidebarOpen(false)} className="lg:hidden bg-transparent border-none cursor-pointer text-muted-foreground hover:text-foreground">
           <X className="w-5 h-5" />
@@ -408,7 +408,7 @@ export default function MonEspace() {
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:bg-accent/40 hover:text-foreground transition-all no-underline"
             >
               <Search className="w-4 h-4" />
-              Trouver un psychologue
+              {t("space.sidebar.findPsy")}
             </Link>
           </li>
         </ul>
@@ -425,7 +425,7 @@ export default function MonEspace() {
           )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-foreground truncate">{profile.full_name || user?.email}</p>
-            <p className="text-[10px] uppercase font-semibold text-primary/80 tracking-wider">Patient</p>
+            <p className="text-[10px] uppercase font-semibold text-primary/80 tracking-wider">{t("space.sidebar.patient")}</p>
           </div>
         </div>
         <button
@@ -433,7 +433,7 @@ export default function MonEspace() {
           className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition-all bg-transparent border-none cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
-          Déconnexion
+          {t("space.sidebar.logout")}
         </button>
       </div>
     </aside>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Send, Paperclip, Mic, Square, Loader2, FileText, Image as ImageIcon, MessageSquare } from "lucide-react";
 import { Message, fetchMessages, sendMessage, subscribeToMessages, uploadAttachment } from "@/services/chatService";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import { getInitials } from "@/lib/utils";
 
@@ -12,6 +13,7 @@ interface ChatWindowProps {
 
 export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowProps) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [inputText, setInputText] = useState("");
@@ -71,7 +73,7 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
       await sendMessage(user.id, otherUserId, inputText.trim());
       setInputText("");
     } catch (e: any) {
-      toast.error("Échec de l'envoi du message");
+      toast.error(t("chat.sendFailed"));
     } finally {
       setSending(false);
     }
@@ -85,9 +87,9 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
     try {
       const uploadRes = await uploadAttachment(file);
       await sendMessage(user.id, otherUserId, null, uploadRes.url, uploadRes.type, uploadRes.name);
-      toast.success("Fichier envoyé");
+      toast.success(t("chat.fileSent"));
     } catch (e: any) {
-      toast.error("Échec de l'envoi du fichier");
+      toast.error(t("chat.fileFailed"));
     } finally {
       setSending(false);
     }
@@ -117,7 +119,7 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
       setIsRecording(true);
     } catch (err) {
       console.error("Microphone access denied", err);
-      toast.error("Veuillez autoriser l'accès au microphone.");
+      toast.error(t("chat.micPermission"));
     }
   };
 
@@ -139,7 +141,7 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
       const uploadRes = await uploadAttachment(file);
       await sendMessage(user.id, otherUserId, null, uploadRes.url, uploadRes.type, uploadRes.name);
     } catch (e: any) {
-      toast.error("Message vocal non envoyé");
+      toast.error(t("chat.voiceFailed"));
     } finally {
       setSending(false);
       setAudioBlob(null);
@@ -194,7 +196,7 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
         ) : messages.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm flex-col">
             <MessageSquare className="w-10 h-10 mb-2 opacity-30" />
-            Aucun message. Envoyez un petit coucou !
+            {t("chat.noMessages")}
           </div>
         ) : (
           messages.map((msg) => {
@@ -227,7 +229,7 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
         <button
           onClick={() => fileInputRef.current?.click()}
           className="p-2 text-muted-foreground hover:bg-accent hover:text-foreground rounded-full transition-colors bg-transparent border-none cursor-pointer"
-          title="Joindre un fichier"
+          title={t("chat.attachFile")}
         >
           <Paperclip className="w-5 h-5" />
         </button>
@@ -238,7 +240,7 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSendText()}
-            placeholder={isRecording ? "Enregistrement en cours..." : "Écrivez un message..."}
+            placeholder={isRecording ? t("chat.recording") : t("chat.placeholder")}
             disabled={isRecording || sending}
             className="w-full bg-accent/40 border border-border rounded-full px-4 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-50 transition-colors"
           />
@@ -264,7 +266,7 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
                 ? "bg-red-500 text-white animate-pulse" 
                 : "bg-teal-pale text-primary hover:bg-teal-hero disabled:opacity-50"
             }`}
-            title="Maintenir pour enregistrer"
+            title={t("chat.holdToRecord")}
           >
             {isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-5 h-5" />}
           </button>

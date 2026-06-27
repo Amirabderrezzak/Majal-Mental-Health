@@ -43,10 +43,10 @@ const Reservation = () => {
         .then(({ data, error }) => {
           if (error) {
             console.error("Error fetching psychologist profile:", error);
-            toast.error("Impossible de charger le profil du psychologue.");
+            toast.error(t("res.error.loadProfile"));
           } else if (data) {
             if (data.approval_status !== "approved") {
-              toast.error("Ce psychologue n'est pas encore disponible.");
+              toast.error(t("res.error.notAvailable"));
               navigate("/psychologues");
               return;
             }
@@ -59,7 +59,7 @@ const Reservation = () => {
           setLoading(false);
         });
     } else {
-      toast.error("ID de psychologue invalide.");
+      toast.error(t("res.error.invalidId"));
       navigate("/psychologues");
     }
   }, [id, isUUID, navigate]);
@@ -137,7 +137,7 @@ const Reservation = () => {
     if (!selectedDay || !selectedTime || booking) return;
 
     if (!user) {
-      toast.error("Vous devez être connecté pour réserver.");
+      toast.error(t("res.error.loginRequired"));
       navigate("/connexion");
       return;
     }
@@ -159,7 +159,7 @@ const Reservation = () => {
 
     if (existing) {
       setBooking(false);
-      toast.error("Ce créneau est déjà réservé. Veuillez en choisir un autre.");
+      toast.error(t("res.error.slotTaken"));
       return;
     }
 
@@ -175,7 +175,7 @@ const Reservation = () => {
     if (error || !insertedBooking) {
       setBooking(false);
       console.error("Booking error:", error);
-      toast.error("Une erreur est survenue. Veuillez réessayer.");
+      toast.error(t("res.error.general"));
       return;
     }
 
@@ -205,7 +205,7 @@ const Reservation = () => {
     } catch (err) {
       setBooking(false);
       console.error("Payment redirect error:", err);
-      toast.error("Erreur de redirection vers le paiement.");
+      toast.error(t("res.error.paymentRedirect"));
     }
   };
 

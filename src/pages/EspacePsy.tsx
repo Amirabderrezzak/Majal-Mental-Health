@@ -953,7 +953,7 @@ export default function EspacePsy() {
               onClick={() => setSelectedPatientId(null)}
               className="px-4 py-3 border border-solid border-border/50 hover:bg-accent/40 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer transition-all"
             >
-              Fermer
+              {t("psy.common.close")}
             </button>
             <button
               onClick={saveClinicalNotes}
@@ -1200,7 +1200,7 @@ export default function EspacePsy() {
               onClick={() => setSelectedReceiptBooking(null)}
               className="px-4 py-3 border border-solid border-border/50 hover:bg-accent/40 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer transition-all"
             >
-              Fermer
+              {t("psy.common.close")}
             </button>
             <button
               onClick={() => {
