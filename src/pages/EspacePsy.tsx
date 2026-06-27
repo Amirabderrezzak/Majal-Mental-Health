@@ -655,9 +655,9 @@ export default function EspacePsy() {
       });
     setSaving(false);
     if (error) {
-      toast.error(t("space.errorSave"));
+      toast.error("Erreur lors de la sauvegarde.");
     } else {
-      toast.success(t("space.successSave"));
+      toast.success("✅ Profil mis à jour !");
     }
   };
 
@@ -679,16 +679,16 @@ export default function EspacePsy() {
       setUpdating(null);
 
       if (!response.ok || data.error) {
-        toast.error(t("space.errorUpdate") || data.error || "Erreur de mise à jour");
+        toast.error(data.error || "Erreur lors de la mise à jour.");
       } else {
-        toast.success(t("space.successUpdate"));
+        toast.success("✅ Statut mis à jour !");
         setBookings((prev) =>
           prev.map((b) => (b.id === id ? { ...b, status: newStatus } : b))
         );
       }
     } catch (err) {
       setUpdating(null);
-      toast.error(t("space.errorUpdate") || "Erreur de connexion");
+      toast.error("Erreur de connexion.");
     }
   };
 
