@@ -32,12 +32,9 @@ export default function AdminLogin() {
         .eq("user_id", data.user.id)
         .single();
 
-      console.log("Profile:", profile, "Error:", profileError);
-      toast.info(`Debug: is_admin=${profile?.is_admin} | error=${profileError?.message || "none"}`);
-
       if (profileError || !profile?.is_admin) {
         await supabase.auth.signOut();
-        toast.error(`Accès refusé — is_admin: ${profile?.is_admin}`);
+        toast.error("Accès refusé — compte non autorisé");
         setLoading(false);
         return;
       }

@@ -14,10 +14,15 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Middleware
+const FRONTEND_URL = process.env.FRONTEND_URL;
+if (!FRONTEND_URL) {
+  console.error('CRITICAL: FRONTEND_URL env variable is not set. CORS will reject all requests.');
+}
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "*",
+  origin: FRONTEND_URL || 'https://localhost:8080',
   methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
 }));
 app.use(express.json());
 
@@ -31,32 +36,11 @@ app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'Majal Backend is running!' });
 });
 
-// Diagnostic endpoint — tests env variables and Supabase connection
-app.get('/api/debug', async (req: Request, res: Response) => {
-  const checks: Record<string, any> = {
-    env: {
-      SUPABASE_URL:              !!process.env.SUPABASE_URL,
-      SUPABASE_ANON_KEY:         !!process.env.SUPABASE_ANON_KEY,
-      SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-      FRONTEND_URL:              process.env.FRONTEND_URL || '(not set)',
-      PORT:                      process.env.PORT || '(not set)',
-    },
-    supabase: 'not tested',
-  };
-
-  try {
-    const { data, error } = await supabase.from('profiles').select('user_id').limit(1);
-    checks.supabase = error ? `ERROR: ${error.message}` : 'OK — connected successfully';
-  } catch (e: any) {
-    checks.supabase = `EXCEPTION: ${e.message}`;
-  }
-
-  res.json(checks);
+// Global error handler
+app.use((err: Error, req: Request, res: Response, next: Function) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error' });
 });
-
-// NOTE: All admin data access is handled via Supabase RLS directly from the frontend.
-// No unprotected profile dump routes should exist here.
-
 
 // Start the server
 app.listen(port, () => {

@@ -4,6 +4,16 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.EMAIL_FROM || 'Majal <noreply@majal.dz>';
 const SITE = process.env.FRONTEND_URL || 'https://majalpsy.com';
 
+// ── HTML escaping to prevent injection in email templates ────────────────────
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ── HTML wrapper ────────────────────────────────────────────────────────────
 function wrap(content: string): string {
   return `<!DOCTYPE html>
@@ -54,10 +64,10 @@ export async function sendBookingConfirmation(opts: {
     subject: '✅ Votre réservation est confirmée — Majal',
     html: wrap(`
       <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Réservation confirmée !</h2>
-      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${opts.patientName}</strong>, votre séance a été réservée avec succès.</p>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${escapeHtml(opts.patientName)}</strong>, votre séance a été réservée avec succès.</p>
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0;margin-bottom:24px;">
         <tr><td style="padding:20px 24px;">
-          <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>👨‍⚕️ Thérapeute :</strong> ${opts.therapistName}</p>
+          <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>👨‍⚕️ Thérapeute :</strong> ${escapeHtml(opts.therapistName)}</p>
           <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>📅 Date & Heure :</strong> ${opts.date}</p>
           <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>⏱ Durée :</strong> ${opts.duration} minutes</p>
           <p style="margin:0;font-size:14px;color:#374151;"><strong>💳 Montant payé :</strong> ${opts.price.toLocaleString('fr-DZ')} DA</p>
@@ -83,10 +93,10 @@ export async function sendTherapistNewBooking(opts: {
     subject: '📅 Nouvelle réservation — Majal',
     html: wrap(`
       <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Nouvelle séance réservée</h2>
-      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour Dr. <strong>${opts.therapistName}</strong>, un patient vient de réserver une séance avec vous.</p>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour Dr. <strong>${escapeHtml(opts.therapistName)}</strong>, un patient vient de réserver une séance avec vous.</p>
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border-radius:10px;border:1px solid #bfdbfe;margin-bottom:24px;">
         <tr><td style="padding:20px 24px;">
-          <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>👤 Patient :</strong> ${opts.patientName}</p>
+          <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>👤 Patient :</strong> ${escapeHtml(opts.patientName)}</p>
           <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>📅 Date & Heure :</strong> ${opts.date}</p>
           <p style="margin:0;font-size:14px;color:#374151;"><strong>⏱ Durée :</strong> ${opts.duration} minutes</p>
         </td></tr>
@@ -107,7 +117,7 @@ export async function sendTherapistApproved(opts: {
     subject: '🎉 Votre compte est approuvé — Majal',
     html: wrap(`
       <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Félicitations, votre compte est actif !</h2>
-      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour Dr. <strong>${opts.therapistName}</strong>, votre profil a été examiné et approuvé par notre équipe.</p>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour Dr. <strong>${escapeHtml(opts.therapistName)}</strong>, votre profil a été examiné et approuvé par notre équipe.</p>
       <p style="color:#374151;font-size:15px;">Votre profil est maintenant <strong>visible</strong> sur la plateforme Majal et les patients peuvent vous contacter pour des réservations.</p>
       ${btn('Accéder à mon espace', `${SITE}/espace-psy`)}
     `),
@@ -125,7 +135,7 @@ export async function sendTherapistRejected(opts: {
     subject: 'Mise à jour de votre demande — Majal',
     html: wrap(`
       <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Votre demande n'a pas été approuvée</h2>
-      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${opts.therapistName}</strong>, après examen de votre dossier, votre demande n'a pas pu être approuvée à ce moment.</p>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${escapeHtml(opts.therapistName)}</strong>, après examen de votre dossier, votre demande n'a pas pu être approuvée à ce moment.</p>
       <p style="color:#374151;font-size:15px;">Si vous pensez qu'il s'agit d'une erreur ou souhaitez fournir des informations complémentaires, veuillez contacter notre équipe.</p>
       ${btn('Contacter le support', `${SITE}/contact`)}
     `),
@@ -152,8 +162,8 @@ export async function sendBookingStatusUpdate(opts: {
     : `Mise à jour d'une séance`;
 
   const bodyText = opts.userType === 'patient'
-    ? `Votre séance avec le <strong>Dr. ${opts.partnerName}</strong> du <strong>${opts.date}</strong> a été <strong>${statusFr}</strong>.`
-    : `La séance avec le patient <strong>${opts.partnerName}</strong> du <strong>${opts.date}</strong> a été <strong>${statusFr}</strong>.`;
+    ? `Votre séance avec le <strong>Dr. ${escapeHtml(opts.partnerName)}</strong> du <strong>${escapeHtml(opts.date)}</strong> a été <strong>${statusFr}</strong>.`
+    : `La séance avec le patient <strong>${escapeHtml(opts.partnerName)}</strong> du <strong>${escapeHtml(opts.date)}</strong> a été <strong>${statusFr}</strong>.`;
 
   const redirectLink = opts.userType === 'patient'
     ? `${SITE}/mon-espace?page=sessions`
@@ -165,7 +175,7 @@ export async function sendBookingStatusUpdate(opts: {
     subject: subject,
     html: wrap(`
       <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">${heading}</h2>
-      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${opts.recipientName}</strong>,</p>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${escapeHtml(opts.recipientName)}</strong>,</p>
       <p style="color:#374151;font-size:15px;line-height:1.6;">${bodyText}</p>
       ${btn('Accéder à mon espace', redirectLink)}
     `),

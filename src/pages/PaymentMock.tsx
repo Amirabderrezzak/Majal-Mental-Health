@@ -12,27 +12,19 @@ export default function PaymentMock() {
 
   const simulatePayment = async () => {
     setPaying(true);
-    // Simulate Gateway processing
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     try {
-      // Send webhook to our backend from the "gateway"
       const res = await fetch("/api/payments/webhook", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-webhook-secret": "shhh_dont_tell_anyone",
-        },
-        body: JSON.stringify({
-          booking_id,
-          status: "success",
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ booking_id, status: "success" }),
       });
 
       if (!res.ok) throw new Error("Webhook failed");
 
       toast.success("Paiement réussi ! Réservation confirmée.");
-      navigate("/mon-espace"); // Replace with a success URL route
+      navigate("/mon-espace");
     } catch (err) {
       toast.error("Échec de la simulation de paiement");
     } finally {

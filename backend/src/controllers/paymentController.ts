@@ -4,6 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 // Setup Supabase with Service Role to bypass RLS when acting as a webhook receiver
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('CRITICAL: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set in payment controller');
+}
+
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 /**
@@ -16,6 +21,11 @@ export const createPaymentSession = async (req: Request, res: Response): Promise
 
     if (!booking_id || !price) {
       res.status(400).json({ error: 'booking_id and price are required' });
+      return;
+    }
+
+    if (typeof price !== 'number' || price <= 0) {
+      res.status(400).json({ error: 'price must be a positive number' });
       return;
     }
 
@@ -32,14 +42,13 @@ export const createPaymentSession = async (req: Request, res: Response): Promise
     }
 
     // TODO: Integrate Sofizpay or Stripe API here.
-    // For now, we mock generating a checkout URL.
     const BASE = process.env.FRONTEND_URL || "http://localhost:8080";
-    const MOCK_CHECKOUT_URL = `${BASE}/payment/mock?booking_id=${booking_id}&amount=${price}`;
+    const MOCK_CHECKOUT_URL = `${BASE}/payment/mock?booking_id=${encodeURIComponent(booking_id)}&amount=${encodeURIComponent(price)}`;
 
     res.json({ url: MOCK_CHECKOUT_URL });
 
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -49,9 +58,21 @@ export const createPaymentSession = async (req: Request, res: Response): Promise
  */
 export const paymentWebhook = async (req: Request, res: Response): Promise<void> => {
   try {
-    // In production, verify the webhook signature here to ensure it's from the payment provider!
-    
-    // Webhook shape usually contains an order/transaction ID matching our booking_id
+    // Verify webhook secret
+    const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
+    if (!WEBHOOK_SECRET) {
+      console.error('WEBHOOK_SECRET env variable is not configured');
+      res.status(500).json({ error: 'Server configuration error' });
+      return;
+    }
+
+    const providedSecret = req.headers['x-webhook-secret'];
+    if (providedSecret !== WEBHOOK_SECRET) {
+      console.warn('Webhook rejected: invalid or missing secret');
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
     const { booking_id, status } = req.body;
 
     if (!booking_id || status !== 'paid') {
@@ -66,14 +87,15 @@ export const paymentWebhook = async (req: Request, res: Response): Promise<void>
       .select();
 
     if (error || !data || data.length === 0) {
-      res.status(500).json({ error: 'Failed to update booking status in database' });
+      res.status(500).json({ error: 'Failed to update booking status' });
       return;
     }
 
-    // TODO: Trigger NodeMailer confirmation email here pointing to 'data' (the updated booking)
+    // TODO: Trigger confirmation email here
 
     res.status(200).json({ message: 'Booking confirmed successfully' });
   } catch (err: any) {
-    res.status(500).json({ error: 'Webhook processing failed', details: err.message });
+    console.error('Webhook error:', err);
+    res.status(500).json({ error: 'Webhook processing failed' });
   }
 };
