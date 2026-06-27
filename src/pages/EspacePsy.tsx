@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Calendar, Users, MessageSquare, DollarSign,
   User, Settings, Menu, X, LogOut, Bell, Check, Clock, TrendingUp,
   ChevronRight, MoreHorizontal, Loader2, Lock, AlertTriangle, Printer,
-  Video, Plus, Trash2, Play, Square, PenTool, Volume2
+  Video, Plus, Trash2, Play, Square, PenTool, Volume2, Phone
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
