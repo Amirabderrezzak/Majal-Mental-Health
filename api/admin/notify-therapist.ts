@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { sendTherapistApproved, sendTherapistRejected } from '../_lib/email';
+import { sendTherapistApproved, sendTherapistRejected } from '../_lib/email.js';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
