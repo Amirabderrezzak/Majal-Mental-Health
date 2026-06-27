@@ -342,6 +342,8 @@ export default function EspacePsy() {
     if (accept) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        console.log("[Video] Accepting request:", requestId, "psychologist:", user?.id);
+        console.log("[Video] Session token present:", !!session?.access_token);
         const res = await fetch("/api/calls/create-instant-room", {
           method: "POST",
           headers: {
@@ -354,6 +356,7 @@ export default function EspacePsy() {
           }),
         });
         const data = await res.json();
+        console.log("[Video] API response:", res.status, data);
         if (res.ok && data.url) {
           setImmediateRequests((prev) => prev.filter((r) => r.id !== requestId));
           toast.success("Session ouverte !");
@@ -362,26 +365,30 @@ export default function EspacePsy() {
           toast.error(data.error || "Erreur lors de la création du salon.");
         }
       } catch (err: any) {
+        console.error("[Video] Accept error:", err);
         toast.error(err.message || "Impossible de créer la session.");
       }
     } else {
       try {
-        const { error } = await supabase
+        console.log("[Video] Declining request:", requestId);
+        const { data, error } = await supabase
           .from("immediate_session_requests")
           .update({
             status: "declined",
             responded_at: new Date().toISOString(),
           })
-          .eq("id", requestId);
-
+          .eq("id", requestId)
+          .select();
+        console.log("[Video] Decline result:", { data, error });
         if (error) {
-          toast.error("Erreur lors du refus de la demande.");
+          toast.error("Erreur lors du refus: " + error.message);
         } else {
           setImmediateRequests((prev) => prev.filter((r) => r.id !== requestId));
           toast.success("Demande refusée.");
         }
       } catch (err: any) {
-        toast.error("Erreur de connexion.");
+        console.error("[Video] Decline error:", err);
+        toast.error("Erreur de connexion: " + (err.message || err));
       }
     }
     setRespondingToRequest(null);
