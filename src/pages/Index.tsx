@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Shield, Star, Calendar, Heart } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { supabase } from "@/integrations/supabase/client";
 import heroImg from "@/assets/hero-therapy.jpg";
 
 const useFadeUp = () => {
@@ -22,6 +23,24 @@ const useFadeUp = () => {
 const Index = () => {
   const containerRef = useFadeUp();
   const { t } = useLanguage();
+
+  const [stats, setStats] = useState({ psychologists: 0, sessions: 0 });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      const [psyRes, sessRes] = await Promise.all([
+        supabase.from("profiles").select("user_id", { count: "exact", head: true })
+          .eq("user_type", "psychologue").eq("approval_status", "approved"),
+        supabase.from("bookings").select("id", { count: "exact", head: true })
+          .eq("status", "done"),
+      ]);
+      setStats({
+        psychologists: psyRes.count ?? 0,
+        sessions: sessRes.count ?? 0,
+      });
+    };
+    fetchStats();
+  }, []);
 
   return (
     <div ref={containerRef}>
@@ -60,10 +79,10 @@ const Index = () => {
       {/* Stats */}
       <section className="py-16 px-[5%] grid grid-cols-2 lg:grid-cols-4 gap-5 bg-card">
         {[
-          { num: "500+", label: t("stats.psychologists") },
-          { num: "10k+", label: t("stats.sessions") },
-          { num: "95%", label: t("stats.satisfaction") },
+          { num: stats.psychologists > 0 ? `${stats.psychologists}+` : "—", label: t("stats.psychologists") },
+          { num: stats.sessions > 0 ? `${stats.sessions.toLocaleString()}+` : "—", label: t("stats.sessions") },
           { num: "24/7", label: t("stats.support") },
+          { num: "100%", label: t("stats.satisfaction") },
         ].map((s, i) => (
           <div key={i} className="text-center fade-up" style={{ transitionDelay: `${i * 0.1}s` }}>
             <div className="font-serif text-primary text-[clamp(40px,4vw,56px)] leading-none">{s.num}</div>

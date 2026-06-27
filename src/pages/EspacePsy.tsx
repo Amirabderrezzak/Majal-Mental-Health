@@ -57,6 +57,10 @@ export default function EspacePsy() {
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
   const [startingCall, setStartingCall] = useState<string | null>(null);
+  const [isAvailableNow, setIsAvailableNow] = useState(false);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [savingVideo, setSavingVideo] = useState(false);
 
   const handleStartCall = async (bookingId: string) => {
     const booking = bookings.find(b => b.id === bookingId);
@@ -138,6 +142,70 @@ export default function EspacePsy() {
       }
     }
   }, [user]);
+
+  // Load profile data (availability + video)
+  useEffect(() => {
+    if (!user) return;
+    const loadProfile = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("is_available_now, video_url")
+        .eq("user_id", user.id)
+        .single();
+      if (data) {
+        setIsAvailableNow(data.is_available_now ?? false);
+        if (data.video_url) {
+          setVideoUrl(data.video_url);
+          setVideoPreviewUrl(data.video_url);
+        }
+      }
+    };
+    loadProfile();
+  }, [user]);
+
+  // Persist availability toggle
+  useEffect(() => {
+    if (!user) return;
+    const timeout = setTimeout(async () => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_available_now: isAvailableNow })
+        .eq("user_id", user.id);
+      if (error) console.error("Failed to update availability:", error);
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [isAvailableNow, user]);
+
+  const handleSaveVideo = async () => {
+    if (!user || !videoUrl) return;
+    setSavingVideo(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ video_url: videoUrl })
+      .eq("user_id", user.id);
+    setSavingVideo(false);
+    if (error) {
+      toast.error("Erreur lors de la sauvegarde.");
+    } else {
+      setVideoPreviewUrl(videoUrl);
+      toast.success("✅ Vidéo enregistrée !");
+    }
+  };
+
+  const handleRemoveVideo = async () => {
+    if (!user) return;
+    const { error } = await supabase
+      .from("profiles")
+      .update({ video_url: null })
+      .eq("user_id", user.id);
+    if (error) {
+      toast.error("Erreur lors de la suppression.");
+    } else {
+      setVideoUrl("");
+      setVideoPreviewUrl(null);
+      toast.success("✅ Vidéo supprimée.");
+    }
+  };
 
   const updateClinicSetting = (key: string, value: any) => {
     const updated = { ...clinicSettings, [key]: value };
@@ -1517,6 +1585,80 @@ export default function EspacePsy() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Online Availability Toggle */}
+      <div className="dashboard-card p-6 md:p-8 space-y-4">
+        <h3 className="font-serif text-lg font-semibold text-foreground pb-4 border-b border-border/40">
+          {t("psy.settings.availability.title")}
+        </h3>
+        <p className="text-sm text-muted-foreground">{t("psy.settings.availability.desc")}</p>
+        <div className="flex items-center justify-between py-2.5">
+          <div className="pe-4">
+            <h4 className="text-sm font-semibold text-foreground">{t("psy.availableNow")}</h4>
+            <p className="text-xs text-muted-foreground mt-1 leading-normal font-sans">
+              {t("psy.settings.availability.desc")}
+            </p>
+          </div>
+          <label className="relative w-12 h-[26px] shrink-0">
+            <input
+              type="checkbox"
+              checked={isAvailableNow}
+              onChange={(e) => setIsAvailableNow(e.target.checked)}
+              className="opacity-0 w-0 h-0"
+            />
+            <span className="toggle-slider" />
+          </label>
+        </div>
+      </div>
+
+      {/* Video Presentation Upload */}
+      <div className="dashboard-card p-6 md:p-8 space-y-4">
+        <h3 className="font-serif text-lg font-semibold text-foreground pb-4 border-b border-border/40">
+          {t("psy.settings.video.title")}
+        </h3>
+        <p className="text-sm text-muted-foreground">{t("psy.settings.video.desc")}</p>
+        {videoPreviewUrl ? (
+          <div className="space-y-3">
+            <div className="aspect-video rounded-xl overflow-hidden border border-border">
+              <iframe
+                src={videoPreviewUrl}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleRemoveVideo}
+                className="px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors cursor-pointer"
+              >
+                {t("psy.settings.video.remove")}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/30 transition-colors">
+            <Video className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground mb-3">
+              {lang === "ar" ? "الصق رابط فيديو YouTube أو Vimeo" : "Collez un lien YouTube ou Vimeo"}
+            </p>
+            <input
+              type="url"
+              placeholder="https://youtube.com/watch?v=..."
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              className="w-full max-w-md px-4 py-3 border border-border/70 rounded-xl text-sm bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card transition-all font-sans mb-3"
+            />
+            <button
+              onClick={handleSaveVideo}
+              disabled={!videoUrl || savingVideo}
+              className="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-teal-mid transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              {savingVideo ? "..." : t("psy.settings.video.upload")}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="dashboard-card p-6 md:p-8">

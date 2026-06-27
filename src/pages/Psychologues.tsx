@@ -79,6 +79,12 @@ const Psychologues = () => {
           <div className="py-2 px-3.5 rounded-[10px] border border-border bg-teal-hero text-[13px] text-muted-foreground text-center mb-3.5">
             {d.dispo}
           </div>
+          {d.is_available_now && (
+            <div className="flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-[10px] bg-emerald-50 border border-emerald-200 text-[13px] font-semibold text-emerald-700 mb-3.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              {t("psy.availableNow")}
+            </div>
+          )}
           <Link
             to={bookingLink(d)}
             onClick={(e) => e.stopPropagation()}

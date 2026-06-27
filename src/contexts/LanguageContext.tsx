@@ -29,7 +29,7 @@ const translations: Record<string, Record<Lang, string>> = {
   // Stats
   "stats.psychologists": { fr: "Psychologues certifiés", ar: "أخصائيون نفسيون معتمدون" },
   "stats.sessions": { fr: "Séances réalisées", ar: "جلسات منجزة" },
-  "stats.satisfaction": { fr: "Satisfaction clients", ar: "رضا العملاء" },
+  "stats.satisfaction": { fr: "Engagement qualité", ar: "التزام بالجودة" },
   "stats.support": { fr: "Support disponible", ar: "دعم متاح" },
 
   // How it works
@@ -92,6 +92,14 @@ const translations: Record<string, Record<Lang, string>> = {
   "psy.psychologue": { fr: "psychologue", ar: "أخصائي نفسي" },
   "psy.psychologues": { fr: "psychologues", ar: "أخصائيون نفسيون" },
   "psy.book": { fr: "Réserver", ar: "احجز" },
+  "psy.availableNow": { fr: "Disponible maintenant", ar: "متاح الآن" },
+  "psy.videoPresentation": { fr: "Vidéo de présentation", ar: "فيديو تعريفي" },
+  "psy.settings.video.title": { fr: "Vidéo de présentation", ar: "فيديو تعريفي" },
+  "psy.settings.video.desc": { fr: "Ajoutez une courte vidéo pour présenter votre approche aux patients.", ar: "أضف فيديو قصير لتقديم نهجك للمرضى." },
+  "psy.settings.video.upload": { fr: "Télécharger une vidéo", ar: "رفع فيديو" },
+  "psy.settings.video.remove": { fr: "Supprimer la vidéo", ar: "حذف الفيديو" },
+  "psy.settings.availability.title": { fr: "Disponibilité en ligne", ar: "التوفر عبر الإنترنت" },
+  "psy.settings.availability.desc": { fr: "Indiquez si vous êtes disponible pour un appel vidéo immédiat.", ar: "حدد ما إذا كنت متاحًا للمكالمة الفورية." },
   "psy.experience": { fr: "ans d'expérience", ar: "سنوات خبرة" },
   "psy.session": { fr: "/ séance", ar: "/ جلسة" },
   "psy.lessThan": { fr: "Moins de", ar: "أقل من" },

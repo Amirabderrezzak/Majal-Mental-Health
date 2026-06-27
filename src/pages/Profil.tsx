@@ -84,7 +84,7 @@ const Profil = () => {
     Promise.all([
       supabase
         .from("profiles")
-        .select("user_id, full_name, specialty, city, bio, price_per_session, years_experience, language, avatar_url, order_number")
+        .select("user_id, full_name, specialty, city, bio, price_per_session, years_experience, language, avatar_url, video_url, is_available_now")
         .eq("user_id", id)
         .single(),
 
@@ -253,7 +253,14 @@ const Profil = () => {
                 <Check className="w-[18px] h-[18px] text-primary shrink-0 mt-0.5" />
                 <div>
                   <div className="text-xs text-muted-foreground">{t("prof.availability")}</div>
-                  <div className="text-sm font-medium text-primary">Disponible cette semaine</div>
+                  {psyProfile?.is_available_now ? (
+                    <div className="text-sm font-medium text-emerald-600 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      {t("psy.availableNow")}
+                    </div>
+                  ) : (
+                    <div className="text-sm font-medium">Disponible cette semaine</div>
+                  )}
                 </div>
               </div>
               {psyProfile?.order_number && (
@@ -299,6 +306,20 @@ const Profil = () => {
                     {bio ?? "Psychologue clinicien spécialisé dans l'accompagnement des adultes et des adolescents. Mon approche thérapeutique est basée sur l'écoute active, l'empathie et des méthodes éprouvées comme la thérapie cognitivo-comportementale (TCC) et la thérapie d'acceptation et d'engagement (ACT)."}
                   </p>
                 </div>
+
+                {psyProfile?.video_url && (
+                  <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
+                    <h2 className="font-serif text-xl text-primary mb-4">{t("psy.videoPresentation")}</h2>
+                    <div className="aspect-video rounded-xl overflow-hidden border border-border">
+                      <iframe
+                        src={psyProfile.video_url}
+                        className="w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
                   <h2 className="font-serif text-xl text-primary mb-4">{t("prof.approach")}</h2>
