@@ -134,7 +134,7 @@ const Reservation = () => {
     : "—";
 
   const confirmBooking = async () => {
-    if (!selectedDay || !selectedTime) return;
+    if (!selectedDay || !selectedTime || booking) return;
 
     if (!user) {
       toast.error("Vous devez être connecté pour réserver.");
@@ -142,12 +142,26 @@ const Reservation = () => {
       return;
     }
 
-    // Build the ISO datetime string for the booking
     const [hours, minutes] = selectedTime.split(":").map(Number);
     const bookedAt = new Date(viewYear, viewMonth, selectedDay, hours, minutes);
 
     setBooking(true);
     const psychologistId = id!;
+
+    // Check for existing booking at the same time
+    const { data: existing } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("psychologist_id", psychologistId)
+      .eq("booked_at", bookedAt.toISOString())
+      .neq("status", "cancelled")
+      .maybeSingle();
+
+    if (existing) {
+      setBooking(false);
+      toast.error("Ce créneau est déjà réservé. Veuillez en choisir un autre.");
+      return;
+    }
 
     const { data: insertedBooking, error } = await supabase.from("bookings").insert({
       patient_id: user.id,
@@ -167,10 +181,14 @@ const Reservation = () => {
 
     // Call Vercel serverless function to generate payment URL
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const response = await fetch(`/api/payments/checkout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           booking_id: insertedBooking.id,

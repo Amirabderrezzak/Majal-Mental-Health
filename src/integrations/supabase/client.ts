@@ -6,12 +6,11 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  console.error(
-    '⚠️  Supabase env vars missing!\n' +
+  throw new Error(
+    'Supabase env vars missing!\n' +
     'Create a .env.local file with:\n' +
     '  VITE_SUPABASE_URL=https://<project>.supabase.co\n' +
-    '  VITE_SUPABASE_PUBLISHABLE_KEY=<anon-key>\n' +
-    'Get these from: https://supabase.com/dashboard/project/kbqxjuefqujlkvgkmayd/settings/api'
+    '  VITE_SUPABASE_PUBLISHABLE_KEY=<anon-key>'
   );
 }
 
@@ -19,8 +18,8 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(
-  SUPABASE_URL ?? 'https://placeholder.supabase.co',
-  SUPABASE_PUBLISHABLE_KEY ?? 'placeholder-key',
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY,
   {
     auth: {
       storage: localStorage,

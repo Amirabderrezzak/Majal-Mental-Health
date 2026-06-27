@@ -74,7 +74,7 @@ export const uploadAttachment = async (file: File) => {
   // (Assuming 'chat_attachments' is not public, we use createSignedUrl, but for simplicity in chat we can do that or download logic)
   const { data: urlData } = await supabase.storage
     .from('chat_attachments')
-    .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year expiry for simplicity
+    .createSignedUrl(filePath, 60 * 15); // 15 minutes
     
   return {
     filePath,
@@ -93,13 +93,24 @@ export const subscribeToMessages = (userId: string, callback: (payload: any) => 
         event: 'INSERT',
         schema: 'public',
         table: 'messages',
+        filter: `sender_id=eq.${userId}`, // server-side filter: only receive own outgoing messages
       },
       (payload) => {
-        // Only fire callback if it concerns the current user
         const msg = payload.new as Message;
-        if (msg.sender_id === userId || msg.receiver_id === userId) {
-          callback(msg);
-        }
+        callback(msg);
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `receiver_id=eq.${userId}`, // server-side filter: only receive incoming messages
+      },
+      (payload) => {
+        const msg = payload.new as Message;
+        callback(msg);
       }
     )
     .subscribe();

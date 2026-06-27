@@ -57,7 +57,7 @@ const Inscription = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: window.location.origin + "/mon-espace",
+          redirectTo: window.location.origin + "/connexion",
           queryParams: {
             user_type: userType // Pass the selected radio value so a backend trigger can insert it!
           }
