@@ -149,15 +149,42 @@ export default function EspacePsy() {
   };
 
   useEffect(() => {
-    if (!user || !selectedPatientId) return;
-    const storedNotes = localStorage.getItem(`majal_notes_${user.id}_${selectedPatientId}`);
-    setClinicalNotes(storedNotes || "");
+    if (!user || !selectedPatientId) {
+      setClinicalNotes("");
+      return;
+    }
+    // Load notes from Supabase
+    const loadNotes = async () => {
+      const { data } = await supabase
+        .from("clinical_notes")
+        .select("notes")
+        .eq("psychologist_id", user.id)
+        .eq("patient_id", selectedPatientId)
+        .maybeSingle();
+      setClinicalNotes(data?.notes || "");
+    };
+    loadNotes();
   }, [user, selectedPatientId]);
 
-  const saveClinicalNotes = () => {
+  const saveClinicalNotes = async () => {
     if (!user || !selectedPatientId) return;
-    localStorage.setItem(`majal_notes_${user.id}_${selectedPatientId}`, clinicalNotes);
-    toast.success(t("psy.patients.notes.success"));
+    const { error } = await supabase
+      .from("clinical_notes")
+      .upsert(
+        {
+          psychologist_id: user.id,
+          patient_id: selectedPatientId,
+          notes: clinicalNotes,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "psychologist_id,patient_id" }
+      );
+    if (error) {
+      console.error("Error saving clinical notes:", error);
+      toast.error("Erreur lors de la sauvegarde des notes.");
+    } else {
+      toast.success(t("psy.patients.notes.success"));
+    }
   };
 
   const [approvalStatus, setApprovalStatus] = useState<string>("approved");
@@ -916,7 +943,7 @@ export default function EspacePsy() {
                 className="w-full flex-1 px-4 py-3.5 border border-border/70 rounded-2xl text-sm text-foreground bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card font-sans transition-all resize-none leading-relaxed"
               />
               <span className="text-[10px] text-muted-foreground italic font-sans block">
-                🔒 Ces notes cliniques sont stockées localement et chiffrées de manière confidentielle.
+                🔒 Ces notes cliniques sont stockées de manière sécurisée et confidentielle.
               </span>
             </div>
           </div>
