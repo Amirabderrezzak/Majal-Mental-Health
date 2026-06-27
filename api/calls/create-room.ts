@@ -41,7 +41,7 @@ export default async function handler(req: any, res: any) {
   try {
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .select('id, psychologist_id, status, video_room_url')
+      .select('id, psychologist_id, status, video_room_url, booked_at, duration_minutes')
       .eq('id', booking_id)
       .single();
 
@@ -63,6 +63,20 @@ export default async function handler(req: any, res: any) {
 
     if (booking.video_room_url) {
       return res.json({ success: true, url: booking.video_room_url });
+    }
+
+    // Time-based gate: only allow room creation within allowed window
+    const now = new Date();
+    const sessionStart = new Date(booking.booked_at);
+    const durationMs = (booking.duration_minutes || 60) * 60 * 1000;
+    const sessionEnd = new Date(sessionStart.getTime() + durationMs);
+    const earlyBuffer = 15 * 60 * 1000; // 15 minutes before session
+
+    if (now < new Date(sessionStart.getTime() - earlyBuffer)) {
+      return res.status(400).json({ error: 'La session n\'est pas encore ouverte. Vous pourrez démarrer l\'appel 15 minutes avant l\'heure prévue.' });
+    }
+    if (now > sessionEnd) {
+      return res.status(400).json({ error: 'Cette session est terminée.' });
     }
 
     const DAILY_API_KEY = process.env.DAILY_API_KEY;
@@ -87,7 +101,8 @@ export default async function handler(req: any, res: any) {
             enable_chat: true,
             start_video_off: false,
             start_audio_off: false,
-            exp: Math.round(Date.now() / 1000) + 3600 * 2,
+            max_participants_duration: (booking.duration_minutes || 60) * 60,
+            exp: Math.round(sessionEnd.getTime() / 1000) + 900,
           },
         }),
       });

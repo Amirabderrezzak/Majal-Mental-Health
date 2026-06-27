@@ -34,6 +34,28 @@ const navItems: NavItem[] = [
   { id: "notifications", labelKey: "space.notifications",icon: <Bell className="w-4 h-4" /> },
 ];
 
+const SESSION_OPEN_MINUTES = 15;
+
+const getSessionTimeState = (booked_at: string, duration_minutes: number) => {
+  const now = new Date();
+  const start = new Date(booked_at);
+  const end = new Date(start.getTime() + (duration_minutes || 60) * 60 * 1000);
+  const earlyBuffer = SESSION_OPEN_MINUTES * 60 * 1000;
+  if (now < new Date(start.getTime() - earlyBuffer)) return "upcoming" as const;
+  if (now > end) return "ended" as const;
+  return "active" as const;
+};
+
+const formatTimeUntil = (booked_at: string) => {
+  const now = new Date();
+  const start = new Date(booked_at);
+  const diffMs = start.getTime() - now.getTime();
+  if (diffMs <= 0) return "";
+  const mins = Math.ceil(diffMs / 60000);
+  if (mins >= 60) return `${Math.floor(mins / 60)}h${mins % 60 > 0 ? ` ${mins % 60}min` : ""}`;
+  return `${mins}min`;
+};
+
 interface Booking {
   id: string;
   booked_at: string;
@@ -1997,18 +2019,29 @@ export default function MonEspace() {
                   </div>
                 </div>
                 <div className="flex gap-2.5 shrink-0 self-end sm:self-center">
-                  <button
-                    onClick={() => {
-                      if (b.video_room_url) {
-                        window.open(b.video_room_url, "_blank");
-                      } else {
-                        toast.info("Le salon vidéo n'a pas encore été lancé par votre thérapeute.");
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-xs font-semibold border-none cursor-pointer hover:bg-teal-mid transition-all shadow-sm hover:shadow"
-                  >
-                    <Video className="w-4 h-4" /> Rejoindre
-                  </button>
+                  {(() => {
+                    const timeState = getSessionTimeState(b.booked_at, b.duration_minutes);
+                    const timeLabel = timeState === "upcoming" ? `Ouvre dans ${formatTimeUntil(b.booked_at)}` : null;
+                    return (
+                      <button
+                        onClick={() => {
+                          if (timeState !== "active") {
+                            if (timeState === "upcoming") toast.info("La session n'est pas encore ouverte. Vous pourrez la rejoindre 15 minutes avant l'heure prévue.");
+                            else toast.info("Cette session est terminée.");
+                            return;
+                          }
+                          if (b.video_room_url) {
+                            window.open(b.video_room_url, "_blank");
+                          } else {
+                            toast.info("Le salon vidéo n'a pas encore été lancé par votre thérapeute.");
+                          }
+                        }}
+                        className={`flex items-center gap-2 px-4 py-2.5 ${timeState === "active" ? "bg-primary text-primary-foreground hover:bg-teal-mid" : "bg-gray-100 text-gray-400 cursor-not-allowed"} rounded-xl text-xs font-semibold border-none transition-all shadow-sm hover:shadow`}
+                      >
+                        <Video className="w-4 h-4" /> {timeState === "ended" ? "Terminée" : timeLabel || "Rejoindre"}
+                      </button>
+                    );
+                  })()}
                   <button
                     onClick={() => handleCancelBooking(b.id)}
                     disabled={cancelling === b.id}

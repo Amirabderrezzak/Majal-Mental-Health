@@ -35,6 +35,28 @@ const statusColors = {
   cancelled: "bg-red-50 text-red-600",
 };
 
+const SESSION_OPEN_MINUTES = 15;
+
+const getSessionTimeState = (booked_at: string, duration_minutes: number) => {
+  const now = new Date();
+  const start = new Date(booked_at);
+  const end = new Date(start.getTime() + (duration_minutes || 60) * 60 * 1000);
+  const earlyBuffer = SESSION_OPEN_MINUTES * 60 * 1000;
+  if (now < new Date(start.getTime() - earlyBuffer)) return "upcoming" as const;
+  if (now > end) return "ended" as const;
+  return "active" as const;
+};
+
+const formatTimeUntil = (booked_at: string) => {
+  const now = new Date();
+  const start = new Date(booked_at);
+  const diffMs = start.getTime() - now.getTime();
+  if (diffMs <= 0) return "";
+  const mins = Math.ceil(diffMs / 60000);
+  if (mins >= 60) return `${Math.floor(mins / 60)}h${mins % 60 > 0 ? ` ${mins % 60}min` : ""}`;
+  return `${mins}min`;
+};
+
 
 
 // Static tab wrappers defined outside to prevent React from unmounting/remounting child components on parent re-renders
@@ -75,7 +97,25 @@ export default function EspacePsy() {
 
   const handleStartCall = async (bookingId: string) => {
     const booking = bookings.find(b => b.id === bookingId);
-    if (booking?.video_room_url) {
+    if (!booking) return;
+
+    // Time-based gate
+    const now = new Date();
+    const sessionStart = new Date(booking.booked_at);
+    const durationMs = (booking.duration_minutes || 60) * 60 * 1000;
+    const sessionEnd = new Date(sessionStart.getTime() + durationMs);
+    const earlyBuffer = 15 * 60 * 1000;
+
+    if (now < new Date(sessionStart.getTime() - earlyBuffer)) {
+      toast.info("La session n'est pas encore ouverte. Vous pourrez démarrer l'appel 15 minutes avant l'heure prévue.");
+      return;
+    }
+    if (now > sessionEnd) {
+      toast.info("Cette session est terminée.");
+      return;
+    }
+
+    if (booking.video_room_url) {
       window.open(booking.video_room_url, "_blank");
       return;
     }
@@ -1030,14 +1070,21 @@ export default function EspacePsy() {
                         </>
                       ) : (
                         <>
-                          <button 
-                            onClick={() => handleStartCall(s.id)} 
-                            disabled={startingCall === s.id}
-                            className="bg-primary text-primary-foreground border-none rounded-xl px-3.5 py-2 text-xs font-semibold cursor-pointer hover:bg-teal-mid transition-all flex items-center gap-1.5 shadow-sm"
-                          >
-                            {startingCall === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Video className="w-3.5 h-3.5" />}
-                            {t("psy.dashboard.startVideo")}
-                          </button>
+                          {(() => {
+                            const timeState = getSessionTimeState(s.booked_at, s.duration_minutes);
+                            const timeLabel = timeState === "upcoming" ? `Ouvre dans ${formatTimeUntil(s.booked_at)}` : null;
+                            return (
+                              <button 
+                                onClick={() => handleStartCall(s.id)} 
+                                disabled={startingCall === s.id || timeState !== "active"}
+                                title={timeLabel || undefined}
+                                className={`${timeState === "active" ? "bg-primary text-primary-foreground hover:bg-teal-mid" : "bg-gray-100 text-gray-400 cursor-not-allowed"} border-none rounded-xl px-3.5 py-2 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm`}
+                              >
+                                {startingCall === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Video className="w-3.5 h-3.5" />}
+                                {timeState === "ended" ? "Terminée" : timeLabel || t("psy.dashboard.startVideo")}
+                              </button>
+                            );
+                          })()}
                           <button 
                             onClick={() => updateBookingStatus(s.id, "done")} 
                             disabled={updating === s.id} 
@@ -1194,14 +1241,21 @@ export default function EspacePsy() {
                   )}
                   {s.status === "confirmed" && (
                     <>
-                      <button 
-                        onClick={() => handleStartCall(s.id)} 
-                        disabled={startingCall === s.id}
-                        className="bg-primary text-primary-foreground border-none rounded-xl px-3.5 py-2 text-xs font-semibold cursor-pointer hover:bg-teal-mid transition-all flex items-center gap-1.5 shadow-sm"
-                      >
-                        {startingCall === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Video className="w-3.5 h-3.5" />} 
-                        {t("psy.dashboard.startVideo")}
-                      </button>
+                      {(() => {
+                        const timeState = getSessionTimeState(s.booked_at, s.duration_minutes);
+                        const timeLabel = timeState === "upcoming" ? `Ouvre dans ${formatTimeUntil(s.booked_at)}` : null;
+                        return (
+                          <button 
+                            onClick={() => handleStartCall(s.id)} 
+                            disabled={startingCall === s.id || timeState !== "active"}
+                            title={timeLabel || undefined}
+                            className={`${timeState === "active" ? "bg-primary text-primary-foreground hover:bg-teal-mid" : "bg-gray-100 text-gray-400 cursor-not-allowed"} border-none rounded-xl px-3.5 py-2 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm`}
+                          >
+                            {startingCall === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Video className="w-3.5 h-3.5" />} 
+                            {timeState === "ended" ? "Terminée" : timeLabel || t("psy.dashboard.startVideo")}
+                          </button>
+                        );
+                      })()}
                       <button onClick={() => updateBookingStatus(s.id, "done")} disabled={updating === s.id} className="bg-gray-100 text-gray-700 border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-gray-200 transition-all disabled:opacity-50 shadow-sm">{t("psy.dashboard.markDone")}</button>
                       <button onClick={() => updateBookingStatus(s.id, "cancelled")} disabled={updating === s.id} className="bg-red-50 text-red-600 border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-red-100 transition-all disabled:opacity-50 shadow-sm">{t("space.cancel")}</button>
                     </>
@@ -2525,7 +2579,7 @@ export default function EspacePsy() {
                                 ...activeAudioRoom,
                                 speakers: activeAudioRoom.speakers.filter((x: any) => x.id !== s.id),
                                 listeners: [...activeAudioRoom.listeners, { id: s.id, name: s.name }]
-                              };
+};
                               setActiveAudioRoom(updatedRoom);
                               
                               // Save to global local storage

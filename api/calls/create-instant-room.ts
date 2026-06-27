@@ -95,6 +95,7 @@ export default async function handler(req: any, res: any) {
             enable_chat: true,
             start_video_off: false,
             start_audio_off: false,
+            max_participants_duration: 3600,
             exp: Math.round(Date.now() / 1000) + 3600,
           },
         }),
