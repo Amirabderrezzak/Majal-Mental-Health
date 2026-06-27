@@ -284,17 +284,45 @@ export default function EspacePsy() {
   }, [user]);
 
   const handleRequestResponse = async (requestId: string, accept: boolean) => {
-    const { error } = await supabase
-      .from("immediate_session_requests")
-      .update({
-        status: accept ? "accepted" : "declined",
-        responded_at: new Date().toISOString(),
-      })
-      .eq("id", requestId);
+    if (accept) {
+      // Create instant Daily.co room
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch("/api/calls/create-instant-room", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            psychologist_id: user?.id,
+            request_id: requestId,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.url) {
+          setImmediateRequests((prev) => prev.filter((r) => r.id !== requestId));
+          toast.success("Session ouverte !");
+          window.open(data.url, "_blank");
+        } else {
+          throw new Error(data.error || "Erreur lors de la création du salon.");
+        }
+      } catch (err: any) {
+        toast.error(err.message || "Impossible de créer la session.");
+      }
+    } else {
+      const { error } = await supabase
+        .from("immediate_session_requests")
+        .update({
+          status: "declined",
+          responded_at: new Date().toISOString(),
+        })
+        .eq("id", requestId);
 
-    if (!error) {
-      setImmediateRequests((prev) => prev.filter((r) => r.id !== requestId));
-      toast.success(accept ? "Demande acceptée !" : "Demande refusée.");
+      if (!error) {
+        setImmediateRequests((prev) => prev.filter((r) => r.id !== requestId));
+        toast.success("Demande refusée.");
+      }
     }
   };
 

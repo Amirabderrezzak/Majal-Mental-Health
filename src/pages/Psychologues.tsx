@@ -112,8 +112,13 @@ const Psychologues = () => {
         const newStatus = payload.new.status;
         setRequestStatus(newStatus);
         if (newStatus === "accepted") {
-          toast.success("Le psychologue a accepté ! Redirection vers la session...");
-          setTimeout(() => navigate("/mes-sessions"), 2000);
+          const roomUrl = payload.new.room_url;
+          toast.success("Le psychologue a accepté ! Ouverture de la session...");
+          setTimeout(() => {
+            if (roomUrl) {
+              window.open(roomUrl, "_blank");
+            }
+          }, 1000);
         } else if (newStatus === "declined") {
           toast.error("Le psychologue n'est pas disponible pour le moment.");
         } else if (newStatus === "expired") {
