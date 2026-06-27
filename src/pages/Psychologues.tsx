@@ -5,68 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePsychologists, type PsyProfile } from "@/hooks/use-psychologists";
-
-const CATEGORIES = [
-  {
-    id: "anxiety",
-    label: { fr: "Anxiété & Stress", ar: "القلق والتوتر" },
-    icon: "😰",
-    subcategories: [
-      { id: "generalized", label: { fr: "Anxiété généralisée", ar: "القلق المزمن" }, keywords: ["anxiété", "anxiety", "généralisée", "generalized"] },
-      { id: "social", label: { fr: "Anxiété sociale", ar: "القلق الاجتماعي" }, keywords: ["social"] },
-      { id: "panic", label: { fr: "Trouble panique", ar: "النوبات الهلع" }, keywords: ["panique", "panic"] },
-      { id: "phobias", label: { fr: "Phobies", ar: "الرهاب" }, keywords: ["phobie", "phobia"] },
-      { id: "stress", label: { fr: "Stress & burnout", ar: "الإجهاد المهني" }, keywords: ["stress", "burnout"] },
-    ],
-  },
-  {
-    id: "depression",
-    label: { fr: "Dépression & Humeur", ar: "الاكتئاب والمزاج" },
-    icon: "😔",
-    subcategories: [
-      { id: "mde", label: { fr: "Dépression majeure", ar: "الاكتئاب الجسيم" }, keywords: ["dépression", "depression", "majeure"] },
-      { id: "dysthymia", label: { fr: "Dysthymie", ar: "الاكتئاب المزمن" }, keywords: ["dysthymie", "dysthymia"] },
-      { id: "bipolar", label: { fr: "Bipolarité", ar: "الاضطراب ثنائي القطب" }, keywords: ["bipolar"] },
-      { id: "burnout", label: { fr: "Épuisement professionnel", ar: "الانهيار المهني" }, keywords: ["épuisement", "épuisement professionnel"] },
-    ],
-  },
-  {
-    id: "relations",
-    label: { fr: "Relations & Couple", ar: "العلاقات والזוגية" },
-    icon: "💑",
-    subcategories: [
-      { id: "couple", label: { fr: "Thérapie de couple", ar: "العلاج الزوجي" }, keywords: ["couple", "couple", "marital"] },
-      { id: "family", label: { fr: "Conflits familiaux", ar: "الصراعات العائلية" }, keywords: ["famille", "family", "familial"] },
-      { id: "communication", label: { fr: "Communication", ar: "التواصل" }, keywords: ["communication"] },
-      { id: "attachment", label: { fr: "Attachement", ar: "التعلق" }, keywords: ["attachement", "attachment"] },
-    ],
-  },
-  {
-    id: "trauma",
-    label: { fr: "Traumatisme & PTSD", ar: "الصدمات و PTSD" },
-    icon: "🩹",
-    subcategories: [
-      { id: "ptsd", label: { fr: "PTSD", ar: "اضطراب ما بعد الصدمة" }, keywords: ["ptsd", "traumatisme", "trauma"] },
-      { id: "grief", label: { fr: "Deuil & perte", ar: "الحداد والفقدان" }, keywords: ["deuil", "grief", "perte", "loss"] },
-      { id: "abuse", label: { fr: "Violence & abus", ar: "العنف والإساءة" }, keywords: ["violence", "abus", "abuse"] },
-      { id: "childhood", label: { fr: "Traumatisme infantile", ar: "الصدمات الطفولة" }, keywords: ["enfance", "childhood", "infantile"] },
-    ],
-  },
-  {
-    id: "wellbeing",
-    label: { fr: "Bien-être & Croissance", ar: "الرفاهية والنمو" },
-    icon: "🌱",
-    subcategories: [
-      { id: "selfesteem", label: { fr: "Estime de soi", ar: "تقدير الذات" }, keywords: ["estime", "esteem", "soi", "self"] },
-      { id: "mindfulness", label: { fr: "Pleine conscience", ar: "الوعي الكامل" }, keywords: ["pleine conscience", "mindfulness", "méditation"] },
-      { id: "motivation", label: { fr: "Motivation & objectifs", ar: "التحفيز والأهداف" }, keywords: ["motivation", "objectif", "goal"] },
-      { id: "lgbtq", label: { fr: "LGBTQ+", ar: "مجتمع الميم" }, keywords: ["lgbtq", "genre", "gender", "identité"] },
-    ],
-  },
-];
-
-type CategoryId = typeof CATEGORIES[number]["id"];
-type SubcategoryId = string;
+import { CATEGORIES, type CategoryId, type SubcategoryId } from "@/lib/categories";
 
 const Psychologues = () => {
   const { t, lang } = useLanguage();
@@ -88,16 +27,15 @@ const Psychologues = () => {
       d.name.toLowerCase().includes(query.toLowerCase()) ||
       d.specialty.toLowerCase().includes(query.toLowerCase());
 
-    // Category matching: check if psychologist specialty contains any keyword from selected subcategory
+    // Category matching: check if psychologist is tagged with the selected category/subcategory
     let matchCategory = true;
     if (selectedSub) {
-      matchCategory = selectedSub.keywords.some((kw) =>
-        d.specialty.toLowerCase().includes(kw.toLowerCase())
+      matchCategory = d.specializations.some(
+        (s) => s.category_id === selectedCategory && s.subcategory_id === selectedSub.id
       );
     } else if (selectedCat) {
-      // If category selected but no subcategory: match any subcategory keyword
-      matchCategory = selectedCat.subcategories.some((sub) =>
-        sub.keywords.some((kw) => d.specialty.toLowerCase().includes(kw.toLowerCase()))
+      matchCategory = d.specializations.some(
+        (s) => s.category_id === selectedCat.id
       );
     }
 
@@ -169,6 +107,24 @@ const Psychologues = () => {
               <span key={l} className="px-3 py-1 rounded-full bg-teal-pale text-xs text-primary font-medium">{l}</span>
             ))}
           </div>
+          {d.specializations.length > 0 && (
+            <div className="flex gap-1.5 flex-wrap mb-4">
+              {d.specializations.slice(0, 3).map((s) => {
+                const cat = CATEGORIES.find((c) => c.id === s.category_id);
+                const sub = cat?.subcategories.find((sb) => sb.id === s.subcategory_id);
+                return sub ? (
+                  <span key={`${s.category_id}-${s.subcategory_id}`} className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium">
+                    {sub.label[lang]}
+                  </span>
+                ) : null;
+              })}
+              {d.specializations.length > 3 && (
+                <span className="px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-[11px] font-medium">
+                  +{d.specializations.length - 3}
+                </span>
+              )}
+            </div>
+          )}
           <div className="py-2 px-3.5 rounded-[10px] border border-border bg-teal-hero text-[13px] text-muted-foreground text-center mb-3.5">
             {d.dispo}
           </div>

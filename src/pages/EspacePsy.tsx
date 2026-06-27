@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import ChatWindow from "@/components/ChatWindow";
 import { useNotifications } from "@/hooks/useNotifications";
+import { CATEGORIES } from "@/lib/categories";
 
 
 type Page = "dashboard" | "sessions" | "patients" | "messages" | "earnings" | "profile" | "settings" | "content";
@@ -61,6 +62,8 @@ export default function EspacePsy() {
   const [videoUrl, setVideoUrl] = useState("");
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [savingVideo, setSavingVideo] = useState(false);
+  const [psySpecs, setPsySpecs] = useState<{ category_id: string; subcategory_id: string }[]>([]);
+  const [savingSpecs, setSavingSpecs] = useState(false);
 
   const handleStartCall = async (bookingId: string) => {
     const booking = bookings.find(b => b.id === bookingId);
@@ -205,6 +208,52 @@ export default function EspacePsy() {
       setVideoPreviewUrl(null);
       toast.success("✅ Vidéo supprimée.");
     }
+  };
+
+  // Load specializations
+  useEffect(() => {
+    if (!user) return;
+    const loadSpecs = async () => {
+      const { data } = await supabase
+        .from("psy_specializations")
+        .select("category_id, subcategory_id")
+        .eq("psychologist_id", user.id);
+      if (data) setPsySpecs(data);
+    };
+    loadSpecs();
+  }, [user]);
+
+  const toggleSpec = async (categoryId: string, subcategoryId: string) => {
+    if (!user) return;
+    const exists = psySpecs.some(
+      (s) => s.category_id === categoryId && s.subcategory_id === subcategoryId
+    );
+    setSavingSpecs(true);
+    if (exists) {
+      const { error } = await supabase
+        .from("psy_specializations")
+        .delete()
+        .eq("psychologist_id", user.id)
+        .eq("category_id", categoryId)
+        .eq("subcategory_id", subcategoryId);
+      if (!error) {
+        setPsySpecs((prev) => prev.filter(
+          (s) => !(s.category_id === categoryId && s.subcategory_id === subcategoryId)
+        ));
+      }
+    } else {
+      const { error } = await supabase
+        .from("psy_specializations")
+        .insert({
+          psychologist_id: user.id,
+          category_id: categoryId,
+          subcategory_id: subcategoryId,
+        });
+      if (!error) {
+        setPsySpecs((prev) => [...prev, { category_id: categoryId, subcategory_id: subcategoryId }]);
+      }
+    }
+    setSavingSpecs(false);
   };
 
   const updateClinicSetting = (key: string, value: any) => {
@@ -1446,6 +1495,48 @@ export default function EspacePsy() {
             placeholder={t("psy.dashboard.profile.bioPlaceholder")}
             className="w-full px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card font-sans transition-all resize-none leading-relaxed"
           />
+        </div>
+      </div>
+
+      {/* Specialization Tags */}
+      <div className="dashboard-card p-6 md:p-8 space-y-5">
+        <div>
+          <h3 className="font-serif text-lg font-semibold text-foreground pb-4 border-b border-border/40">
+            {t("psy.settings.specializations.title") || "Spécialisations"}
+          </h3>
+          <p className="text-sm text-muted-foreground mt-2">
+            {t("psy.settings.specializations.desc") || "Sélectionnez les domaines dans lesquels vous intervenez. Les patients pourront vous trouver en filtrant par catégorie."}
+          </p>
+        </div>
+        <div className="space-y-5">
+          {CATEGORIES.map((cat) => (
+            <div key={cat.id}>
+              <h4 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
+                <span className="text-base">{cat.icon}</span> {cat.label[lang]}
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {cat.subcategories.map((sub) => {
+                  const isActive = psySpecs.some(
+                    (s) => s.category_id === cat.id && s.subcategory_id === sub.id
+                  );
+                  return (
+                    <button
+                      key={sub.id}
+                      onClick={() => toggleSpec(cat.id, sub.id)}
+                      disabled={savingSpecs}
+                      className={`px-3.5 py-2 rounded-full border text-xs font-medium transition-all cursor-pointer ${
+                        isActive
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-transparent text-foreground border-border hover:border-primary/30 hover:bg-teal-pale/30"
+                      }`}
+                    >
+                      {sub.label[lang]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

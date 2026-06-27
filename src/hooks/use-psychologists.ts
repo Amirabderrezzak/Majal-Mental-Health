@@ -16,6 +16,7 @@ export interface PsyProfile {
   avatar_url: string | null;
   video_url: string | null;
   is_available_now: boolean;
+  specializations: { category_id: string; subcategory_id: string }[];
   rating: number;
   reviews: number;
 }
@@ -48,6 +49,7 @@ function mapProfile(row: {
     avatar_url: row.avatar_url,
     video_url: row.video_url ?? null,
     is_available_now: row.is_available_now ?? false,
+    specializations: [],
     rating: 0,
     reviews: 0,
   };
@@ -85,6 +87,20 @@ export function usePsychologists() {
         }
       }
 
+      // Fetch specializations
+      const { data: specsData } = await supabase
+        .from("psy_specializations")
+        .select("psychologist_id, category_id, subcategory_id");
+
+      const specsMap = new Map<string, { category_id: string; subcategory_id: string }[]>();
+      if (specsData) {
+        for (const s of specsData) {
+          const existing = specsMap.get(s.psychologist_id) ?? [];
+          existing.push({ category_id: s.category_id, subcategory_id: s.subcategory_id });
+          specsMap.set(s.psychologist_id, existing);
+        }
+      }
+
       return data.map((row) => {
         const profile = mapProfile(row);
         const ratingInfo = ratingsMap.get(row.user_id);
@@ -92,6 +108,7 @@ export function usePsychologists() {
           profile.rating = ratingInfo.avg_rating;
           profile.reviews = ratingInfo.review_count;
         }
+        profile.specializations = specsMap.get(row.user_id) ?? [];
         return profile;
       });
     },

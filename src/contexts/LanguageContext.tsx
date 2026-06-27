@@ -106,6 +106,8 @@ const translations: Record<string, Record<Lang, string>> = {
   "psy.settings.video.remove": { fr: "Supprimer la vidéo", ar: "حذف الفيديو" },
   "psy.settings.availability.title": { fr: "Disponibilité en ligne", ar: "التوفر عبر الإنترنت" },
   "psy.settings.availability.desc": { fr: "Indiquez si vous êtes disponible pour un appel vidéo immédiat.", ar: "حدد ما إذا كنت متاحًا للمكالمة الفورية." },
+  "psy.settings.specializations.title": { fr: "Spécialisations", ar: "التخصصات" },
+  "psy.settings.specializations.desc": { fr: "Sélectionnez les domaines dans lesquels vous intervenez.", ar: "حدد المجالات التي تعمل فيها." },
   "psy.experience": { fr: "ans d'expérience", ar: "سنوات خبرة" },
   "psy.session": { fr: "/ séance", ar: "/ جلسة" },
   "psy.lessThan": { fr: "Moins de", ar: "أقل من" },
