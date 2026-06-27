@@ -135,12 +135,15 @@ const Psychologues = () => {
 
     // Expiration timer (90s)
     setTimeout(async () => {
-      if (activeRequestId) {
+      if (data.id) {
         await supabase
           .from("immediate_session_requests")
           .update({ status: "expired", responded_at: new Date().toISOString() })
           .eq("id", data.id)
           .eq("status", "pending");
+        setRequestStatus(null);
+        setRequestingPsyId(null);
+        setActiveRequestId(null);
       }
     }, 90000);
   };
