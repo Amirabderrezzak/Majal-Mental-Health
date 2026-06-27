@@ -182,3 +182,138 @@ export async function sendBookingStatusUpdate(opts: {
   });
 }
 
+// ── 6. Session Reminder (24h before) ────────────────────────────────────────
+export async function sendSessionReminder(opts: {
+  recipientEmail: string;
+  recipientName: string;
+  partnerName: string;
+  date: string;
+  duration: number;
+  userType: 'patient' | 'psychologue';
+}) {
+  const heading = opts.userType === 'patient'
+    ? 'Votre séance est demain !'
+    : 'Rappel : séance prévue demain';
+
+  const bodyText = opts.userType === 'patient'
+    ? `Bonjour <strong>${escapeHtml(opts.recipientName)}</strong>, ceci est un rappel pour votre séance avec le <strong>Dr. ${escapeHtml(opts.partnerName)}</strong> prévue le <strong>${escapeHtml(opts.date)}</strong> (${opts.duration} min).`
+    : `Bonjour Dr. <strong>${escapeHtml(opts.recipientName)}</strong>, vous avez une séance prévue le <strong>${escapeHtml(opts.date)}</strong> (${opts.duration} min) avec le patient <strong>${escapeHtml(opts.partnerName)}</strong>.`;
+
+  const redirectLink = opts.userType === 'patient'
+    ? `${SITE}/mon-espace?page=sessions`
+    : `${SITE}/espace-psy?page=sessions`;
+
+  return resend.emails.send({
+    from: FROM,
+    to: opts.recipientEmail,
+    subject: '⏰ Rappel de séance — Majal',
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">${heading}</h2>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">${bodyText}</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#fef3c7;border-radius:10px;border:1px solid #fcd34d;margin-bottom:24px;">
+        <tr><td style="padding:20px 24px;">
+          <p style="margin:0;font-size:14px;color:#92400e;">📅 <strong>${escapeHtml(opts.date)}</strong> · ⏱ ${opts.duration} min</p>
+        </td></tr>
+      </table>
+      ${btn('Voir ma séance', redirectLink)}
+    `),
+  });
+}
+
+// ── 7. Cancellation Confirmation ─────────────────────────────────────────────
+export async function sendCancellationConfirmation(opts: {
+  recipientEmail: string;
+  recipientName: string;
+  partnerName: string;
+  date: string;
+  refundPercent: number;
+  compensationPercent: number;
+  userType: 'patient' | 'psychologue';
+}) {
+  const isPatient = opts.userType === 'patient';
+  let bodyText: string;
+  if (isPatient) {
+    bodyText = `Votre séance avec le <strong>Dr. ${escapeHtml(opts.partnerName)}</strong> du <strong>${escapeHtml(opts.date)}</strong> a été annulée.`;
+    if (opts.refundPercent > 0) {
+      bodyText += `<br><br>Vous recevrez un remboursement de <strong>${opts.refundPercent}%</strong>.`;
+    } else {
+      bodyText += `<br><br>Aucun remboursement ne sera effectué conformément à la politique d'annulation.`;
+    }
+  } else {
+    bodyText = `La séance avec le patient <strong>${escapeHtml(opts.partnerName)}</strong> du <strong>${escapeHtml(opts.date)}</strong> a été annulée.`;
+    if (opts.compensationPercent > 0) {
+      bodyText += `<br><br>Vous recevrez une compensation de <strong>${opts.compensationPercent}%</strong>.`;
+    }
+  }
+
+  const redirectLink = isPatient
+    ? `${SITE}/mon-espace?page=sessions`
+    : `${SITE}/espace-psy?page=sessions`;
+
+  return resend.emails.send({
+    from: FROM,
+    to: opts.recipientEmail,
+    subject: '❌ Séance annulée — Majal',
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Séance annulée</h2>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${escapeHtml(opts.recipientName)}</strong>,</p>
+      <p style="color:#374151;font-size:15px;line-height:1.6;">${bodyText}</p>
+      ${btn('Voir mes séances', redirectLink)}
+    `),
+  });
+}
+
+// ── 8. Reschedule Confirmation ───────────────────────────────────────────────
+export async function sendRescheduleConfirmation(opts: {
+  recipientEmail: string;
+  recipientName: string;
+  partnerName: string;
+  oldDate: string;
+  newDate: string;
+  userType: 'patient' | 'psychologue';
+}) {
+  const isPatient = opts.userType === 'patient';
+  const bodyText = isPatient
+    ? `Votre séance avec le <strong>Dr. ${escapeHtml(opts.partnerName)}</strong> a été reportée.<br><br><strong>Ancien créneau :</strong> ${escapeHtml(opts.oldDate)}<br><strong>Nouveau créneau :</strong> ${escapeHtml(opts.newDate)}`
+    : `La séance avec le patient <strong>${escapeHtml(opts.partnerName)}</strong> a été reportée.<br><br><strong>Ancien créneau :</strong> ${escapeHtml(opts.oldDate)}<br><strong>Nouveau créneau :</strong> ${escapeHtml(opts.newDate)}`;
+
+  const redirectLink = isPatient
+    ? `${SITE}/mon-espace?page=sessions`
+    : `${SITE}/espace-psy?page=sessions`;
+
+  return resend.emails.send({
+    from: FROM,
+    to: opts.recipientEmail,
+    subject: '📅 Séance reportée — Majal',
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Séance reportée</h2>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${escapeHtml(opts.recipientName)}</strong>,</p>
+      <p style="color:#374151;font-size:15px;line-height:1.6;">${bodyText}</p>
+      ${btn('Voir mes séances', redirectLink)}
+    `),
+  });
+}
+
+// ── 9. New Message Notification ──────────────────────────────────────────────
+export async function sendNewMessageNotification(opts: {
+  recipientEmail: string;
+  recipientName: string;
+  senderName: string;
+  userType: 'patient' | 'psychologue';
+}) {
+  const redirectLink = opts.userType === 'patient'
+    ? `${SITE}/mon-espace?page=messages`
+    : `${SITE}/espace-psy?page=messages`;
+
+  return resend.emails.send({
+    from: FROM,
+    to: opts.recipientEmail,
+    subject: '💬 Nouveau message — Majal',
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Nouveau message reçu</h2>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${escapeHtml(opts.recipientName)}</strong>, vous avez reçu un nouveau message de <strong>${escapeHtml(opts.senderName)}</strong>.</p>
+      ${btn('Voir le message', redirectLink)}
+    `),
+  });
+}
+
