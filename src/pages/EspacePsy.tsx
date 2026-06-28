@@ -2037,15 +2037,24 @@ export default function EspacePsy() {
         <div className="space-y-1">
           <div className="flex items-center justify-between py-4 border-b border-border/30">
             <div className="pe-4">
-              <h4 className="text-sm font-semibold text-foreground">{t("space.pushNotifications") || "Notifications push"}</h4>
-              <p className="text-xs text-muted-foreground mt-1 leading-normal font-sans">{t("space.pushNotificationsDesc") || "Recevez des alertes pour les nouvelles demandes et messages."}</p>
+              <h4 className="text-sm font-semibold text-foreground">{t("space.pushNotifications")}</h4>
+              <p className="text-xs text-muted-foreground mt-1 leading-normal font-sans">{t("space.pushNotificationsDesc")}</p>
             </div>
             {pushSupported ? (
               <label className="relative w-12 h-[26px] shrink-0 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={pushSubscribed}
-                  onChange={() => pushSubscribed ? pushUnsubscribe() : pushSubscribe()}
+                  onChange={async () => {
+                    if (pushSubscribed) {
+                      await pushUnsubscribe();
+                      toast.success("Notifications push désactivées.");
+                    } else {
+                      const ok = await pushSubscribe();
+                      if (ok) toast.success("Notifications push activées !");
+                      else toast.error("Impossible d'activer les notifications. Vérifiez les paramètres de votre navigateur.");
+                    }
+                  }}
                   disabled={pushLoading}
                   className="opacity-0 w-0 h-0"
                 />

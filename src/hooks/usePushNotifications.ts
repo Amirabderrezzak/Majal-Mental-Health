@@ -44,7 +44,9 @@ export function usePushNotifications(userId: string | null) {
   };
 
   const subscribe = useCallback(async () => {
-    if (!userId || !VAPID_KEY || !isSupported) return false;
+    if (!userId) { console.warn("Push: no userId"); return false; }
+    if (!isSupported) { console.warn("Push: browser not supported"); return false; }
+    if (!VAPID_KEY) { console.warn("Push: VAPID key missing"); return false; }
     setLoading(true);
 
     try {
