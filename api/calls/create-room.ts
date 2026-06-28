@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { sendPushToUser } from '../notifications/send-push.js';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -41,7 +42,7 @@ export default async function handler(req: any, res: any) {
   try {
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .select('id, psychologist_id, status, video_room_url, booked_at, duration_minutes')
+      .select('id, psychologist_id, patient_id, status, video_room_url, booked_at, duration_minutes')
       .eq('id', booking_id)
       .single();
 
@@ -127,6 +128,9 @@ export default async function handler(req: any, res: any) {
       console.error('Failed to update booking:', updateError);
       return res.status(500).json({ error: 'Failed to save video room URL' });
     }
+
+    // Notify patient that the therapist started the video room
+    sendPushToUser(booking.patient_id, "Session prête", "Votre thérapeute a lancé le salon vidéo. Vous pouvez rejoindre maintenant.", "/mon-espace").catch(console.error);
 
     res.json({ success: true, url: roomUrl });
   } catch (err: any) {

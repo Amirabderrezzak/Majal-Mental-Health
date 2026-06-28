@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
+import { sendPushToUser } from "../notifications/send-push.js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -73,6 +74,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     content: `Le patient a reporté la séance au ${new Date(new_booked_at).toLocaleDateString("fr-FR")} à ${new Date(new_booked_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}.`,
     link: "/espace-psy?page=sessions"
   });
+
+  // Send push notification
+  const newDateStr = new Date(new_booked_at).toLocaleDateString("fr-FR", { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  sendPushToUser(booking.psychologist_id, "Séance reportée", `Votre patient a reporté la séance au ${newDateStr}.`, "/espace-psy").catch(console.error);
 
   return res.status(200).json({ success: true });
 }

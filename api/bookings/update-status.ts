@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendBookingStatusUpdate, sendCancellationConfirmation } from '../_lib/email.js';
+import { sendPushToUser } from '../notifications/send-push.js';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -150,6 +151,15 @@ export default async function handler(req: any, res: any) {
         }).catch(console.error);
       }
     }
+
+    // Send push notification to recipient
+    const pushTitle = status === 'cancelled' ? 'Session annulée' : status === 'confirmed' ? 'Session confirmée' : 'Mise à jour de session';
+    const pushBody = status === 'cancelled'
+      ? `La session du ${dateStr} a été annulée par ${partnerName}.`
+      : status === 'confirmed'
+      ? `Votre session du ${dateStr} avec ${partnerName} a été confirmée.`
+      : `La session avec ${partnerName} est maintenant "${status}".`;
+    sendPushToUser(recipientId, pushTitle, pushBody, '/mon-espace').catch(console.error);
 
     res.json({ success: true, booking_id, status });
   } catch (err: any) {
