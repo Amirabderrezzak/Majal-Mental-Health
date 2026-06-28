@@ -101,7 +101,6 @@ export default async function handler(req: any, res: any) {
             enable_chat: true,
             start_video_off: false,
             start_audio_off: false,
-            max_participants_duration: (booking.duration_minutes || 60) * 60,
             exp: Math.round(sessionEnd.getTime() / 1000) + 900,
           },
         }),
