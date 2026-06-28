@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "";
+const VAPID_KEY = "BGfH7txiGVGr7ZCAFQAlh8qjwGDqLAgIPztMM33NeeOsvnI3tj3Fe2fg5mDzJDHcLv_btn8ITCiIduvwoU5O0zc";
 const FCM_SENDER_ID = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "";
 
 function urlBase64ToUint8Array(base64String: string) {
