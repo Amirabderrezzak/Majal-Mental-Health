@@ -2567,25 +2567,25 @@ export default function MonEspace() {
               <h4 className="text-sm font-semibold text-foreground">{t("space.pushNotifications")}</h4>
               <p className="text-xs text-muted-foreground mt-1 leading-normal font-sans">{t("space.pushNotificationsDesc")}</p>
             </div>
-            <label className="relative w-12 h-[26px] shrink-0 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={pushSubscribed}
-                onChange={async () => {
-                  if (pushSubscribed) {
-                    await pushUnsubscribe();
-                    toast.success("Notifications push désactivées.");
-                  } else {
-                    const ok = await pushSubscribe();
-                    if (ok) toast.success("Notifications push activées !");
-                    else toast.error("Impossible d'activer les notifications. Vérifiez les paramètres de votre navigateur.");
-                  }
-                }}
-                disabled={pushLoading}
-                className="opacity-0 w-0 h-0"
-              />
-              <span className="toggle-slider" />
-            </label>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={pushSubscribed}
+              disabled={pushLoading}
+              onClick={async () => {
+                if (pushSubscribed) {
+                  await pushUnsubscribe();
+                  toast.success("Notifications push désactivées.");
+                } else {
+                  const ok = await pushSubscribe();
+                  if (ok) toast.success("Notifications push activées !");
+                  else toast.error("Impossible d'activer les notifications. Vérifiez les paramètres de votre navigateur.");
+                }
+              }}
+              className={`relative w-12 h-[26px] rounded-full transition-colors duration-300 border-none cursor-pointer disabled:opacity-50 ${pushSubscribed ? "bg-primary" : "bg-gray-300"}`}
+            >
+              <span className={`absolute top-[3px] left-[3px] w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${pushSubscribed ? "translate-x-[22px]" : ""}`} />
+            </button>
           </div>
         ) : (
           <div className="flex items-center gap-3 py-3 text-muted-foreground">
