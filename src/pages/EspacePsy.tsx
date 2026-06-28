@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Calendar, Users, MessageSquare, DollarSign,
   User, Settings, Menu, X, LogOut, Bell, Check, Clock, TrendingUp,
   ChevronRight, MoreHorizontal, Loader2, Lock, AlertTriangle, Printer,
-  Video, Plus, Trash2, Play, Square, PenTool, Volume2, Phone
+  Video, Plus, Trash2, Play, Square, PenTool, Volume2, Phone, Smartphone
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import ChatWindow from "@/components/ChatWindow";
 import { useNotifications } from "@/hooks/useNotifications";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { CATEGORIES } from "@/lib/categories";
 
 
@@ -73,6 +74,7 @@ export default function EspacePsy() {
   const { user, signOut } = useAuth();
   const { t, lang, dir } = useLanguage();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { isSupported: pushSupported, isSubscribed: pushSubscribed, loading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications(user?.id ?? null);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [activePage, setActivePage] = useState<Page>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -2033,6 +2035,29 @@ export default function EspacePsy() {
       <div className="dashboard-card p-6 md:p-8">
         <h3 className="font-serif text-lg font-semibold text-foreground mb-6 pb-4 border-b border-border/40">{t("space.notifPreferences")}</h3>
         <div className="space-y-1">
+          <div className="flex items-center justify-between py-4 border-b border-border/30">
+            <div className="pe-4">
+              <h4 className="text-sm font-semibold text-foreground">{t("space.pushNotifications") || "Notifications push"}</h4>
+              <p className="text-xs text-muted-foreground mt-1 leading-normal font-sans">{t("space.pushNotificationsDesc") || "Recevez des alertes pour les nouvelles demandes et messages."}</p>
+            </div>
+            {pushSupported ? (
+              <label className="relative w-12 h-[26px] shrink-0 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={pushSubscribed}
+                  onChange={() => pushSubscribed ? pushUnsubscribe() : pushSubscribe()}
+                  disabled={pushLoading}
+                  className="opacity-0 w-0 h-0"
+                />
+                <span className="toggle-slider" />
+              </label>
+            ) : (
+              <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                <Smartphone className="w-4 h-4" />
+                <span className="text-[10px] font-sans">N/A</span>
+              </div>
+            )}
+          </div>
           {[
             { title: t("psy.settings.notif.newBookingsTitle"), desc: t("psy.settings.notif.newBookingsDesc"), checked: true },
             { title: t("psy.settings.notif.remindersTitle"),   desc: t("psy.settings.notif.remindersDesc"),   checked: true },

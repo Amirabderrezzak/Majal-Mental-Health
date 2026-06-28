@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Calendar, Search, User, Bell, LogOut,
   Menu, X, Clock, Check, Video, MessageSquare, ChevronRight,
-  Loader2, TrendingUp, Heart, Lock, BookOpen, Wind, PhoneCall, Plus, Trash2, Play, Square, Compass, Users
+  Loader2, TrendingUp, Heart, Lock, BookOpen, Wind, PhoneCall, Plus, Trash2, Play, Square, Compass, Users, Smartphone
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import ChatWindow from "@/components/ChatWindow";
 import { getInitials } from "@/lib/utils";
 import { useNotifications } from "@/hooks/useNotifications";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 
 type Page = "dashboard" | "sessions" | "messages" | "explore" | "forum" | "journal" | "coping" | "profil" | "notifications";
@@ -91,6 +92,7 @@ export default function MonEspace() {
   const { user, signOut } = useAuth();
   const { t, lang, dir } = useLanguage();
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+  const { isSupported: pushSupported, isSubscribed: pushSubscribed, loading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications(user?.id ?? null);
   const navigate = useNavigate();
   const [activePage, setActivePage] = useState<Page>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -2555,6 +2557,33 @@ export default function MonEspace() {
             {changingPassword ? "Mise à jour..." : t("psy.settings.changePassword") || "Changer le mot de passe"}
           </button>
         </form>
+      </div>
+
+      <div className="dashboard-card p-6 md:p-8">
+        <h3 className="font-serif text-lg font-semibold text-foreground mb-6 pb-4 border-b border-border/40">{t("space.notifPreferences") || "Notifications"}</h3>
+        {pushSupported ? (
+          <div className="flex items-center justify-between py-2">
+            <div className="pe-4">
+              <h4 className="text-sm font-semibold text-foreground">{t("space.pushNotifications") || "Notifications push"}</h4>
+              <p className="text-xs text-muted-foreground mt-1 leading-normal font-sans">{t("space.pushNotificationsDesc") || "Recevez des alertes pour vos sessions et messages."}</p>
+            </div>
+            <label className="relative w-12 h-[26px] shrink-0 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={pushSubscribed}
+                onChange={() => pushSubscribed ? pushUnsubscribe() : pushSubscribe()}
+                disabled={pushLoading}
+                className="opacity-0 w-0 h-0"
+              />
+              <span className="toggle-slider" />
+            </label>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 py-3 text-muted-foreground">
+            <Smartphone className="w-4 h-4 shrink-0" />
+            <p className="text-xs font-sans">{t("space.pushNotSupported") || "Les notifications push ne sont pas supportées par votre navigateur."}</p>
+          </div>
+        )}
       </div>
     </div>
   );
