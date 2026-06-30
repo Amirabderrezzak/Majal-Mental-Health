@@ -10,7 +10,8 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('presentation_videos', 'presentation_videos', true)
 ON CONFLICT (id) DO NOTHING;
 
--- 3. Storage policy: therapists can upload their own video
+-- 3. Drop and recreate storage policies (idempotent)
+DROP POLICY IF EXISTS "Therapists can upload own presentation video" ON storage.objects;
 CREATE POLICY "Therapists can upload own presentation video"
   ON storage.objects FOR INSERT
   WITH CHECK (
@@ -18,12 +19,12 @@ CREATE POLICY "Therapists can upload own presentation video"
     AND auth.uid()::text = (string_to_array(name, '/'))[1]
   );
 
--- 4. Storage policy: anyone can view presentation videos (public bucket)
+DROP POLICY IF EXISTS "Anyone can view presentation videos" ON storage.objects;
 CREATE POLICY "Anyone can view presentation videos"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'presentation_videos');
 
--- 5. Storage policy: therapists can update their own video
+DROP POLICY IF EXISTS "Therapists can update own presentation video" ON storage.objects;
 CREATE POLICY "Therapists can update own presentation video"
   ON storage.objects FOR UPDATE
   USING (
@@ -31,7 +32,7 @@ CREATE POLICY "Therapists can update own presentation video"
     AND auth.uid()::text = (string_to_array(name, '/'))[1]
   );
 
--- 6. Storage policy: therapists can delete their own video
+DROP POLICY IF EXISTS "Therapists can delete own presentation video" ON storage.objects;
 CREATE POLICY "Therapists can delete own presentation video"
   ON storage.objects FOR DELETE
   USING (
@@ -39,5 +40,5 @@ CREATE POLICY "Therapists can delete own presentation video"
     AND auth.uid()::text = (string_to_array(name, '/'))[1]
   );
 
--- 7. Enable realtime for is_available_now changes
+-- 4. Enable realtime for is_available_now changes
 ALTER TABLE public.profiles REPLICA IDENTITY FULL;

@@ -69,6 +69,10 @@ export function usePushNotifications(userId: string | null) {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ push_enabled: enabled }),
       });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        console.error("savePreference failed:", res.status, text);
+      }
       return res.ok;
     } catch (err) {
       console.error("Failed to save push preference:", err);
@@ -138,6 +142,16 @@ export function usePushNotifications(userId: string | null) {
     if (!userId) return false;
     setLoading(true);
     const newVal = !preferenceEnabled;
+
+    if (newVal) {
+      const perm = await Notification.requestPermission();
+      setPermission(perm);
+      if (perm !== "granted") {
+        setLoading(false);
+        return false;
+      }
+    }
+
     const saved = await savePreference(newVal);
     if (saved) {
       setPreferenceEnabled(newVal);
