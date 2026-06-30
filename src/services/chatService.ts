@@ -33,20 +33,26 @@ export const sendMessage = async (
   file_type: string | null = null,
   file_name: string | null = null
 ) => {
-  const { data, error } = await supabase.from("messages").insert({
-    sender_id,
-    receiver_id,
-    content,
-    file_url,
-    file_type,
-    file_name,
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error("Not authenticated");
+
+  const res = await fetch("/api/messages/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ receiver_id, content, file_url, file_type, file_name }),
   });
 
-  if (error) {
-    console.error("Error sending message:", error);
-    throw error;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Failed to send" }));
+    console.error("Error sending message:", err.error);
+    throw new Error(err.error);
   }
-  return data;
+
+  return res.json();
 };
 
 export const uploadAttachment = async (file: File) => {
