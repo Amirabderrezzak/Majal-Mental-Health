@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendPushToUser } from './send-push';
+import { sendSessionReminder } from '../_lib/email.js';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -82,7 +83,72 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    res.json({ success: true, processed, failed, total: notifications.length });
+    let reminderSent = 0;
+    let reminderFailed = 0;
+
+    // Session reminder: find confirmed sessions happening tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const dayAfter = new Date(tomorrow);
+    dayAfter.setDate(dayAfter.getDate() + 1);
+
+    const { data: sessions } = await supabase
+      .from('bookings')
+      .select('id, patient_id, psychologist_id, booked_at, duration_minutes')
+      .eq('status', 'confirmed')
+      .gte('booked_at', tomorrow.toISOString())
+      .lt('booked_at', dayAfter.toISOString());
+
+    if (sessions && sessions.length > 0) {
+      for (const session of sessions) {
+        try {
+          const [patProf, psyProf] = await Promise.all([
+            supabase.from('profiles').select('full_name, user_id').eq('user_id', session.patient_id).single(),
+            supabase.from('profiles').select('full_name, user_id').eq('user_id', session.psychologist_id).single(),
+          ]);
+          const [patAuth, psyAuth] = await Promise.all([
+            supabase.auth.admin.getUserById(session.patient_id),
+            supabase.auth.admin.getUserById(session.psychologist_id),
+          ]);
+
+          const patientName = patProf.data?.full_name || 'Patient';
+          const psyName = psyProf.data?.full_name || 'Psychologue';
+          const patientEmail = patAuth?.data?.user?.email;
+          const psyEmail = psyAuth?.data?.user?.email;
+          const dateStr = new Date(session.booked_at).toLocaleDateString('fr-FR', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+          });
+
+          if (patientEmail) {
+            await sendSessionReminder({
+              recipientEmail: patientEmail,
+              recipientName: patientName,
+              partnerName: psyName,
+              date: dateStr,
+              duration: session.duration_minutes,
+              userType: 'patient',
+            });
+          }
+          if (psyEmail) {
+            await sendSessionReminder({
+              recipientEmail: psyEmail,
+              recipientName: psyName,
+              partnerName: patientName,
+              date: dateStr,
+              duration: session.duration_minutes,
+              userType: 'psychologue',
+            });
+          }
+          reminderSent += (patientEmail ? 1 : 0) + (psyEmail ? 1 : 0);
+        } catch (err) {
+          console.error(`Failed to send reminder for session ${session.id}:`, err);
+          reminderFailed++;
+        }
+      }
+    }
+
+    res.json({ success: true, processed, failed, total: notifications.length, reminderSent, reminderFailed });
   } catch (err: any) {
     console.error('Push cron error:', err);
     res.status(500).json({ error: err.message });
