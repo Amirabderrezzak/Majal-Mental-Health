@@ -14,7 +14,7 @@
     }
   ],
   "rewrites": [
-    { "source": "/((?!api/|firebase-messaging-sw.js).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|firebase-messaging-sw.js|manifest.webmanifest|sw.js|registerSW.js).*)", "destination": "/index.html" }
   ],
   "crons": [
     {
