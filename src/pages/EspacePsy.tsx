@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import ChatWindow from "@/components/ChatWindow";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { SessionCalendar } from "@/components/SessionCalendar";
+import { isSameDay } from "date-fns";
 import { CATEGORIES } from "@/lib/categories";
 
 
@@ -1196,17 +1198,55 @@ export default function EspacePsy() {
     </div>
   );
 
-  const Sessions = () => (
+  const Sessions = () => {
+    const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+    const [selectedCalDate, setSelectedCalDate] = useState<Date | undefined>(undefined);
+
+    const filteredBookings = viewMode === "calendar" && selectedCalDate
+      ? bookings.filter((b) => isSameDay(new Date(b.booked_at), selectedCalDate))
+      : bookings;
+
+    return (
     <div className="p-4 sm:p-6 space-y-6 animate-in fade-in duration-500">
       <div className="dashboard-card overflow-hidden">
         <div className="p-5 border-b border-border/40 flex items-center justify-between bg-white">
-          <h3 className="font-serif text-lg font-semibold text-foreground">{t("psy.dashboard.allSessions")}</h3>
-          <span className="text-xs font-semibold px-3 py-1 bg-teal-pale text-primary rounded-full border border-primary/5">{bookings.length} {t("psy.dashboard.nav.sessions")}</span>
+          <div className="flex items-center gap-3">
+            <h3 className="font-serif text-lg font-semibold text-foreground">{t("psy.dashboard.allSessions")}</h3>
+            <div className="flex rounded-lg border border-border/50 overflow-hidden">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer border-none ${
+                  viewMode === "list" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >Liste</button>
+              <button
+                onClick={() => setViewMode("calendar")}
+                className={`px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer border-none ${
+                  viewMode === "calendar" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >Calendrier</button>
+            </div>
+          </div>
+          <span className="text-xs font-semibold px-3 py-1 bg-teal-pale text-primary rounded-full border border-primary/5">
+            {viewMode === "calendar" && selectedCalDate
+              ? `${filteredBookings.length} sur ${bookings.length}`
+              : `${bookings.length} ${t("psy.dashboard.nav.sessions")}`
+            }
+          </span>
         </div>
+
+        {viewMode === "calendar" && (
+          <SessionCalendar
+            bookings={bookings}
+            selected={selectedCalDate}
+            onSelect={setSelectedCalDate}
+          />
+        )}
+
         <div className="divide-y divide-border/30">
           {bookingsLoading ? <div className="py-10 text-center"><Loader2 className="w-6 h-6 mx-auto animate-spin text-primary"/></div> :
-           bookings.length === 0 ? <div className="text-muted-foreground text-center py-12 text-sm">{t("psy.dashboard.noSessions")}</div> :
-           bookings.map((s) => (
+           filteredBookings.length === 0 ? <div className="text-muted-foreground text-center py-12 text-sm">{t("psy.dashboard.noSessions")}</div> :
+           filteredBookings.map((s) => (
             <div key={s.id} className="flex items-center gap-4 px-5 py-4 hover:bg-teal-hero/30 transition-colors flex-wrap justify-between">
               <div className="flex items-center gap-3.5 min-w-0 flex-1">
                 {s.patient_avatar ? (
@@ -1270,8 +1310,7 @@ export default function EspacePsy() {
       </div>
     </div>
   );
-
-  // ── Patient Details Drawer ──────────────────────────────────────────────────
+  };
   const PatientDetailsDrawer = () => {
     if (!selectedPatientId) return null;
     const isRtl = dir === "rtl";

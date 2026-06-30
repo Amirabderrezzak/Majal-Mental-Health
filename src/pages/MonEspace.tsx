@@ -13,6 +13,8 @@ import ChatWindow from "@/components/ChatWindow";
 import { getInitials } from "@/lib/utils";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { SessionCalendar } from "@/components/SessionCalendar";
+import { isSameDay } from "date-fns";
 
 
 type Page = "dashboard" | "sessions" | "messages" | "explore" | "forum" | "journal" | "coping" | "profil" | "notifications";
@@ -2104,6 +2106,9 @@ export default function MonEspace() {
   // ── Sessions ──────────────────────────────────────────────────────────────
   const Sessions = () => {
     const rtl = dir === "rtl";
+    const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+    const [selectedCalDate, setSelectedCalDate] = useState<Date | undefined>(undefined);
+    const allBookings = [...upcoming, ...past];
 
     // Generate available time slots for the selected date
     const getAvailableSlots = () => {
@@ -2273,12 +2278,89 @@ export default function MonEspace() {
       );
     };
     return (
-      <div className="p-4 sm:p-6 space-y-8 animate-in fade-in duration-500">
-        {/* Upcoming */}
-        <div className="dashboard-card p-6">
-          <h3 className="font-serif text-lg font-semibold text-foreground mb-6 pb-4 border-b border-border/40">
-            {t("space.upcomingSessionsCount")} ({upcoming.length})
-          </h3>
+      <div className="p-4 sm:p-6 space-y-6 animate-in fade-in duration-500">
+        {/* View Toggle */}
+        <div className="dashboard-card p-4 flex items-center justify-between">
+          <h3 className="font-serif text-lg font-semibold text-foreground">{t("space.sessionsTitle")}</h3>
+          <div className="flex rounded-lg border border-border/50 overflow-hidden">
+            <button
+              onClick={() => setViewMode("list")}
+              className={`px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer border-none ${
+                viewMode === "list" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >Liste</button>
+            <button
+              onClick={() => setViewMode("calendar")}
+              className={`px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer border-none ${
+                viewMode === "calendar" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >Calendrier</button>
+          </div>
+        </div>
+
+        {viewMode === "calendar" ? (
+          <>
+            <SessionCalendar
+              bookings={allBookings}
+              selected={selectedCalDate}
+              onSelect={setSelectedCalDate}
+            />
+
+            {/* Filtered sessions for selected day */}
+            {selectedCalDate && (
+              <div className="dashboard-card p-6">
+                <h3 className="font-serif text-lg font-semibold text-foreground mb-4 pb-4 border-b border-border/40">
+                  {selectedCalDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+                  <span className="text-sm font-normal text-muted-foreground ms-2">
+                    ({allBookings.filter(b => isSameDay(new Date(b.booked_at), selectedCalDate)).length} séance(s))
+                  </span>
+                </h3>
+                {allBookings.filter(b => isSameDay(new Date(b.booked_at), selectedCalDate)).length === 0 ? (
+                  <p className="text-center py-8 text-sm text-muted-foreground font-medium">Aucune séance ce jour</p>
+                ) : (
+                  <div className="divide-y divide-border/40">
+                    {allBookings
+                      .filter(b => isSameDay(new Date(b.booked_at), selectedCalDate))
+                      .sort((a, b) => new Date(a.booked_at).getTime() - new Date(b.booked_at).getTime())
+                      .map(b => (
+                      <div key={b.id} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                        <div className="flex items-center gap-4">
+                          {b.psychologist_avatar ? (
+                            <img src={b.psychologist_avatar} alt={b.psychologist_name} className="w-11 h-11 rounded-full object-cover border border-primary/20 shrink-0 shadow-sm" />
+                          ) : (
+                            <div className="w-11 h-11 rounded-full bg-teal-pale flex items-center justify-center text-primary font-bold text-sm shrink-0 border border-primary/10 shadow-sm">
+                              {getInitials(b.psychologist_name)}
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-semibold text-sm text-foreground">{b.psychologist_name}</div>
+                            <div className="text-xs text-primary font-medium mt-0.5">{b.psychologist_specialty || "Psychologue"}</div>
+                            <div className="text-xs text-muted-foreground mt-1">{fmtT(b.booked_at)} · {b.duration_minutes} min</div>
+                          </div>
+                        </div>
+                        <span className={`badge-pill ${
+                          b.status === "confirmed" ? "badge-pill-confirmed" :
+                          b.status === "pending" ? "badge-pill-pending" :
+                          b.status === "done" ? "badge-pill-done" : "badge-pill-cancelled"
+                        }`}>
+                          {b.status === "confirmed" ? t("space.status.confirmed") :
+                           b.status === "pending" ? t("space.status.pending") :
+                           b.status === "done" ? t("space.status.done") : t("space.status.cancelled")}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Upcoming */}
+            <div className="dashboard-card p-6">
+              <h3 className="font-serif text-lg font-semibold text-foreground mb-6 pb-4 border-b border-border/40">
+                {t("space.upcomingSessionsCount")} ({upcoming.length})
+              </h3>
           {bookingsLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>
           ) : upcoming.length === 0 ? (
@@ -2382,6 +2464,7 @@ export default function MonEspace() {
             </div>
           )}
         </div>
+        </>)}
 
         <RescheduleModal />
       </div>
