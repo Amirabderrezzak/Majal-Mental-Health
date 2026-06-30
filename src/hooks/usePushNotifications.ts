@@ -31,27 +31,32 @@ export function usePushNotifications(userId: string | null) {
 
   useEffect(() => {
     if (!userId || !isSupported) return;
-    Promise.all([checkSubscription(), fetchPreference()]).then(() => setPrefsLoaded(true));
+    (async () => {
+      const [sub, pref] = await Promise.all([checkSubscription(), fetchPreference()]);
+      setPrefsLoaded(true);
+      // If preference says on but no browser subscription, subscribe once on initial load
+      if (pref && !sub) {
+        await doSubscribe();
+      }
+    })();
   }, [userId, isSupported]);
 
-  useEffect(() => {
-    if (!prefsLoaded || !userId) return;
-    syncPreferenceWithSubscription();
-  }, [prefsLoaded, preferenceEnabled, isSubscribed]);
-
-  const fetchPreference = async () => {
+  const fetchPreference = async (): Promise<boolean> => {
     try {
       const token = (await supabase.auth.getSession()).data.session?.access_token;
-      if (!token) return;
+      if (!token) return false;
       const res = await fetch("/api/notifications/preferences", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
         setPreferenceEnabled(data.push_enabled);
+        return data.push_enabled;
       }
+      return false;
     } catch (err) {
       console.error("Failed to fetch push preference:", err);
+      return false;
     }
   };
 
@@ -71,21 +76,16 @@ export function usePushNotifications(userId: string | null) {
     }
   };
 
-  const syncPreferenceWithSubscription = async () => {
-    if (preferenceEnabled && !isSubscribed) {
-      await doSubscribe();
-    } else if (!preferenceEnabled && isSubscribed) {
-      await doUnsubscribe();
-    }
-  };
-
-  const checkSubscription = async () => {
+  const checkSubscription = async (): Promise<boolean> => {
     try {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
-      setIsSubscribed(!!subscription);
+      const hasSub = !!subscription;
+      setIsSubscribed(hasSub);
+      return hasSub;
     } catch {
       setIsSubscribed(false);
+      return false;
     }
   };
 
