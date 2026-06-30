@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 import { sendPushToUser } from "../notifications/send-push.js";
+import { sendRescheduleConfirmation } from "../_lib/email.js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -55,6 +56,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: "New date must be in the future" });
   }
 
+  // Save old date for email notifications
+  const oldBookedAt = booking.booked_at;
+
   // Update the booking
   const { error: updateError } = await supabase
     .from("bookings")
@@ -77,7 +81,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Send push notification
   const newDateStr = new Date(new_booked_at).toLocaleDateString("fr-FR", { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  const oldDateStr = new Date(oldBookedAt).toLocaleDateString("fr-FR", { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   sendPushToUser(booking.psychologist_id, "Séance reportée", `Votre patient a reporté la séance au ${newDateStr}.`, "/espace-psy").catch(console.error);
+
+  // Fetch profile info for emails
+  const [patientProfile, psyProfile] = await Promise.all([
+    supabase.from("profiles").select("full_name").eq("user_id", booking.patient_id).single(),
+    supabase.from("profiles").select("full_name").eq("user_id", booking.psychologist_id).single(),
+  ]);
+  const [patientAuth, psyAuth] = await Promise.all([
+    supabase.auth.admin.getUserById(booking.patient_id),
+    supabase.auth.admin.getUserById(booking.psychologist_id),
+  ]);
+
+  const patientEmail = patientAuth?.user?.email;
+  const psyEmail = psyAuth?.user?.email;
+  const patientName = patientProfile?.data?.full_name || "Patient";
+  const psyName = psyProfile?.data?.full_name || "Thérapeute";
+
+  // Send confirmation email to patient
+  if (patientEmail) {
+    sendRescheduleConfirmation({
+      recipientEmail: patientEmail,
+      recipientName: patientName,
+      partnerName: psyName,
+      oldDate: oldDateStr,
+      newDate: newDateStr,
+      userType: "patient",
+    }).catch(console.error);
+  }
+
+  // Send notification email to therapist
+  if (psyEmail) {
+    sendRescheduleConfirmation({
+      recipientEmail: psyEmail,
+      recipientName: psyName,
+      partnerName: patientName,
+      oldDate: oldDateStr,
+      newDate: newDateStr,
+      userType: "psychologue",
+    }).catch(console.error);
+  }
 
   return res.status(200).json({ success: true });
 }
