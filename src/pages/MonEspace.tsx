@@ -94,7 +94,7 @@ export default function MonEspace() {
   const { user, signOut } = useAuth();
   const { t, lang, dir } = useLanguage();
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
-  const { isSupported: pushSupported, isSubscribed: pushSubscribed, loading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications(user?.id ?? null);
+  const { isSupported: pushSupported, preferenceEnabled: pushSubscribed, loading: pushLoading, togglePreference: pushToggle } = usePushNotifications(user?.id ?? null);
   const navigate = useNavigate();
   const [activePage, setActivePage] = useState<Page>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -2656,14 +2656,10 @@ export default function MonEspace() {
               aria-checked={pushSubscribed}
               disabled={pushLoading}
               onClick={async () => {
-                if (pushSubscribed) {
-                  await pushUnsubscribe();
-                  toast.success("Notifications push désactivées.");
-                } else {
-                  const ok = await pushSubscribe();
-                  if (ok) toast.success("Notifications push activées !");
-                  else toast.error("Impossible d'activer les notifications. Vérifiez les paramètres de votre navigateur.");
-                }
+                const was = pushSubscribed;
+                const ok = await pushToggle();
+                if (ok) toast.success(was ? "Notifications push désactivées." : "Notifications push activées !");
+                else toast.error("Impossible d'activer les notifications...");
               }}
               className={`relative w-12 h-[26px] rounded-full transition-colors duration-300 border-none cursor-pointer disabled:opacity-50 ${pushSubscribed ? "bg-primary" : "bg-gray-300"}`}
             >

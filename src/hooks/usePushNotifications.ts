@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 const VAPID_KEY = "BGfH7txiGVGr7ZCAFQAlh8qjwGDqLAgIPztMM33NeeOsvnI3tj3Fe2fg5mDzJDHcLv_btn8ITCiIduvwoU5O0zc";
-const FCM_SENDER_ID = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -19,7 +18,9 @@ export function usePushNotifications(userId: string | null) {
   const [isSupported, setIsSupported] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>("default");
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [preferenceEnabled, setPreferenceEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
 
   useEffect(() => {
     if ("Notification" in window && "serviceWorker" in navigator && "PushManager" in window) {
@@ -30,8 +31,53 @@ export function usePushNotifications(userId: string | null) {
 
   useEffect(() => {
     if (!userId || !isSupported) return;
-    checkSubscription();
+    Promise.all([checkSubscription(), fetchPreference()]).then(() => setPrefsLoaded(true));
   }, [userId, isSupported]);
+
+  useEffect(() => {
+    if (!prefsLoaded || !userId) return;
+    syncPreferenceWithSubscription();
+  }, [prefsLoaded, preferenceEnabled, isSubscribed]);
+
+  const fetchPreference = async () => {
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) return;
+      const res = await fetch("/api/notifications/preferences", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPreferenceEnabled(data.push_enabled);
+      }
+    } catch (err) {
+      console.error("Failed to fetch push preference:", err);
+    }
+  };
+
+  const savePreference = async (enabled: boolean) => {
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) return false;
+      const res = await fetch("/api/notifications/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ push_enabled: enabled }),
+      });
+      return res.ok;
+    } catch (err) {
+      console.error("Failed to save push preference:", err);
+      return false;
+    }
+  };
+
+  const syncPreferenceWithSubscription = async () => {
+    if (preferenceEnabled && !isSubscribed) {
+      await doSubscribe();
+    } else if (!preferenceEnabled && isSubscribed) {
+      await doUnsubscribe();
+    }
+  };
 
   const checkSubscription = async () => {
     try {
@@ -43,20 +89,12 @@ export function usePushNotifications(userId: string | null) {
     }
   };
 
-  const subscribe = useCallback(async () => {
-    if (!userId) { console.warn("Push: no userId"); return false; }
-    if (!isSupported) { console.warn("Push: browser not supported"); return false; }
-    if (!VAPID_KEY) { console.warn("Push: VAPID key missing"); return false; }
-    setLoading(true);
-
+  const doSubscribe = async () => {
+    if (!userId || !isSupported || !VAPID_KEY) return false;
     try {
       const permissionResult = await Notification.requestPermission();
       setPermission(permissionResult);
-
-      if (permissionResult !== "granted") {
-        setLoading(false);
-        return false;
-      }
+      if (permissionResult !== "granted") return false;
 
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.subscribe({
@@ -65,7 +103,7 @@ export function usePushNotifications(userId: string | null) {
       });
 
       const subscriptionJson = subscription.toJSON();
-      const { error } = await supabase.from("push_subscriptions").upsert({
+      await supabase.from("push_subscriptions").upsert({
         user_id: userId,
         endpoint: subscription.endpoint,
         p256dh: (subscriptionJson.keys?.p256dh as string) || "",
@@ -73,40 +111,62 @@ export function usePushNotifications(userId: string | null) {
         fcm_token: subscription.endpoint,
       }, { onConflict: "endpoint" });
 
-      if (error) {
-        console.error("Failed to save push subscription:", error);
-      }
-
       setIsSubscribed(true);
-      setLoading(false);
       return true;
     } catch (err) {
       console.error("Push subscription failed:", err);
-      setLoading(false);
       return false;
     }
-  }, [userId, isSupported]);
+  };
 
-  const unsubscribe = useCallback(async () => {
+  const doUnsubscribe = async () => {
     if (!userId) return;
-    setLoading(true);
-
     try {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
       if (subscription) {
         await subscription.unsubscribe();
-        await supabase
-          .from("push_subscriptions")
-          .delete()
-          .eq("endpoint", subscription.endpoint);
+        await supabase.from("push_subscriptions").delete().eq("endpoint", subscription.endpoint);
       }
       setIsSubscribed(false);
     } catch (err) {
       console.error("Push unsubscribe failed:", err);
     }
-    setLoading(false);
-  }, [userId]);
+  };
 
-  return { isSupported, permission, isSubscribed, loading, subscribe, unsubscribe };
+  const togglePreference = useCallback(async () => {
+    if (!userId) return false;
+    setLoading(true);
+    const newVal = !preferenceEnabled;
+    const saved = await savePreference(newVal);
+    if (saved) {
+      setPreferenceEnabled(newVal);
+      if (newVal) {
+        const ok = await doSubscribe();
+        if (!ok) {
+          setPreferenceEnabled(false);
+          await savePreference(false);
+        }
+        setLoading(false);
+        return ok;
+      } else {
+        await doUnsubscribe();
+        setLoading(false);
+        return true;
+      }
+    }
+    setLoading(false);
+    return false;
+  }, [userId, preferenceEnabled]);
+
+  return {
+    isSupported,
+    permission,
+    isSubscribed,
+    preferenceEnabled,
+    loading,
+    togglePreference,
+    subscribe: doSubscribe,
+    unsubscribe: doUnsubscribe,
+  } as const;
 }
