@@ -94,8 +94,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     supabase.auth.admin.getUserById(booking.psychologist_id),
   ]);
 
-  const patientEmail = patientAuth?.user?.email;
-  const psyEmail = psyAuth?.user?.email;
+  const patientEmail = patientAuth?.data?.user?.email;
+  const psyEmail = psyAuth?.data?.user?.email;
   const patientName = patientProfile?.data?.full_name || "Patient";
   const psyName = psyProfile?.data?.full_name || "Thérapeute";
 
