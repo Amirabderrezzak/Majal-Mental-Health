@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendPushToUser } from './send-push';
 import { sendSessionReminder, sendNoShowNotification } from '../_lib/email.js';
-import { calculateRefund } from '../_lib/cancellation-policy';
+import { calculateRefund } from '../_lib/cancellation-policy.js';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
