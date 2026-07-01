@@ -13,6 +13,7 @@ import ChatWindow from "@/components/ChatWindow";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { SessionCalendar } from "@/components/SessionCalendar";
+import { SessionCardSkeleton, SessionsListSkeleton, PatientCardSkeleton } from "@/components/LoadingSkeletons";
 import { isSameDay } from "date-fns";
 import { CATEGORIES } from "@/lib/categories";
 
@@ -1026,7 +1027,7 @@ export default function EspacePsy() {
             
             <div className="space-y-4">
               {bookingsLoading ? (
-                <div className="py-10 text-center"><Loader2 className="w-6 h-6 mx-auto animate-spin text-primary"/></div>
+                <div className="space-y-4">{[1,2,3].map(i => <SessionCardSkeleton key={i} />)}</div>
               ) : bookings.filter(b => b.status === "confirmed" || b.status === "pending").length === 0 ? (
                 <div className="text-sm text-muted-foreground text-center py-10">
                   <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30 text-muted-foreground" />
@@ -1244,7 +1245,7 @@ export default function EspacePsy() {
         )}
 
         <div className="divide-y divide-border/30">
-          {bookingsLoading ? <div className="py-10 text-center"><Loader2 className="w-6 h-6 mx-auto animate-spin text-primary"/></div> :
+          {bookingsLoading ? <SessionsListSkeleton /> :
            filteredBookings.length === 0 ? <div className="text-muted-foreground text-center py-12 text-sm">{t("psy.dashboard.noSessions")}</div> :
            filteredBookings.map((s) => (
             <div key={s.id} className="flex items-center gap-4 px-5 py-4 hover:bg-teal-hero/30 transition-colors flex-wrap justify-between">
@@ -1402,7 +1403,9 @@ export default function EspacePsy() {
       </div>
 
       {bookingsLoading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1,2,3].map(i => <PatientCardSkeleton key={i} />)}
+        </div>
       ) : realPatients.length === 0 ? (
         <div className="dashboard-card p-10 text-center text-muted-foreground">
           <Users className="w-12 h-12 mx-auto mb-3 opacity-30 text-muted-foreground" />

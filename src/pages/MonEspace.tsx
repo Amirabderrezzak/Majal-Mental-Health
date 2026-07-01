@@ -14,6 +14,7 @@ import { getInitials } from "@/lib/utils";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { SessionCalendar } from "@/components/SessionCalendar";
+import { SessionCardSkeleton, SessionsListSkeleton, SessionHistorySkeleton, ProfileFormSkeleton } from "@/components/LoadingSkeletons";
 import { isSameDay } from "date-fns";
 
 
@@ -1989,7 +1990,7 @@ export default function MonEspace() {
           </button>
         </div>
         {bookingsLoading ? (
-          <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>
+          <div className="space-y-4">{[1,2,3].map(i => <SessionCardSkeleton key={i} />)}</div>
         ) : upcoming.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <div className="w-16 h-16 rounded-full bg-teal-hero flex items-center justify-center mx-auto mb-4 border border-teal-light/10">
@@ -2362,7 +2363,7 @@ export default function MonEspace() {
                 {t("space.upcomingSessionsCount")} ({upcoming.length})
               </h3>
           {bookingsLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>
+            <SessionsListSkeleton />
           ) : upcoming.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
               <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30 text-muted-foreground" />
@@ -2427,7 +2428,7 @@ export default function MonEspace() {
             {t("space.historyCount")} ({past.length})
           </h3>
           {bookingsLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-primary animate-spin" /></div>
+            <SessionHistorySkeleton />
           ) : past.length === 0 ? (
             <p className="text-center py-8 text-sm text-muted-foreground font-medium">{t("space.noHistory")}</p>
           ) : (
@@ -2560,7 +2561,7 @@ export default function MonEspace() {
         </div>
 
         {profileLoading ? (
-          <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>
+          <ProfileFormSkeleton />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="flex flex-col gap-2">
