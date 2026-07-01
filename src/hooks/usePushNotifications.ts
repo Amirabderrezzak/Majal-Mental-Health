@@ -94,7 +94,6 @@ export function usePushNotifications(userId: string | null) {
   };
 
   const doSubscribe = async () => {
-    if (!userId || !isSupported || !VAPID_KEY) return false;
     try {
       const permissionResult = await Notification.requestPermission();
       setPermission(permissionResult);
@@ -183,7 +182,7 @@ export function usePushNotifications(userId: string | null) {
     console.log("toggle: savePreference returned false");
     setLoading(false);
     return false;
-  }, [userId, preferenceEnabled]);
+  }, [userId, preferenceEnabled, isSupported]);
 
   return {
     isSupported,
