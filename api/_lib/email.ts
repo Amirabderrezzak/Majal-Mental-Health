@@ -317,3 +317,35 @@ export async function sendNewMessageNotification(opts: {
   });
 }
 
+// ── 10. No-Show Notification ──────────────────────────────────────────────────
+export async function sendNoShowNotification(opts: {
+  recipientEmail: string;
+  recipientName: string;
+  partnerName: string;
+  date: string;
+  userType: 'patient' | 'psychologue';
+  compensationPercent: number;
+}) {
+  const isPatient = opts.userType === 'patient';
+  const heading = isPatient ? 'Absence non justifiée' : 'Patient absent à la séance';
+  const bodyText = isPatient
+    ? `Vous n'avez pas assisté à votre séance avec le <strong>Dr. ${escapeHtml(opts.partnerName)}</strong> du <strong>${escapeHtml(opts.date)}</strong>.<br><br>Conformément à notre politique d'annulation, aucun remboursement ne sera effectué.`
+    : `Le patient <strong>${escapeHtml(opts.partnerName)}</strong> ne s'est pas présenté à la séance du <strong>${escapeHtml(opts.date)}</strong>.<br><br>Vous recevrez une compensation de <strong>${opts.compensationPercent}%</strong>.`;
+
+  const redirectLink = isPatient
+    ? `${SITE}/mon-espace?page=sessions`
+    : `${SITE}/espace-psy?page=sessions`;
+
+  return resend.emails.send({
+    from: FROM,
+    to: opts.recipientEmail,
+    subject: '⚠️ Absence non justifiée — Majal',
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">${heading}</h2>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${escapeHtml(opts.recipientName)}</strong>,</p>
+      <p style="color:#374151;font-size:15px;line-height:1.6;">${bodyText}</p>
+      ${btn('Voir mes séances', redirectLink)}
+    `),
+  });
+}
+

@@ -2,13 +2,13 @@ import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Users, Calendar, Star, Shield,
   LogOut, Menu, X, Check, XCircle, Crown, Trash2,
-  TrendingUp, UserCheck, AlertCircle,
+  TrendingUp, UserCheck, AlertCircle, Ban,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-type Tab = "dashboard" | "users" | "bookings" | "reviews" | "admins";
+type Tab = "dashboard" | "users" | "bookings" | "reviews" | "admins" | "cancellations";
 
 interface Stats {
   totalPatients: number;
@@ -60,14 +60,16 @@ const statusBadge: Record<string, string> = {
   confirmed: "bg-teal-50 text-teal-700 border border-teal-200",
   cancelled: "bg-red-50 text-red-600 border border-red-200",
   done:      "bg-gray-100 text-gray-600 border border-gray-200",
+  "no-show": "bg-amber-50 text-amber-700 border border-amber-200",
 };
 
 const navItems: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: "dashboard", label: "Tableau de bord",   icon: <LayoutDashboard className="w-4 h-4" /> },
-  { id: "users",     label: "Utilisateurs",       icon: <Users className="w-4 h-4" /> },
-  { id: "bookings",  label: "Réservations",       icon: <Calendar className="w-4 h-4" /> },
-  { id: "reviews",   label: "Avis",               icon: <Star className="w-4 h-4" /> },
-  { id: "admins",    label: "Gestion des admins", icon: <Shield className="w-4 h-4" /> },
+  { id: "dashboard",     label: "Tableau de bord",       icon: <LayoutDashboard className="w-4 h-4" /> },
+  { id: "users",         label: "Utilisateurs",           icon: <Users className="w-4 h-4" /> },
+  { id: "bookings",      label: "Réservations",           icon: <Calendar className="w-4 h-4" /> },
+  { id: "cancellations", label: "Annulations & No-show", icon: <Ban className="w-4 h-4" /> },
+  { id: "reviews",       label: "Avis",                   icon: <Star className="w-4 h-4" /> },
+  { id: "admins",        label: "Gestion des admins",     icon: <Shield className="w-4 h-4" /> },
 ];
 
 // Enrich a list with patient_name / psychologist_name from profiles
@@ -92,6 +94,7 @@ const UsersTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{re
 const BookingsTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
 const ReviewsTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
 const AdminsTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const CancellationsTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
 
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
@@ -148,6 +151,14 @@ export default function AdminDashboard() {
           if (error) { toast.error("Erreur avis"); return; }
           const enriched = await enrichWithNames(data ?? [], "patient_id", "psychologist_id");
           setReviews(enriched as Review[]);
+        } else if (tab === "cancellations") {
+          const { data, error } = await supabase.from("bookings")
+            .select("id, booked_at, status, duration_minutes, price, patient_id, psychologist_id")
+            .in("status", ["cancelled", "no-show"])
+            .order("booked_at", { ascending: false });
+          if (error) { toast.error("Erreur annulations"); return; }
+          const enriched = await enrichWithNames(data ?? [], "patient_id", "psychologist_id");
+          setBookings(enriched as Booking[]);
         }
       } catch (err) {
         console.error(err);
@@ -336,6 +347,65 @@ export default function AdminDashboard() {
     </div>
   );
 
+  const CancellationsTab = () => {
+    const cancelled = bookings.filter(b => b.status === "cancelled");
+    const noShows = bookings.filter(b => b.status === "no-show");
+    const totalLost = bookings.reduce((s, b) => s + (b.price || 0), 0);
+
+    return (
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Annulations & No-show</h1>
+        {loading ? <Loader /> : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <p className="text-sm text-gray-500 font-medium">Total annulations</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{cancelled.length}</p>
+              </div>
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <p className="text-sm text-gray-500 font-medium">No-shows</p>
+                <p className="text-2xl font-bold text-amber-600 mt-1">{noShows.length}</p>
+              </div>
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <p className="text-sm text-gray-500 font-medium">Montant total annulé (DA)</p>
+                <p className="text-2xl font-bold text-red-600 mt-1">{totalLost.toLocaleString()} DA</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>{["Patient", "Psychologue", "Date", "Prix", "Statut"].map(h => (
+                    <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                  ))}</tr>
+                </thead>
+                <tbody>
+                  {bookings.map(b => (
+                    <tr key={b.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-3.5 font-medium text-gray-900">{b.patient_name}</td>
+                      <td className="px-5 py-3.5 text-gray-600">{b.psychologist_name}</td>
+                      <td className="px-5 py-3.5 text-gray-500">{new Date(b.booked_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}</td>
+                      <td className="px-5 py-3.5 text-gray-500">{b.price ? `${b.price} DA` : "—"}</td>
+                      <td className="px-5 py-3.5">
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          b.status === "no-show" ? "bg-amber-50 text-amber-700 border border-amber-200" :
+                          "bg-red-50 text-red-600 border border-red-200"
+                        }`}>
+                          {b.status === "no-show" ? "No-show" : "Annulé"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {bookings.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-gray-400 text-sm">Aucune annulation.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   const ReviewsTab = () => (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Modération des Avis</h1>
@@ -411,11 +481,12 @@ export default function AdminDashboard() {
   };
 
   const tabMap: Record<Tab, React.ReactNode> = {
-    dashboard: <DashboardTabWrapper render={DashboardTab} />,
-    users:     <UsersTabWrapper render={UsersTab} />,
-    bookings:  <BookingsTabWrapper render={BookingsTab} />,
-    reviews:   <ReviewsTabWrapper render={ReviewsTab} />,
-    admins:    <AdminsTabWrapper render={AdminsTab} />,
+    dashboard:     <DashboardTabWrapper render={DashboardTab} />,
+    users:         <UsersTabWrapper render={UsersTab} />,
+    bookings:      <BookingsTabWrapper render={BookingsTab} />,
+    cancellations: <CancellationsTabWrapper render={CancellationsTab} />,
+    reviews:       <ReviewsTabWrapper render={ReviewsTab} />,
+    admins:        <AdminsTabWrapper render={AdminsTab} />,
   };
 
   return (

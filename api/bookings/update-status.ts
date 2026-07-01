@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendBookingStatusUpdate, sendCancellationConfirmation } from '../_lib/email.js';
 import { sendPushToUser } from '../notifications/send-push.js';
+import { calculateRefund } from '../_lib/cancellation-policy';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -113,31 +114,14 @@ export default async function handler(req: any, res: any) {
 
     if (recipientEmail) {
       if (status === "cancelled") {
-        // Calculate refund based on cancellation policy
-        const now = new Date();
-        const sessionTime = new Date(booking.booked_at);
-        const hoursUntilSession = (sessionTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-        let refundPercent = 0;
-        let compensationPercent = 0;
-
-        if (hoursUntilSession > 24) {
-          refundPercent = 100;
-          compensationPercent = 100;
-        } else if (hoursUntilSession > 2) {
-          refundPercent = 70;
-          compensationPercent = 100;
-        } else {
-          refundPercent = 0;
-          compensationPercent = 100;
-        }
-
+        const policy = calculateRefund(new Date(booking.booked_at), new Date());
         await sendCancellationConfirmation({
           recipientEmail,
           recipientName,
           partnerName,
           date: dateStr,
-          refundPercent,
-          compensationPercent,
+          refundPercent: policy.refundPercent,
+          compensationPercent: policy.compensationPercent,
           userType: isPatient ? 'patient' : 'psychologue'
         }).catch(console.error);
       } else {
