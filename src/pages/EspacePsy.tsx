@@ -2086,10 +2086,8 @@ export default function EspacePsy() {
                 aria-checked={pushSubscribed}
                 disabled={pushLoading}
                 onClick={async () => {
-                  console.log("toggle clicked, current state:", { pushSubscribed, pushLoading });
                   const was = pushSubscribed;
                   const ok = await pushToggle();
-                  console.log("toggle result:", ok);
                   if (ok) toast.success(was ? "Notifications push désactivées." : "Notifications push activées !");
                   else toast.error("Impossible d'activer les notifications...");
                 }}

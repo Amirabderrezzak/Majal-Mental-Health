@@ -138,48 +138,36 @@ export function usePushNotifications(userId: string | null) {
   };
 
   const togglePreference = useCallback(async () => {
-    if (!userId) { console.log("toggle: no userId"); return false; }
+    if (!userId) return false;
     setLoading(true);
     const newVal = !preferenceEnabled;
-    console.log("toggle: newVal =", newVal, "preferenceEnabled was", preferenceEnabled);
 
     if (newVal) {
-      console.log("toggle: requesting permission...");
       const perm = await Notification.requestPermission();
-      console.log("toggle: permission result =", perm);
       setPermission(perm);
       if (perm !== "granted") {
-        console.log("toggle: permission not granted");
         setLoading(false);
         return false;
       }
-      console.log("toggle: permission granted");
     }
 
-    console.log("toggle: saving preference...");
     const saved = await savePreference(newVal);
-    console.log("toggle: savePreference returned", saved);
     if (saved) {
       setPreferenceEnabled(newVal);
       if (newVal) {
-        console.log("toggle: subscribing...");
         const ok = await doSubscribe();
-        console.log("toggle: doSubscribe returned", ok);
         if (!ok) {
-          console.log("toggle: subscribe failed, reverting");
           setPreferenceEnabled(false);
           await savePreference(false);
         }
         setLoading(false);
         return ok;
       } else {
-        console.log("toggle: unsubscribing...");
         await doUnsubscribe();
         setLoading(false);
         return true;
       }
     }
-    console.log("toggle: savePreference returned false");
     setLoading(false);
     return false;
   }, [userId, preferenceEnabled, isSupported]);
