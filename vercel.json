@@ -19,10 +19,6 @@
   "crons": [
     {
       "path": "/api/notifications/push-cron",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/bookings/no-show-cron",
       "schedule": "*/30 * * * *"
     }
   ]
