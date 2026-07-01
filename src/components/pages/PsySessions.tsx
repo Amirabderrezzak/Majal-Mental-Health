@@ -31,7 +31,7 @@ const formatTimeUntil = (booked_at: string) => {
 interface Booking {
   id: string;
   booked_at: string;
-  status: "pending" | "confirmed" | "cancelled" | "done";
+  status: "pending" | "confirmed" | "cancelled" | "done" | "no-show";
   duration_minutes: number;
   patient_id: string;
   patient_name?: string;

@@ -20,7 +20,7 @@ import ContentCreatorPage from "@/components/pages/ContentCreatorPage";
 interface Booking {
   id: string;
   booked_at: string;
-  status: "pending" | "confirmed" | "cancelled" | "done";
+  status: "pending" | "confirmed" | "cancelled" | "done" | "no-show";
   duration_minutes: number;
   patient_id: string;
   patient_name?: string;
@@ -723,6 +723,7 @@ export default function EspacePsy() {
     pending:   t("space.status.pending"),
     done:      t("space.status.done"),
     cancelled: t("space.status.cancelled"),
+    "no-show": "Absent",
   };
 
   const pageTitle: Record<Page, string> = {

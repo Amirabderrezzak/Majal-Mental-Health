@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { sendPushToUser } from './send-push';
+import { sendPushToUser } from './send-push.js';
 import { sendSessionReminder, sendNoShowNotification } from '../_lib/email.js';
 import { calculateRefund } from '../_lib/cancellation-policy.js';
 

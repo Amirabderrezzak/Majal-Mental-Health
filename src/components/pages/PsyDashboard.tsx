@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Users, Calendar, TrendingUp, Clock, Phone, ChevronRight, Video, Loader2, Check, X, AlertCircle, UserCheck, Sparkles, Ban, FileText, Search, Plus } from "lucide-react";
+import { Users, Calendar, TrendingUp, Clock, Phone, ChevronRight, Video, Loader2, Check, X, AlertCircle, UserCheck, Sparkles, Ban, FileText, Search } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,7 +48,7 @@ const timeToMinutes = (dateStr: string) => {
 interface Booking {
   id: string;
   booked_at: string;
-  status: "pending" | "confirmed" | "cancelled" | "done";
+  status: "pending" | "confirmed" | "cancelled" | "done" | "no-show";
   duration_minutes: number;
   patient_id: string;
   patient_name?: string;
@@ -84,6 +84,7 @@ const statusConfig: Record<string, { label: string; icon: React.ReactNode; class
   confirmed: { label: "Confirmé",      icon: <Check className="w-3 h-3" />,     className: "bg-teal-50 text-teal-700 border border-teal-200" },
   done:      { label: "Terminé",       icon: <Sparkles className="w-3 h-3" />,  className: "bg-gray-100 text-gray-600 border border-gray-200" },
   cancelled: { label: "Annulé",        icon: <X className="w-3 h-3" />,         className: "bg-red-50 text-red-600 border border-red-200" },
+  "no-show": { label: "Absent",        icon: <X className="w-3 h-3" />,         className: "bg-amber-50 text-amber-700 border border-amber-200" },
 };
 
 function NotesPopover({ patientId, patientName, onClose }: { patientId: string; patientName: string; onClose: () => void }) {
