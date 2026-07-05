@@ -148,38 +148,6 @@ const Reservation = () => {
     setBooking(true);
     const psychologistId = id!;
 
-    // Check for existing booking at the same time
-    const { data: existing } = await supabase
-      .from("bookings")
-      .select("id")
-      .eq("psychologist_id", psychologistId)
-      .eq("booked_at", bookedAt.toISOString())
-      .neq("status", "cancelled")
-      .maybeSingle();
-
-    if (existing) {
-      setBooking(false);
-      toast.error(t("res.error.slotTaken"));
-      return;
-    }
-
-    const { data: insertedBooking, error } = await supabase.from("bookings").insert({
-      patient_id: user.id,
-      psychologist_id: psychologistId,
-      booked_at: bookedAt.toISOString(),
-      duration_minutes: 60,
-      status: "pending",
-      price: docPrice,
-    }).select().single();
-
-    if (error || !insertedBooking) {
-      setBooking(false);
-      console.error("Booking error:", error);
-      toast.error(t("res.error.general"));
-      return;
-    }
-
-    // Call Vercel serverless function to generate payment URL
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -197,7 +165,9 @@ const Reservation = () => {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          booking_id: insertedBooking.id,
+          psychologist_id: psychologistId,
+          booked_at: bookedAt.toISOString(),
+          duration_minutes: 60,
           price: docPrice,
           full_name: profile?.full_name || user.email,
           phone: user.phone || '',
@@ -205,6 +175,13 @@ const Reservation = () => {
       });
 
       const data = await response.json();
+
+      if (!response.ok) {
+        setBooking(false);
+        toast.error(data.error || t("res.error.general"));
+        return;
+      }
+
       if (data.url) {
         window.location.href = data.url;
       } else {

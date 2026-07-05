@@ -34,68 +34,89 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { booking_id, price, full_name, phone } = req.body;
+    const { psychologist_id, booked_at, duration_minutes, price, full_name, phone } = req.body;
 
-    if (!booking_id || !price) {
-      return res.status(400).json({ error: 'booking_id and price are required' });
+    if (!psychologist_id || !booked_at || !price) {
+      return res.status(400).json({ error: 'psychologist_id, booked_at, and price are required' });
     }
 
     if (typeof price !== 'number' || price <= 0) {
       return res.status(400).json({ error: 'price must be a positive number' });
     }
 
-    const { data: booking, error: bookingError } = await supabase
+    const { data: existing } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('psychologist_id', psychologist_id)
+      .eq('booked_at', booked_at)
+      .in('status', ['initiated', 'pending'])
+      .maybeSingle();
+
+    if (existing) {
+      return res.status(409).json({ error: 'Un paiement est déjà en cours pour ce créneau.' });
+    }
+
+    const { data: existingBooking } = await supabase
       .from('bookings')
-      .select('id, status, patient_id, psychologist_id')
-      .eq('id', booking_id)
+      .select('id')
+      .eq('psychologist_id', psychologist_id)
+      .eq('booked_at', booked_at)
+      .neq('status', 'cancelled')
+      .maybeSingle();
+
+    if (existingBooking) {
+      return res.status(409).json({ error: 'Ce créneau est déjà réservé.' });
+    }
+
+    const { data: payment, error: insertError } = await supabase
+      .from('payments')
+      .insert({
+        patient_id: user.id,
+        psychologist_id,
+        booked_at,
+        duration_minutes: duration_minutes || 60,
+        price,
+        status: 'initiated',
+      })
+      .select()
       .single();
 
-    if (bookingError || !booking) {
-      return res.status(404).json({ error: 'Booking not found' });
+    if (insertError || !payment) {
+      console.error('Payment insert error:', insertError);
+      return res.status(500).json({ error: 'Failed to create payment record' });
     }
 
-    if (booking.patient_id !== user.id) {
-      return res.status(403).json({ error: 'You can only pay for your own bookings' });
-    }
-
-    if (booking.status !== 'pending') {
-      return res.status(400).json({ error: 'Booking is not pending payment' });
-    }
-
-    const { data: patientProfile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('user_id', user.id)
-      .single();
-
-    const origin = req.headers.origin || (req.headers.host ? `${req.headers.host.includes('localhost') ? 'http' : 'https'}://${req.headers.host}` : null);
+    const origin = req.headers.origin || (req.headers.host
+      ? `${req.headers.host.includes('localhost') ? 'http' : 'https'}://${req.headers.host}`
+      : null);
     const FRONTEND_URL = origin || process.env.FRONTEND_URL || (process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
       : 'http://localhost:8080');
 
-    const returnUrl = `${FRONTEND_URL}/payment/return`;
+    const returnUrl = `${FRONTEND_URL}/payment/return?payment_id=${payment.id}`;
 
     const gateway = getPaymentGateway();
-    const params: CheckoutParams = {
-      booking_id,
+    const result = await gateway.createCheckout({
+      payment_id: payment.id,
       amount: price,
-      full_name: full_name || patientProfile?.full_name || 'Patient',
+      full_name: full_name || user.email || 'Patient',
       phone: phone || '',
       email: user.email || '',
-      memo: `Booking: ${booking_id}`,
-    };
-
-    const result = await gateway.createCheckout(params, returnUrl);
+      memo: `Majal - Séance thérapie`,
+    }, returnUrl);
 
     await supabase
-      .from('bookings')
-      .update({ transaction_id: result.transaction_id })
-      .eq('id', booking_id);
+      .from('payments')
+      .update({
+        sofizpay_transaction_id: result.cib_transaction_id,
+        status: 'pending',
+      })
+      .eq('id', payment.id);
 
     res.json({
       url: result.payment_url,
-      transaction_id: result.transaction_id,
-      amount: result.amount,
+      payment_id: payment.id,
+      cib_transaction_id: result.cib_transaction_id,
     });
   } catch (err: any) {
     console.error('Checkout error:', err);

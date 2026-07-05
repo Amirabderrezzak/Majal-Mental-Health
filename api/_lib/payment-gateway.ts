@@ -1,5 +1,5 @@
 export interface CheckoutParams {
-  booking_id: string;
+  payment_id: string;
   amount: number;
   full_name: string;
   phone: string;
@@ -10,51 +10,78 @@ export interface CheckoutParams {
 export interface CheckoutResult {
   transaction_id: string;
   payment_url: string;
+  cib_transaction_id: string;
   amount: number;
   status: string;
 }
 
 export interface PaymentGateway {
   createCheckout(params: CheckoutParams, returnUrl: string): Promise<CheckoutResult>;
+  checkStatus(cibTransactionId: string): Promise<{ status: string; success: boolean }>;
 }
 
-const SOFIZPAY_API = "https://sofizpay.com/services/operation_post";
+const SANDBOX_BASE = "https://sofizpay.com/sandbox";
+const PROD_BASE = "https://www.sofizpay.com";
 
 class SofizPayGateway implements PaymentGateway {
-  private secretKey: string;
+  private publicKey: string;
+  private isSandbox: boolean;
 
-  constructor(secretKey: string) {
-    this.secretKey = secretKey;
+  constructor(publicKey: string, isSandbox = false) {
+    this.publicKey = publicKey;
+    this.isSandbox = isSandbox;
   }
 
   async createCheckout(params: CheckoutParams, returnUrl: string): Promise<CheckoutResult> {
-    const response = await fetch(SOFIZPAY_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        encrypted_sk: this.secretKey,
-        amount: params.amount,
-        full_name: params.full_name,
-        phone: params.phone,
-        email: params.email,
-        return_url: returnUrl,
-        memo: params.memo || params.booking_id,
-        redirect: "yes",
-        keep_return_url: "True",
-      }),
+    const base = this.isSandbox ? SANDBOX_BASE : PROD_BASE;
+    const url = new URL(`${base}/make-cib-transaction/`);
+
+    url.searchParams.set("account", this.publicKey);
+    url.searchParams.set("amount", String(params.amount));
+    url.searchParams.set("full_name", params.full_name);
+    url.searchParams.set("phone", params.phone);
+    url.searchParams.set("email", params.email);
+    url.searchParams.set("return_url", returnUrl);
+    url.searchParams.set("memo", params.memo || params.payment_id);
+    url.searchParams.set("redirect", "yes");
+
+    const response = await fetch(url.toString(), {
+      headers: { "Accept": "application/json" },
     });
 
     const data = await response.json();
 
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || "SofizPay transaction creation failed");
+    if (!response.ok || data.status === "error") {
+      throw new Error(data.message || `SofizPay API error: ${response.status}`);
     }
 
     return {
-      transaction_id: data.transaction_id,
+      transaction_id: data.transaction_id || "",
       payment_url: data.payment_url,
-      amount: parseFloat(data.amount),
-      status: data.status,
+      cib_transaction_id: data.cib_transaction_id || "",
+      amount: parseFloat(data.amount) || params.amount,
+      status: data.status || "pending_user_transfer_start",
+    };
+  }
+
+  async checkStatus(cibTransactionId: string): Promise<{ status: string; success: boolean }> {
+    const base = this.isSandbox ? SANDBOX_BASE : PROD_BASE;
+    const url = new URL(`${base}/cib-transaction-check/`);
+    url.searchParams.set("order_number", cibTransactionId);
+
+    const response = await fetch(url.toString(), {
+      headers: { "Accept": "application/json" },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { status: "error", success: false };
+    }
+
+    return {
+      status: data.status || "unknown",
+      success: data.status === "success" || data.status === "confirmed",
     };
   }
 }
@@ -63,18 +90,27 @@ class MockGateway implements PaymentGateway {
   async createCheckout(params: CheckoutParams, returnUrl: string): Promise<CheckoutResult> {
     return {
       transaction_id: `mock_${Date.now()}`,
-      payment_url: `${returnUrl}?booking_id=${params.booking_id}&amount=${params.amount}&mock=true`,
+      payment_url: `${returnUrl}?payment_id=${params.payment_id}&mock=true&status=success`,
+      cib_transaction_id: `mock_cib_${Date.now()}`,
       amount: params.amount,
-      status: "pending_user_transfer_start",
+      status: "success",
     };
+  }
+
+  async checkStatus(_cibTransactionId: string): Promise<{ status: string; success: boolean }> {
+    return { status: "success", success: true };
   }
 }
 
 export function getPaymentGateway(): PaymentGateway {
-  const secretKey = process.env.SOFIZPAY_SECRET_KEY;
-  if (secretKey) {
-    return new SofizPayGateway(secretKey);
+  const publicKey = process.env.SOFIZPAY_PUBLIC_KEY;
+  const sandbox = process.env.SOFIZPAY_SANDBOX === "true";
+
+  if (publicKey) {
+    console.log(`SofizPay gateway: ${sandbox ? "SANDBOX" : "PRODUCTION"} mode`);
+    return new SofizPayGateway(publicKey, sandbox);
   }
-  console.warn("SOFIZPAY_SECRET_KEY not set — using mock payment gateway");
+
+  console.warn("SOFIZPAY_PUBLIC_KEY not set — using mock payment gateway");
   return new MockGateway();
 }

@@ -10,42 +10,50 @@ export default function PaymentReturn() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    const booking_id = params.get("booking_id");
-    const amount = params.get("amount");
-    const cancelled = params.get("cancelled");
+    const payment_id = params.get("payment_id");
     const mock = params.get("mock");
+    const mockStatus = params.get("status");
 
-    if (cancelled === "true") {
-      setStatus("cancelled");
-      return;
-    }
-
-    if (!booking_id) {
+    if (!payment_id) {
       setStatus("error");
-      setErrorMsg("Aucune référence de réservation trouvée.");
+      setErrorMsg("Aucune référence de paiement trouvée.");
       return;
     }
 
-    if (mock === "true") {
-      confirmPayment(booking_id);
+    if (mock === "true" && mockStatus === "success") {
+      confirmPayment(payment_id, true);
+    } else if (mock === "true" && mockStatus === "cancelled") {
+      setStatus("cancelled");
     } else {
-      setStatus("success");
+      confirmPayment(payment_id, false);
     }
   }, []);
 
-  const confirmPayment = async (booking_id: string) => {
+  const confirmPayment = async (payment_id: string, isMock: boolean) => {
     try {
-      const res = await fetch("/api/payments/webhook", {
+      const res = await fetch("/api/payments/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ booking_id, status: "success", transaction_id: `mock_${Date.now()}` }),
+        body: JSON.stringify({ payment_id, mock: isMock ? "true" : undefined }),
       });
 
-      if (!res.ok) throw new Error("Webhook failed");
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 400 && data.error === "Payment not confirmed") {
+          setStatus("error");
+          setErrorMsg("Le paiement n'a pas pu être confirmé. Veuillez réessayer.");
+        } else {
+          setStatus("error");
+          setErrorMsg(data.error || "Erreur lors de la confirmation.");
+        }
+        return;
+      }
+
       setStatus("success");
     } catch (err) {
       setStatus("error");
-      setErrorMsg("Erreur lors de la confirmation du paiement.");
+      setErrorMsg("Erreur de connexion lors de la confirmation du paiement.");
     }
   };
 
