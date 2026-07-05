@@ -44,12 +44,19 @@ class SofizPayGateway implements PaymentGateway {
     url.searchParams.set("return_url", returnUrl);
     url.searchParams.set("memo", params.memo || params.payment_id);
     url.searchParams.set("redirect", "yes");
+    url.searchParams.set("keep_return_url", "True");
+
+    console.log(`SofizPay request: ${url.toString()}`);
 
     const response = await fetch(url.toString(), {
-      headers: { "Accept": "application/json" },
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
     });
 
     const data = await response.json();
+    console.log(`SofizPay response (${response.status}):`, JSON.stringify(data));
 
     if (!response.ok || data.status === "error") {
       throw new Error(data.message || `SofizPay API error: ${response.status}`);

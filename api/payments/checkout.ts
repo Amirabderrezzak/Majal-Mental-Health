@@ -99,9 +99,9 @@ export default async function handler(req: any, res: any) {
     const result = await gateway.createCheckout({
       payment_id: payment.id,
       amount: price,
-      full_name: full_name || user.email || 'Patient',
-      phone: phone || '',
-      email: user.email || '',
+      full_name: full_name || 'Patient',
+      phone: phone || '0000000000',
+      email: user.email || `patient-${user.id.slice(0,8)}@majal.dz`,
       memo: `Majal - Séance thérapie`,
     }, returnUrl);
 
