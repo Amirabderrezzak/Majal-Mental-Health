@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { CheckCircle2, XCircle, Loader2, ArrowRight } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 type Status = "processing" | "success" | "cancelled" | "error";
 
@@ -11,8 +12,6 @@ export default function PaymentReturn() {
 
   useEffect(() => {
     const payment_id = params.get("payment_id");
-    const mock = params.get("mock");
-    const mockStatus = params.get("status");
 
     if (!payment_id) {
       setStatus("error");
@@ -20,21 +19,21 @@ export default function PaymentReturn() {
       return;
     }
 
-    if (mock === "true" && mockStatus === "success") {
-      confirmPayment(payment_id, true);
-    } else if (mock === "true" && mockStatus === "cancelled") {
-      setStatus("cancelled");
-    } else {
-      confirmPayment(payment_id, false);
-    }
+    confirmPayment(payment_id);
   }, []);
 
-  const confirmPayment = async (payment_id: string, isMock: boolean) => {
+  const confirmPayment = async (payment_id: string) => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const res = await fetch("/api/payments/confirm", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payment_id, mock: isMock ? "true" : undefined }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ payment_id }),
       });
 
       const data = await res.json();

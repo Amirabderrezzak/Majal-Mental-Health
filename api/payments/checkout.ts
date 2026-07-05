@@ -34,28 +34,46 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { psychologist_id, booked_at, duration_minutes, price, full_name, phone } = req.body;
+    const { psychologist_id, booked_at, duration_minutes, full_name, phone } = req.body;
 
-    if (!psychologist_id || !booked_at || !price) {
-      return res.status(400).json({ error: 'psychologist_id, booked_at, and price are required' });
+    if (!psychologist_id || !booked_at) {
+      return res.status(400).json({ error: 'psychologist_id and booked_at are required' });
     }
 
-    if (typeof price !== 'number' || price <= 0) {
-      return res.status(400).json({ error: 'price must be a positive number' });
-    }
+    const { data: psyProfile } = await supabase
+      .from('profiles')
+      .select('price_per_session')
+      .eq('user_id', psychologist_id)
+      .single();
+
+    const price = psyProfile?.price_per_session || 3000;
 
     const { data: existing } = await supabase
       .from('payments')
-      .select('id')
+      .select('id, status')
       .eq('psychologist_id', psychologist_id)
       .eq('booked_at', booked_at)
       .in('status', ['initiated', 'pending'])
       .maybeSingle();
 
     if (existing) {
+      if (existing.status === 'pending') {
+        const { data: stalePayment } = await supabase
+          .from('payments')
+          .select('id, payment_url, cib_transaction_id')
+          .eq('id', existing.id)
+          .single();
+        if (stalePayment?.payment_url) {
+          return res.json({
+            url: stalePayment.payment_url,
+            payment_id: stalePayment.id,
+            cib_transaction_id: stalePayment.cib_transaction_id,
+          });
+        }
+      }
       await supabase
         .from('payments')
-        .delete()
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
         .eq('id', existing.id);
     }
 

@@ -23,8 +23,19 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ error: 'Database client not configured' });
   }
 
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing authorization header' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  if (authError || !user) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
   try {
-    const { payment_id, mock } = req.body;
+    const { payment_id } = req.body;
 
     if (!payment_id) {
       return res.status(400).json({ error: 'payment_id is required' });
@@ -38,6 +49,10 @@ export default async function handler(req: any, res: any) {
 
     if (fetchError || !payment) {
       return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    if (payment.patient_id !== user.id) {
+      return res.status(403).json({ error: 'You do not own this payment' });
     }
 
     if (payment.status === 'confirmed') {
@@ -54,9 +69,9 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    let paymentVerified = mock === 'true';
+    let paymentVerified = false;
 
-    if (!paymentVerified && payment.sofizpay_transaction_id) {
+    if (payment.sofizpay_transaction_id) {
       const gateway = getPaymentGateway();
       const statusResult = await gateway.checkStatus(payment.sofizpay_transaction_id);
       paymentVerified = statusResult.success;
@@ -72,11 +87,6 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Payment not confirmed' });
     }
 
-    await supabase
-      .from('payments')
-      .update({ status: 'confirmed', updated_at: new Date().toISOString() })
-      .eq('id', payment_id);
-
     const { data: existingBooking } = await supabase
       .from('bookings')
       .select('id')
@@ -86,6 +96,10 @@ export default async function handler(req: any, res: any) {
       .maybeSingle();
 
     if (existingBooking) {
+      await supabase
+        .from('payments')
+        .update({ status: 'confirmed', updated_at: new Date().toISOString() })
+        .eq('id', payment_id);
       return res.json({ success: true, booking_id: existingBooking.id, already_confirmed: true });
     }
 
@@ -106,6 +120,11 @@ export default async function handler(req: any, res: any) {
       console.error('Booking creation error:', bookingError);
       return res.status(500).json({ error: 'Failed to create booking after payment' });
     }
+
+    await supabase
+      .from('payments')
+      .update({ status: 'confirmed', updated_at: new Date().toISOString() })
+      .eq('id', payment_id);
 
     const { data: patientProfile } = await supabase
       .from('profiles')

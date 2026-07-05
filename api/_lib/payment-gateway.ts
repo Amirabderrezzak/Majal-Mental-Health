@@ -46,7 +46,7 @@ class SofizPayGateway implements PaymentGateway {
     url.searchParams.set("redirect", "no");
     url.searchParams.set("keep_return_url", "True");
 
-    console.log(`SofizPay request: ${url.toString()}`);
+    console.log(`SofizPay CIB request: amount=${params.amount}`);
 
     const response = await fetch(url.toString(), {
       headers: {
@@ -55,7 +55,6 @@ class SofizPayGateway implements PaymentGateway {
     });
 
     const text = await response.text();
-    console.log(`SofizPay raw response (${response.status}):`, text);
 
     let data: any;
     try { data = JSON.parse(text); } catch { data = { message: text }; }

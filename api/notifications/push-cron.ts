@@ -214,7 +214,23 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    res.json({ success: true, processed, failed, total: notifications.length, reminderSent, reminderFailed, noShowDetected, noShowFailed });
+    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const { data: stalePayments } = await supabase
+      .from('payments')
+      .select('id')
+      .in('status', ['initiated', 'pending'])
+      .lt('created_at', thirtyMinAgo);
+
+    let staleCleaned = 0;
+    if (stalePayments && stalePayments.length > 0) {
+      const { error: staleErr } = await supabase
+        .from('payments')
+        .update({ status: 'failed', updated_at: new Date().toISOString() })
+        .in('id', stalePayments.map((p: any) => p.id));
+      if (!staleErr) staleCleaned = stalePayments.length;
+    }
+
+    res.json({ success: true, processed, failed, total: notifications.length, reminderSent, reminderFailed, noShowDetected, noShowFailed, stalePaymentsCleaned: staleCleaned });
   } catch (err: any) {
     console.error('Push cron error:', err);
     res.status(500).json({ error: err.message });
