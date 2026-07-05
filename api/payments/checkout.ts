@@ -53,7 +53,10 @@ export default async function handler(req: any, res: any) {
       .maybeSingle();
 
     if (existing) {
-      return res.status(409).json({ error: 'Un paiement est déjà en cours pour ce créneau.' });
+      await supabase
+        .from('payments')
+        .delete()
+        .eq('id', existing.id);
     }
 
     const { data: existingBooking } = await supabase
