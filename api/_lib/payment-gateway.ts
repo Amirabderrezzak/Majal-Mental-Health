@@ -51,12 +51,14 @@ class SofizPayGateway implements PaymentGateway {
     const response = await fetch(url.toString(), {
       headers: {
         "Accept": "application/json",
-        "Content-Type": "application/json",
       },
     });
 
-    const data = await response.json();
-    console.log(`SofizPay response (${response.status}):`, JSON.stringify(data));
+    const text = await response.text();
+    console.log(`SofizPay raw response (${response.status}):`, text);
+
+    let data: any;
+    try { data = JSON.parse(text); } catch { data = { message: text }; }
 
     if (!response.ok || data.status === "error") {
       throw new Error(data.message || `SofizPay API error: ${response.status}`);

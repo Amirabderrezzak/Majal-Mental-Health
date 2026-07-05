@@ -120,6 +120,8 @@ export default async function handler(req: any, res: any) {
     });
   } catch (err: any) {
     console.error('Checkout error:', err);
-    res.status(500).json({ error: err.message || 'Internal server error' });
+    const msg = err.message || 'Internal server error';
+    const isSofiz = msg.includes('SofizPay');
+    res.status(isSofiz ? 402 : 500).json({ error: msg });
   }
 }
