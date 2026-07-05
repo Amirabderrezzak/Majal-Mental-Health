@@ -43,7 +43,7 @@ class SofizPayGateway implements PaymentGateway {
     url.searchParams.set("email", params.email);
     url.searchParams.set("return_url", returnUrl);
     url.searchParams.set("memo", params.memo || params.payment_id);
-    url.searchParams.set("redirect", "yes");
+    url.searchParams.set("redirect", "no");
     url.searchParams.set("keep_return_url", "True");
 
     console.log(`SofizPay request: ${url.toString()}`);
