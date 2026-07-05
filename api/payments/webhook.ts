@@ -13,102 +13,102 @@ try {
   console.error("Failed to initialize Supabase client in webhook:", e);
 }
 
+async function confirmBooking(booking_id: string, transaction_id?: string) {
+  const updateData: any = { status: 'confirmed' };
+  if (transaction_id) updateData.transaction_id = transaction_id;
+
+  const { error: updateError } = await supabase
+    .from('bookings')
+    .update(updateData)
+    .eq('id', booking_id);
+
+  if (updateError) throw new Error(updateError.message);
+
+  const { data: booking } = await supabase
+    .from('bookings')
+    .select('id, booked_at, duration_minutes, price, patient_id, psychologist_id')
+    .eq('id', booking_id)
+    .single();
+
+  if (!booking) return;
+
+  const { data: patient } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('user_id', booking.patient_id)
+    .single();
+
+  const { data: patientAuth } = await supabase.auth.admin.getUserById(booking.patient_id);
+
+  const { data: therapist } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('user_id', booking.psychologist_id)
+    .single();
+
+  const { data: therapistAuth } = await supabase.auth.admin.getUserById(booking.psychologist_id);
+
+  const dateStr = new Date(booking.booked_at).toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+
+  if (patientAuth?.user?.email && patient) {
+    await sendBookingConfirmation({
+      patientEmail: patientAuth.user.email,
+      patientName:  patient.full_name || 'Patient',
+      therapistName: therapist?.full_name || 'Thérapeute',
+      date:     dateStr,
+      duration: booking.duration_minutes,
+      price:    booking.price || 0,
+      bookingId: booking.id,
+    }).catch(console.error);
+  }
+
+  if (therapistAuth?.user?.email && therapist) {
+    await sendTherapistNewBooking({
+      therapistEmail: therapistAuth.user.email,
+      therapistName:  therapist.full_name || 'Thérapeute',
+      patientName:    patient?.full_name || 'Patient',
+      date:     dateStr,
+      duration: booking.duration_minutes,
+    }).catch(console.error);
+  }
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   if (!supabase) {
-    console.error("Supabase client is not initialized in webhook. URL:", supabaseUrl ? "Present" : "Missing", "Key:", supabaseKey ? "Present" : "Missing");
-    return res.status(500).json({ error: 'Database client configuration error: Missing Supabase URL or Service Role Key' });
-  }
-
-  // ── Security: verify webhook secret ──────────────────────────────────────
-  const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
-  if (!WEBHOOK_SECRET) {
-    console.error("WEBHOOK_SECRET env variable is not configured");
-    return res.status(500).json({ error: "Webhook secret is not configured on server" });
-  }
-  const providedSecret = req.headers['x-webhook-secret'];
-  if (providedSecret !== WEBHOOK_SECRET) {
-    console.warn('Webhook rejected: invalid or missing secret');
-    return res.status(401).json({ error: 'Unauthorized' });
+    console.error("Supabase client is not initialized in webhook.");
+    return res.status(500).json({ error: 'Database client configuration error' });
   }
 
   try {
-    const { booking_id, status } = req.body;
-    if (!booking_id) return res.status(400).json({ error: 'booking_id is required' });
+    const { booking_id, status, transaction_id } = req.body;
 
-    const newStatus = status === 'success' ? 'confirmed' : 'cancelled';
-
-    // Update booking status
-    const { error: updateError } = await supabase
-      .from('bookings')
-      .update({ status: newStatus })
-      .eq('id', booking_id);
-
-    if (updateError) return res.status(500).json({ error: updateError.message });
-
-    // Send emails only when confirmed
-    if (newStatus === 'confirmed') {
-      // Fetch full booking details with patient + therapist info
-      const { data: booking } = await supabase
-        .from('bookings')
-        .select('id, booked_at, duration_minutes, price, patient_id, psychologist_id')
-        .eq('id', booking_id)
-        .single();
-
-      if (booking) {
-        // Fetch patient profile + email
-        const { data: patient } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('user_id', booking.patient_id)
-          .single();
-
-        const { data: patientAuth } = await supabase.auth.admin.getUserById(booking.patient_id);
-
-        // Fetch therapist profile + email
-        const { data: therapist } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('user_id', booking.psychologist_id)
-          .single();
-
-        const { data: therapistAuth } = await supabase.auth.admin.getUserById(booking.psychologist_id);
-
-        const dateStr = new Date(booking.booked_at).toLocaleDateString('fr-FR', {
-          weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-          hour: '2-digit', minute: '2-digit'
-        });
-
-        // Send to patient
-        if (patientAuth?.user?.email && patient) {
-          await sendBookingConfirmation({
-            patientEmail: patientAuth.user.email,
-            patientName:  patient.full_name || 'Patient',
-            therapistName: therapist?.full_name || 'Thérapeute',
-            date:     dateStr,
-            duration: booking.duration_minutes,
-            price:    booking.price || 0,
-            bookingId: booking.id,
-          }).catch(console.error);
-        }
-
-        // Send to therapist
-        if (therapistAuth?.user?.email && therapist) {
-          await sendTherapistNewBooking({
-            therapistEmail: therapistAuth.user.email,
-            therapistName:  therapist.full_name || 'Thérapeute',
-            patientName:    patient?.full_name || 'Patient',
-            date:     dateStr,
-            duration: booking.duration_minutes,
-          }).catch(console.error);
-        }
-      }
+    if (!booking_id) {
+      return res.status(400).json({ error: 'booking_id is required' });
     }
 
-    res.json({ success: true, booking_id, status: newStatus });
+    if (status === 'success') {
+      await confirmBooking(booking_id, transaction_id);
+      return res.json({ success: true, booking_id, status: 'confirmed' });
+    }
+
+    if (status === 'failed' || status === 'cancelled') {
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', booking_id);
+
+      if (updateError) return res.status(500).json({ error: updateError.message });
+      return res.json({ success: true, booking_id, status: 'cancelled' });
+    }
+
+    return res.status(400).json({ error: 'Invalid status' });
   } catch (err: any) {
     console.error('Webhook error:', err);
     res.status(500).json({ error: err.message });

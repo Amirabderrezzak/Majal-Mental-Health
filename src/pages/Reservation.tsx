@@ -184,6 +184,12 @@ const Reservation = () => {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .single();
+
       const response = await fetch(`/api/payments/checkout`, {
         method: "POST",
         headers: {
@@ -193,12 +199,14 @@ const Reservation = () => {
         body: JSON.stringify({
           booking_id: insertedBooking.id,
           price: docPrice,
+          full_name: profile?.full_name || user.email,
+          phone: user.phone || '',
         }),
       });
-      
-      const { url } = await response.json();
-      if (url) {
-        window.location.href = url; // redirect to mock payment gateway
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
       } else {
         throw new Error("Pas d'URL de paiement retournée");
       }

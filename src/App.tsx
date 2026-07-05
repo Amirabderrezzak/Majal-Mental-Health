@@ -20,7 +20,7 @@ import MotDePasseOublie from "./pages/MotDePasseOublie.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import EspacePsy from "./pages/EspacePsy";
-import PaymentMock from "./pages/PaymentMock.tsx";
+import PaymentReturn from "./pages/PaymentReturn.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
 import AdminRoute from "@/components/AdminRoute";
 import AdminLogin from "./pages/AdminLogin.tsx";
@@ -84,10 +84,10 @@ const App = () => (
                 }
               />
               <Route
-                path="/payment/mock"
+                path="/payment/return"
                 element={
                   <ProtectedRoute>
-                    <PaymentMock />
+                    <PaymentReturn />
                   </ProtectedRoute>
                 }
               />
