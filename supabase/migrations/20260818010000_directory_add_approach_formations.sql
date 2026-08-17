@@ -1,7 +1,11 @@
 -- Expose the new approach/formations columns in the public, PII-scrubbed
 -- directory view so patient-facing pages can render the therapist's real
 -- content (they are public-safe, not PII).
-CREATE OR REPLACE VIEW public.psychologist_directory AS
+-- NOTE: must DROP then CREATE (not CREATE OR REPLACE) because we are
+-- changing the view's column set; CREATE OR REPLACE cannot add/rename columns.
+DROP VIEW IF EXISTS public.psychologist_directory;
+
+CREATE VIEW public.psychologist_directory AS
 SELECT
   p.user_id,
   p.full_name,
