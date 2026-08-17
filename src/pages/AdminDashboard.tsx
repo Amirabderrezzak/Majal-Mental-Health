@@ -183,7 +183,7 @@ export default function AdminDashboard() {
 
     // Send email notification to therapist
     if (status === 'approved' || status === 'rejected') {
-      fetch('/api/admin/notify-therapist', {
+      fetch('/api/admin?action=notify-therapist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ therapist_id: userId, action: status }),

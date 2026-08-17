@@ -21,7 +21,7 @@ export default function PaymentMock() {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
-      const res = await fetch("/api/payments/confirm", {
+      const res = await fetch("/api/payments?action=confirm", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

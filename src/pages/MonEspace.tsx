@@ -164,7 +164,7 @@ export default function MonEspace() {
     const token = session?.access_token;
 
     try {
-      const response = await fetch("/api/bookings/update-status", {
+      const response = await fetch("/api/bookings?action=update-status", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -199,7 +199,7 @@ export default function MonEspace() {
     const newDateTime = new Date(`${date}T${time}:00`).toISOString();
 
     try {
-      const response = await fetch("/api/bookings/reschedule", {
+      const response = await fetch("/api/bookings?action=reschedule", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

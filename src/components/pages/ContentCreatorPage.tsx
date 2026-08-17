@@ -176,7 +176,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
         return;
       }
 
-      const response = await fetch('/api/calls/create-audio-room', {
+      const response = await fetch('/api/calls?action=create-audio-room', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

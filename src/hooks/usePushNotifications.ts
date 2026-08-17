@@ -45,7 +45,7 @@ export function usePushNotifications(userId: string | null) {
     try {
       const token = (await supabase.auth.getSession()).data.session?.access_token;
       if (!token) return false;
-      const res = await fetch("/api/notifications/preferences", {
+      const res = await fetch("/api/notifications?action=preferences", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -64,7 +64,7 @@ export function usePushNotifications(userId: string | null) {
     try {
       const token = (await supabase.auth.getSession()).data.session?.access_token;
       if (!token) return false;
-      const res = await fetch("/api/notifications/preferences", {
+      const res = await fetch("/api/notifications?action=preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ push_enabled: enabled }),

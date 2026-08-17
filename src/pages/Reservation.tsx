@@ -187,7 +187,7 @@ const Reservation = () => {
         .eq('user_id', user.id)
         .single();
 
-      const response = await fetch(`/api/payments/checkout`, {
+      const response = await fetch(`/api/payments?action=checkout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

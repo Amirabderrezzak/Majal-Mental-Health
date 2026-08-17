@@ -37,7 +37,7 @@ export const sendMessage = async (
   const token = session?.access_token;
   if (!token) throw new Error("Not authenticated");
 
-  const res = await fetch("/api/messages/send", {
+  const res = await fetch("/api/messages?action=send", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
