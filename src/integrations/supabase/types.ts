@@ -108,6 +108,8 @@ export type Database = {
           user_id: string
           user_type: string
           years_experience: number | null
+          approach: string | null
+          formations: string | null
         }
         Insert: {
           approval_status?: string
@@ -130,6 +132,8 @@ export type Database = {
           user_id: string
           user_type?: string
           years_experience?: number | null
+          approach?: string | null
+          formations?: string | null
         }
         Update: {
           approval_status?: string
@@ -152,6 +156,8 @@ export type Database = {
           user_id?: string
           user_type?: string
           years_experience?: number | null
+          approach?: string | null
+          formations?: string | null
         }
         Relationships: []
       }
@@ -273,6 +279,8 @@ export type Database = {
           years_experience: number | null
           language: string | null
           video_url: string | null
+          approach: string | null
+          formations: string | null
           created_at: string
         }
         Relationships: []

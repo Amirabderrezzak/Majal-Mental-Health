@@ -515,6 +515,8 @@ export default function EspacePsy() {
     full_name: "",
     specialty: "",
     bio: "",
+    approach: "",
+    formations: "",
     city: "",
     price_per_session: 3000,
     price_individual: null as number | null,
@@ -567,7 +569,7 @@ export default function EspacePsy() {
     if (!user) return;
       supabase
         .from("profiles")
-        .select("full_name, specialty, bio, city, price_per_session, price_individual, price_couples, price_adolescents, years_experience, phone, approval_status, avatar_url")
+        .select("full_name, specialty, bio, approach, formations, city, price_per_session, price_individual, price_couples, price_adolescents, years_experience, phone, approval_status, avatar_url")
         .eq("user_id", user.id)
         .single()
         .then(({ data }) => {
@@ -576,6 +578,8 @@ export default function EspacePsy() {
               full_name: data.full_name ?? "",
               specialty: data.specialty ?? "",
               bio: data.bio ?? "",
+              approach: data.approach ?? "",
+              formations: data.formations ?? "",
               city: data.city ?? "",
               price_per_session: data.price_per_session ?? 3000,
               price_individual: data.price_individual ?? null,
@@ -692,7 +696,7 @@ export default function EspacePsy() {
     // Always filter by user_id (the unique column) so the existing profile row
     // is updated in place. An upsert without onConflict would generate a new
     // primary key and violate the user_id UNIQUE constraint, silently failing.
-    const { bio, price_individual, ...rest } = profileData;
+    const { bio, approach, formations, price_individual, ...rest } = profileData;
     const { error } = await supabase
       .from("profiles")
       .update({
@@ -700,6 +704,8 @@ export default function EspacePsy() {
         // Keep price_per_session in sync as the headline "individual" price.
         price_per_session: price_individual,
         bio: (bio ?? "").trim().slice(0, BIO_MAX_LENGTH),
+        approach: (approach ?? "").trim().slice(0, BIO_MAX_LENGTH),
+        formations: (formations ?? "").trim().slice(0, BIO_MAX_LENGTH),
       })
       .eq("user_id", user.id);
     setSaving(false);

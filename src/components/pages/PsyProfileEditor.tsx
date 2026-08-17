@@ -15,6 +15,8 @@ interface PsyProfileEditorProps {
     full_name: string;
     specialty: string;
     bio: string;
+    approach: string;
+    formations: string;
     city: string;
     price_per_session: number;
     price_individual: number | null;
@@ -136,6 +138,37 @@ export default function PsyProfileEditor({
             placeholder={t("psy.dashboard.profile.bioPlaceholder")}
             className="w-full px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card font-sans transition-all resize-none leading-relaxed"
           />
+        </div>
+
+        <div className="mt-5">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("editor.approach")}</label>
+            <span className="text-[11px] text-muted-foreground font-sans">{profileData.approach.length}/1000</span>
+          </div>
+          <textarea
+            value={profileData.approach}
+            onChange={(e) => setProfileData((p) => ({ ...p, approach: e.target.value }))}
+            rows={3}
+            maxLength={1000}
+            placeholder={t("editor.approachPlaceholder")}
+            className="w-full px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card font-sans transition-all resize-none leading-relaxed"
+          />
+        </div>
+
+        <div className="mt-5">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("editor.formations")}</label>
+            <span className="text-[11px] text-muted-foreground font-sans">{profileData.formations.length}/1000</span>
+          </div>
+          <textarea
+            value={profileData.formations}
+            onChange={(e) => setProfileData((p) => ({ ...p, formations: e.target.value }))}
+            rows={3}
+            maxLength={1000}
+            placeholder={t("editor.formationsPlaceholder")}
+            className="w-full px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card font-sans transition-all resize-none leading-relaxed"
+          />
+          <p className="text-[11px] text-muted-foreground font-sans mt-2">Une formation par ligne (ex: Master en Psychologie — Université Paris Descartes).</p>
         </div>
       </div>
 

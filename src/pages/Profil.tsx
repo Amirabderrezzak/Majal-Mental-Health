@@ -17,6 +17,8 @@ interface PsyProfile {
   specialty: string | null;
   city: string | null;
   bio: string | null;
+  approach: string | null;
+  formations: string | null;
   price_per_session: number | null;
   years_experience: number | null;
   language: string | null;
@@ -86,7 +88,7 @@ const Profil = () => {
     Promise.all([
       supabase
         .from("psychologist_directory")
-        .select("user_id, full_name, specialty, city, bio, price_per_session, years_experience, language, avatar_url, video_url, is_available_now")
+        .select("user_id, full_name, specialty, city, bio, approach, formations, price_per_session, years_experience, language, avatar_url, video_url, is_available_now")
         .eq("user_id", id)
         .single(),
 
@@ -129,6 +131,8 @@ const Profil = () => {
   const specialty  = psyProfile?.specialty ?? "";
   const city       = psyProfile?.city ?? null;
   const bio        = psyProfile?.bio ?? null;
+  const approach    = psyProfile?.approach ?? null;
+  const formations  = psyProfile?.formations ?? null;
   const price      = psyProfile?.price_per_session ?? 3500;
   const exp        = psyProfile?.years_experience ?? 0;
   const langs      = psyProfile?.language ? [psyProfile.language] : ["Français"];
@@ -318,12 +322,14 @@ const Profil = () => {
             {/* ── À propos tab ─────────────────────────────────────────── */}
             {tab === "apropos" && (
               <>
-                <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
-                  <h2 className="font-serif text-xl text-primary mb-4">{t("prof.bio")}</h2>
-                  <p className="text-[15px] text-foreground leading-[1.75]">
-                     {bio ?? t("prof.bioDefault")}
-                  </p>
-                </div>
+                 <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
+                   <h2 className="font-serif text-xl text-primary mb-4">{t("prof.bio")}</h2>
+                   {bio ? (
+                     <p className="text-[15px] text-foreground leading-[1.75] whitespace-pre-line">{bio}</p>
+                   ) : (
+                     <p className="text-[15px] text-muted-foreground italic">{t("prof.noBio")}</p>
+                   )}
+                 </div>
 
                 {psyProfile?.video_url && (
                   <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
@@ -339,29 +345,37 @@ const Profil = () => {
                   </div>
                 )}
 
-                <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
-                  <h2 className="font-serif text-xl text-primary mb-4">{t("prof.approach")}</h2>
-                  <div className="flex flex-col gap-3">
-                    {[t("prof.approach.tcc"), t("prof.approach.act"), t("prof.approach.mindfulness"), t("prof.approach.person")].map(a => (
-                      <div key={a} className="flex items-center gap-3 text-[15px] text-foreground">
-                        <Check className="w-5 h-5 text-teal-light shrink-0" /> {a}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                 <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
+                   <h2 className="font-serif text-xl text-primary mb-4">{t("prof.approach")}</h2>
+                   {approach ? (
+                     <div className="flex flex-col gap-3">
+                       {approach.split("\n").filter(Boolean).map((a, i) => (
+                         <div key={i} className="flex items-center gap-3 text-[15px] text-foreground">
+                           <Check className="w-5 h-5 text-teal-light shrink-0" /> {a}
+                         </div>
+                       ))}
+                     </div>
+                   ) : (
+                     <p className="text-[15px] text-muted-foreground italic">{t("prof.noApproach")}</p>
+                   )}
+                 </div>
 
-                <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
-                  <h2 className="font-serif text-xl text-primary mb-4 flex items-center gap-2.5">
-                    <GraduationCap className="w-[22px] h-[22px]" /> {t("prof.training")}
-                  </h2>
-                  <div className="flex flex-col gap-3.5">
-                    {[t("prof.training.d1"), t("prof.training.d2"), t("prof.training.d3")].map(f => (
-                      <div key={f} className="flex items-start gap-3 text-[15px] text-foreground">
-                        <Award className="w-5 h-5 text-primary shrink-0 mt-0.5" /> {f}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                 <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
+                   <h2 className="font-serif text-xl text-primary mb-4 flex items-center gap-2.5">
+                     <GraduationCap className="w-[22px] h-[22px]" /> {t("prof.training")}
+                   </h2>
+                   {formations ? (
+                     <div className="flex flex-col gap-3.5">
+                       {formations.split("\n").filter(Boolean).map((f, i) => (
+                         <div key={i} className="flex items-start gap-3 text-[15px] text-foreground">
+                           <Award className="w-5 h-5 text-primary shrink-0 mt-0.5" /> {f}
+                         </div>
+                       ))}
+                     </div>
+                   ) : (
+                     <p className="text-[15px] text-muted-foreground italic">{t("prof.noFormations")}</p>
+                   )}
+                 </div>
 
                 {/* Disponibilités */}
                 <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
