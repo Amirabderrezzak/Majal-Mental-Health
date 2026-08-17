@@ -7,6 +7,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Tab = "dashboard" | "users" | "bookings" | "reviews" | "admins" | "cancellations";
 
@@ -63,13 +64,13 @@ const statusBadge: Record<string, string> = {
   "no-show": "bg-amber-50 text-amber-700 border border-amber-200",
 };
 
-const navItems: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: "dashboard",     label: "Tableau de bord",       icon: <LayoutDashboard className="w-4 h-4" /> },
-  { id: "users",         label: "Utilisateurs",           icon: <Users className="w-4 h-4" /> },
-  { id: "bookings",      label: "Réservations",           icon: <Calendar className="w-4 h-4" /> },
-  { id: "cancellations", label: "Annulations & No-show", icon: <Ban className="w-4 h-4" /> },
-  { id: "reviews",       label: "Avis",                   icon: <Star className="w-4 h-4" /> },
-  { id: "admins",        label: "Gestion des admins",     icon: <Shield className="w-4 h-4" /> },
+  const navItems: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: "dashboard",     label: t("admin.nav.dashboard"),     icon: <LayoutDashboard className="w-4 h-4" /> },
+  { id: "users",         label: t("admin.nav.users"),         icon: <Users className="w-4 h-4" /> },
+  { id: "bookings",      label: t("admin.nav.bookings"),      icon: <Calendar className="w-4 h-4" /> },
+  { id: "cancellations", label: t("admin.nav.cancellations"), icon: <Ban className="w-4 h-4" /> },
+  { id: "reviews",       label: t("admin.nav.reviews"),       icon: <Star className="w-4 h-4" /> },
+  { id: "admins",        label: t("admin.nav.admins"),        icon: <Shield className="w-4 h-4" /> },
 ];
 
 // Enrich a list with patient_name / psychologist_name from profiles
@@ -98,6 +99,7 @@ const CancellationsTabWrapper = ({ render }: { render: () => React.ReactNode }) 
 
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
+  const { t } = useLanguage();
   const [tab, setTab]           = useState<Tab>("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
   const [stats, setStats]       = useState<Stats | null>(null);
@@ -135,20 +137,20 @@ export default function AdminDashboard() {
           const { data, error } = await supabase.from("profiles")
             .select("user_id, full_name, user_type, approval_status, is_admin, created_at, city, specialty")
             .order("created_at", { ascending: false });
-          if (error) { toast.error("Erreur utilisateurs"); return; }
+          if (error) { toast.error(t("admin.toast.errorUsers")); return; }
           setUsers((data ?? []) as UserProfile[]);
         } else if (tab === "bookings") {
           const { data, error } = await supabase.from("bookings")
             .select("id, booked_at, status, duration_minutes, price, patient_id, psychologist_id")
             .order("booked_at", { ascending: false });
-          if (error) { toast.error("Erreur réservations"); return; }
+          if (error) { toast.error(t("admin.toast.errorBookings")); return; }
           const enriched = await enrichWithNames(data ?? [], "patient_id", "psychologist_id");
           setBookings(enriched as Booking[]);
         } else if (tab === "reviews") {
           const { data, error } = await supabase.from("reviews")
             .select("id, rating, comment, created_at, patient_id, psychologist_id")
             .order("created_at", { ascending: false });
-          if (error) { toast.error("Erreur avis"); return; }
+          if (error) { toast.error(t("admin.toast.errorReviews")); return; }
           const enriched = await enrichWithNames(data ?? [], "patient_id", "psychologist_id");
           setReviews(enriched as Review[]);
         } else if (tab === "cancellations") {
@@ -156,14 +158,14 @@ export default function AdminDashboard() {
             .select("id, booked_at, status, duration_minutes, price, patient_id, psychologist_id")
             .in("status", ["cancelled", "no-show"])
             .order("booked_at", { ascending: false });
-          if (error) { toast.error("Erreur annulations"); return; }
+          if (error) { toast.error(t("admin.toast.errorCancellations")); return; }
           const enriched = await enrichWithNames(data ?? [], "patient_id", "psychologist_id");
           setBookings(enriched as Booking[]);
         }
       } catch (err) {
         console.error(err);
         if (tab === "dashboard") {
-          toast.error("Erreur statistiques");
+          toast.error(t("admin.toast.errorStats"));
         }
       } finally {
         setLoading(false);
@@ -175,9 +177,9 @@ export default function AdminDashboard() {
 
   const updateStatus = async (userId: string, status: string) => {
     const { error } = await supabase.from("profiles").update({ approval_status: status }).eq("user_id", userId);
-    if (error) { toast.error("Échec de la mise à jour"); return; }
+    if (error) { toast.error(t("admin.toast.updateFailed")); return; }
     setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, approval_status: status } : u));
-    toast.success(`Statut mis à jour : ${status}`);
+    toast.success(`${t("admin.toast.statusUpdated")} : ${status}`);
 
     // Send email notification to therapist
     if (status === 'approved' || status === 'rejected') {
@@ -191,17 +193,17 @@ export default function AdminDashboard() {
 
   const toggleAdmin = async (userId: string, current: boolean) => {
     const { error } = await supabase.from("profiles").update({ is_admin: !current }).eq("user_id", userId);
-    if (error) { toast.error("Échec admin"); return; }
+    if (error) { toast.error(t("admin.toast.adminFailed")); return; }
     setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, is_admin: !current } : u));
-    toast.success(!current ? "Accès admin accordé" : "Accès admin révoqué");
+    toast.success(t(!current ? "admin.toggleAdmin.granted" : "admin.toggleAdmin.revoked"));
   };
 
   const deleteReviewItem = async (id: string) => {
-    if (!confirm("Supprimer cet avis définitivement ?")) return;
+    if (!confirm(t("admin.deleteReview.confirm"))) return;
     const { error } = await supabase.from("reviews").delete().eq("id", id);
-    if (error) { toast.error("Suppression échouée"); return; }
+    if (error) { toast.error(t("admin.toast.deleteFailed")); return; }
     setReviews(prev => prev.filter(r => r.id !== id));
-    toast.success("Avis supprimé");
+    toast.success(t("admin.toast.reviewDeleted"));
   };
 
   const filteredUsers = users.filter(u => {
@@ -230,7 +232,7 @@ export default function AdminDashboard() {
       </nav>
       <div className="p-4 border-t border-gray-700">
         <button onClick={() => signOut?.()} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-gray-400 hover:bg-gray-800 hover:text-red-400 transition-colors cursor-pointer border-none bg-transparent">
-          <LogOut className="w-4 h-4" /> Déconnexion
+          <LogOut className="w-4 h-4" /> {t("admin.logout")}
         </button>
       </div>
     </aside>
@@ -255,15 +257,15 @@ export default function AdminDashboard() {
   // ── Tab Content ──────────────────────────────────────────────────────────────
   const DashboardTab = () => (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Vue d'ensemble</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">{t("admin.dashboard.title")}</h1>
       {loading ? <Loader /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          <StatCard label="Total Patients"     value={stats?.totalPatients ?? 0}     icon={<Users className="w-6 h-6 text-blue-600" />}     color="bg-blue-50" />
-          <StatCard label="Psychologues"       value={stats?.totalTherapists ?? 0}   icon={<UserCheck className="w-6 h-6 text-teal-600" />}  color="bg-teal-50" />
-          <StatCard label="En attente"         value={stats?.pendingTherapists ?? 0} icon={<AlertCircle className="w-6 h-6 text-amber-600" />} color="bg-amber-50" />
-          <StatCard label="Total Réservations" value={stats?.totalBookings ?? 0}     icon={<Calendar className="w-6 h-6 text-purple-600" />} color="bg-purple-50" />
-          <StatCard label="Confirmées"         value={stats?.confirmedBookings ?? 0} icon={<TrendingUp className="w-6 h-6 text-green-600" />} color="bg-green-50" />
-          <StatCard label="Revenus (DA)"       value={`${(stats?.totalRevenue ?? 0).toLocaleString()} DA`} icon={<Crown className="w-6 h-6 text-yellow-600" />} color="bg-yellow-50" />
+          <StatCard label={t("admin.stat.totalPatients")}     value={stats?.totalPatients ?? 0}     icon={<Users className="w-6 h-6 text-blue-600" />}     color="bg-blue-50" />
+          <StatCard label={t("admin.stat.therapists")}       value={stats?.totalTherapists ?? 0}   icon={<UserCheck className="w-6 h-6 text-teal-600" />}  color="bg-teal-50" />
+          <StatCard label={t("admin.stat.pending")}         value={stats?.pendingTherapists ?? 0} icon={<AlertCircle className="w-6 h-6 text-amber-600" />} color="bg-amber-50" />
+          <StatCard label={t("admin.stat.totalBookings")} value={stats?.totalBookings ?? 0}     icon={<Calendar className="w-6 h-6 text-purple-600" />} color="bg-purple-50" />
+          <StatCard label={t("admin.stat.confirmed")}         value={stats?.confirmedBookings ?? 0} icon={<TrendingUp className="w-6 h-6 text-green-600" />} color="bg-green-50" />
+          <StatCard label={t("admin.stat.revenue")}       value={`${(stats?.totalRevenue ?? 0).toLocaleString()} DA`} icon={<Crown className="w-6 h-6 text-yellow-600" />} color="bg-yellow-50" />
         </div>
       )}
     </div>
@@ -272,12 +274,12 @@ export default function AdminDashboard() {
   const UsersTab = () => (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Utilisateurs</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t("admin.users.title")}</h1>
         <div className="flex gap-2 flex-wrap">
           {(["all", "patient", "psychologue", "pending"] as const).map(f => (
             <button key={f} onClick={() => setUserFilter(f)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer border transition-colors ${userFilter === f ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}>
-              {f === "all" ? "Tous" : f === "pending" ? "⏳ En attente" : f === "patient" ? "Patients" : "Psychologues"}
+              {f === "all" ? t("admin.users.filter.all") : f === "pending" ? t("admin.users.filter.pending") : f === "patient" ? t("admin.users.filter.patient") : t("admin.users.filter.psychologue")}
             </button>
           ))}
         </div>
@@ -286,7 +288,7 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>{["Nom", "Type", "Statut", "Ville", "Actions"].map(h => (
+              <tr>{[t("admin.users.col.name"), t("admin.users.col.type"), t("admin.users.col.status"), t("admin.users.col.city"), t("admin.users.col.actions")].map(h => (
                 <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
               ))}</tr>
             </thead>
@@ -294,22 +296,22 @@ export default function AdminDashboard() {
               {filteredUsers.map(u => (
                 <tr key={u.user_id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                   <td className="px-5 py-3.5 font-medium text-gray-900">{u.full_name || "—"} {u.is_admin && <span className="ml-1 text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-semibold">Admin</span>}</td>
-                  <td className="px-5 py-3.5 capitalize text-gray-600">{u.user_type === "psychologue" ? "Psy" : "Patient"}</td>
+                  <td className="px-5 py-3.5 capitalize text-gray-600">{u.user_type === "psychologue" ? t("admin.users.typePsy") : t("admin.users.typePatient")}</td>
                   <td className="px-5 py-3.5"><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusBadge[u.approval_status] || ""}`}>{u.approval_status}</span></td>
                   <td className="px-5 py-3.5 text-gray-500">{u.city || "—"}</td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2">
                       {u.user_type === "psychologue" && u.approval_status === "pending" && (
                         <>
-                          <button onClick={() => updateStatus(u.user_id, "approved")} className="flex items-center gap-1 text-xs bg-teal-50 text-teal-700 hover:bg-teal-100 px-2 py-1 rounded-lg cursor-pointer border-none transition-colors"><Check className="w-3 h-3" /> Approuver</button>
-                          <button onClick={() => updateStatus(u.user_id, "rejected")} className="flex items-center gap-1 text-xs bg-red-50 text-red-600 hover:bg-red-100 px-2 py-1 rounded-lg cursor-pointer border-none transition-colors"><XCircle className="w-3 h-3" /> Rejeter</button>
+                          <button onClick={() => updateStatus(u.user_id, "approved")} className="flex items-center gap-1 text-xs bg-teal-50 text-teal-700 hover:bg-teal-100 px-2 py-1 rounded-lg cursor-pointer border-none transition-colors"><Check className="w-3 h-3" /> {t("admin.users.approve")}</button>
+                          <button onClick={() => updateStatus(u.user_id, "rejected")} className="flex items-center gap-1 text-xs bg-red-50 text-red-600 hover:bg-red-100 px-2 py-1 rounded-lg cursor-pointer border-none transition-colors"><XCircle className="w-3 h-3" /> {t("admin.users.reject")}</button>
                         </>
                       )}
                     </div>
                   </td>
                 </tr>
               ))}
-              {filteredUsers.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-gray-400 text-sm">Aucun utilisateur.</td></tr>}
+              {filteredUsers.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-gray-400 text-sm">{t("admin.users.empty")}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -319,12 +321,12 @@ export default function AdminDashboard() {
 
   const BookingsTab = () => (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Toutes les Réservations</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">{t("admin.bookings.title")}</h1>
       {loading ? <Loader /> : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>{["Patient", "Psychologue", "Date", "Durée", "Prix", "Statut"].map(h => (
+              <tr>{[t("admin.bookings.col.patient"), t("admin.bookings.col.psy"), t("admin.bookings.col.date"), t("admin.bookings.col.duration"), t("admin.bookings.col.price"), t("admin.bookings.col.status")].map(h => (
                 <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
               ))}</tr>
             </thead>
@@ -339,7 +341,7 @@ export default function AdminDashboard() {
                   <td className="px-5 py-3.5"><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusBadge[b.status] || "bg-gray-100 text-gray-600"}`}>{b.status}</span></td>
                 </tr>
               ))}
-              {bookings.length === 0 && <tr><td colSpan={6} className="text-center py-10 text-gray-400 text-sm">Aucune réservation.</td></tr>}
+              {bookings.length === 0 && <tr><td colSpan={6} className="text-center py-10 text-gray-400 text-sm">{t("admin.bookings.empty")}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -354,20 +356,20 @@ export default function AdminDashboard() {
 
     return (
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Annulations & No-show</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">{t("admin.cancellations.title")}</h1>
         {loading ? <Loader /> : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <p className="text-sm text-gray-500 font-medium">Total annulations</p>
+                <p className="text-sm text-gray-500 font-medium">{t("admin.cancellations.totalCancelled")}</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">{cancelled.length}</p>
               </div>
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <p className="text-sm text-gray-500 font-medium">No-shows</p>
+                <p className="text-sm text-gray-500 font-medium">{t("admin.cancellations.noShows")}</p>
                 <p className="text-2xl font-bold text-amber-600 mt-1">{noShows.length}</p>
               </div>
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <p className="text-sm text-gray-500 font-medium">Montant total annulé (DA)</p>
+                <p className="text-sm text-gray-500 font-medium">{t("admin.cancellations.totalLost")}</p>
                 <p className="text-2xl font-bold text-red-600 mt-1">{totalLost.toLocaleString()} DA</p>
               </div>
             </div>
@@ -375,7 +377,7 @@ export default function AdminDashboard() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
-                  <tr>{["Patient", "Psychologue", "Date", "Prix", "Statut"].map(h => (
+                  <tr>{[t("admin.bookings.col.patient"), t("admin.bookings.col.psy"), t("admin.bookings.col.date"), t("admin.bookings.col.price"), t("admin.bookings.col.status")].map(h => (
                     <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                   ))}</tr>
                 </thead>
@@ -391,48 +393,48 @@ export default function AdminDashboard() {
                           b.status === "no-show" ? "bg-amber-50 text-amber-700 border border-amber-200" :
                           "bg-red-50 text-red-600 border border-red-200"
                         }`}>
-                          {b.status === "no-show" ? "No-show" : "Annulé"}
+                          {b.status === "no-show" ? t("admin.cancellations.noShow") : t("admin.cancellations.cancelled")}
                         </span>
                       </td>
                     </tr>
                   ))}
-                  {bookings.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-gray-400 text-sm">Aucune annulation.</td></tr>}
+                  {bookings.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-gray-400 text-sm">{t("admin.cancellations.empty")}</td></tr>}
                 </tbody>
               </table>
             </div>
           </>
         )}
       </div>
-    );
+  );
   };
 
   const ReviewsTab = () => (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Modération des Avis</h1>
-      {loading ? <Loader /> : (
-        <div className="grid gap-4">
-          {reviews.map(r => (
-            <div key={r.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-start gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-semibold text-gray-900 text-sm">{r.patient_name}</span>
-                  <span className="text-gray-400 text-xs">→</span>
-                  <span className="text-gray-600 text-sm">{r.psychologist_name}</span>
-                  <div className="flex ml-2">{Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className={`w-3 h-3 ${i < r.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-200 fill-gray-200"}`} />
-                  ))}</div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">{t("admin.reviews.title")}</h1>
+        {loading ? <Loader /> : (
+          <div className="grid gap-4">
+            {reviews.map(r => (
+              <div key={r.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-start gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-semibold text-gray-900 text-sm">{r.patient_name}</span>
+                    <span className="text-gray-400 text-xs">→</span>
+                    <span className="text-gray-600 text-sm">{r.psychologist_name}</span>
+                    <div className="flex ml-2">{Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className={`w-3 h-3 ${i < r.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-200 fill-gray-200"}`} />
+                    ))}</div>
+                  </div>
+                  <p className="text-gray-600 text-sm">{r.comment || <span className="italic text-gray-400">{t("admin.reviews.noComment")}</span>}</p>
+                  <p className="text-xs text-gray-400 mt-1">{new Date(r.created_at).toLocaleDateString("fr-FR")}</p>
                 </div>
-                <p className="text-gray-600 text-sm">{r.comment || <span className="italic text-gray-400">Aucun commentaire</span>}</p>
-                <p className="text-xs text-gray-400 mt-1">{new Date(r.created_at).toLocaleDateString("fr-FR")}</p>
+                <button onClick={() => deleteReviewItem(r.id)} className="p-2 rounded-xl text-red-400 hover:bg-red-50 cursor-pointer border-none bg-transparent transition-colors">
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-              <button onClick={() => deleteReviewItem(r.id)} className="p-2 rounded-xl text-red-400 hover:bg-red-50 cursor-pointer border-none bg-transparent transition-colors">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-          {reviews.length === 0 && <div className="text-center py-12 text-gray-400 text-sm">Aucun avis pour l'instant.</div>}
-        </div>
-      )}
+            ))}
+            {reviews.length === 0 && <div className="text-center py-12 text-gray-400 text-sm">{t("admin.reviews.empty")}</div>}
+          </div>
+        )}
     </div>
   );
 
@@ -441,25 +443,25 @@ export default function AdminDashboard() {
     const nonAdmins = users.filter(u => !u.is_admin);
     return (
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Gestion des Administrateurs</h1>
-        <p className="text-gray-500 text-sm mb-6">Accordez ou révoquez les droits d'administration.</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">{t("admin.admins.title")}</h1>
+        <p className="text-gray-500 text-sm mb-6">{t("admin.admins.desc")}</p>
         {loading ? <Loader /> : (
           <>
-            <h2 className="font-semibold text-gray-700 mb-3">Administrateurs actuels</h2>
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+            <h2 className="font-semibold text-gray-700 mb-3">{t("admin.admins.current")}</h2>
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               {allAdmins.map(u => (
                 <div key={u.user_id} className="flex items-center justify-between px-5 py-3.5 border-b border-gray-50 last:border-none">
                   <p className="font-medium text-gray-900">{u.full_name || "—"}</p>
                   {u.user_id !== user?.id && (
                     <button onClick={() => toggleAdmin(u.user_id, true)} className="flex items-center gap-1.5 text-xs bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg cursor-pointer border-none transition-colors">
-                      <XCircle className="w-3 h-3" /> Révoquer
+                      <XCircle className="w-3 h-3" /> {t("admin.admins.revoke")}
                     </button>
                   )}
                 </div>
               ))}
-              {allAdmins.length === 0 && <p className="text-center py-6 text-gray-400 text-sm">Aucun admin.</p>}
+              {allAdmins.length === 0 && <p className="text-center py-6 text-gray-400 text-sm">{t("admin.admins.empty")}</p>}
             </div>
-            <h2 className="font-semibold text-gray-700 mb-3">Accorder les droits d'administration</h2>
+            <h2 className="font-semibold text-gray-700 mb-3">{t("admin.admins.grant")}</h2>
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               {nonAdmins.map(u => (
                 <div key={u.user_id} className="flex items-center justify-between px-5 py-3.5 border-b border-gray-50 last:border-none">
@@ -468,16 +470,16 @@ export default function AdminDashboard() {
                     <p className="text-xs text-gray-500 capitalize">{u.user_type}</p>
                   </div>
                   <button onClick={() => toggleAdmin(u.user_id, false)} className="flex items-center gap-1.5 text-xs bg-purple-50 text-purple-700 hover:bg-purple-100 px-3 py-1.5 rounded-lg cursor-pointer border-none transition-colors">
-                    <Crown className="w-3 h-3" /> Nommer Admin
+                    <Crown className="w-3 h-3" /> {t("admin.admins.appoint")}
                   </button>
                 </div>
               ))}
-              {nonAdmins.length === 0 && <p className="text-center py-6 text-gray-400 text-sm">Aucun utilisateur non-admin.</p>}
+              {nonAdmins.length === 0 && <p className="text-center py-6 text-gray-400 text-sm">{t("admin.admins.emptyNon")}</p>}
             </div>
           </>
         )}
       </div>
-    );
+  );
   };
 
   const tabMap: Record<Tab, React.ReactNode> = {

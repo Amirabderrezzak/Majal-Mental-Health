@@ -3,6 +3,11 @@ import { Plus, Trash2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+const MIGRATION_ERROR = "Erreur de sauvegarde. Veuillez exécuter la migration SQL.";
+
+type GoalRow = { id: string; text: string; completed: boolean };
 
 export default function GoalsWidget() {
   const { t } = useLanguage();
@@ -13,27 +18,88 @@ export default function GoalsWidget() {
 
   useEffect(() => {
     if (!user) return;
-    const storedGoals = localStorage.getItem(`majal_goals_${user.id}`);
-    if (storedGoals) {
-      try { setGoals(JSON.parse(storedGoals)); } catch (e) { console.error(e); }
-    } else {
-      const def = [
-        { id: "1", text: "Prendre conscience des mes émotions quotidiennes", completed: false },
-        { id: "2", text: "Pratiquer 5 minutes de respiration carrée", completed: false },
-        { id: "3", text: "Discuter ouvertement de mes craintes lors de la prochaine séance", completed: false }
-      ];
-      setGoals(def);
-      localStorage.setItem(`majal_goals_${user.id}`, JSON.stringify(def));
-    }
+    let cancelled = false;
 
-    const storedNotes = localStorage.getItem(`majal_prep_notes_${user.id}`);
-    if (storedNotes) setPrepNotes(storedNotes);
-  }, []);
+    const defaultGoals = [
+      { id: "1", text: "Prendre conscience des mes émotions quotidiennes", completed: false },
+      { id: "2", text: "Pratiquer 5 minutes de respiration carrée", completed: false },
+      { id: "3", text: "Discuter ouvertement de mes craintes lors de la prochaine séance", completed: false }
+    ];
+
+    const load = async () => {
+      const { data, error } = await supabase
+        .from("goals")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
+
+      if (!cancelled && error) {
+        console.error(error);
+      }
+
+      if (!cancelled && data && data.length > 0) {
+        const rows = data as unknown as GoalRow[];
+        const mapped = rows.map((row) => ({
+          id: row.id,
+          text: row.text,
+          completed: row.completed,
+        }));
+        setGoals(mapped);
+        localStorage.setItem(`majal_goals_${user.id}`, JSON.stringify(mapped));
+      } else {
+        const storedGoals = localStorage.getItem(`majal_goals_${user.id}`);
+        if (storedGoals) {
+          try {
+            if (!cancelled) setGoals(JSON.parse(storedGoals));
+          } catch (e) { console.error(e); }
+        } else if (!cancelled) {
+          setGoals(defaultGoals);
+          localStorage.setItem(`majal_goals_${user.id}`, JSON.stringify(defaultGoals));
+        }
+      }
+
+      const { data: profile, error: pError } = await supabase
+        .from("profiles")
+        .select("prep_notes")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!cancelled && pError) {
+        console.error(pError);
+      }
+
+      if (!cancelled && profile && profile.prep_notes != null) {
+        setPrepNotes(profile.prep_notes);
+        localStorage.setItem(`majal_prep_notes_${user.id}`, profile.prep_notes);
+      } else {
+        const storedNotes = localStorage.getItem(`majal_prep_notes_${user.id}`);
+        if (storedNotes && !cancelled) setPrepNotes(storedNotes);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const toggleGoal = (id: string) => {
+    const target = goals.find(g => g.id === id);
     const updated = goals.map(g => g.id === id ? { ...g, completed: !g.completed } : g);
     setGoals(updated);
     localStorage.setItem(`majal_goals_${user.id}`, JSON.stringify(updated));
+
+    if (target) {
+      supabase
+        .from("goals")
+        .update({ completed: !target.completed })
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error(error);
+            toast.error(MIGRATION_ERROR);
+          }
+        });
+    }
   };
 
   const addGoal = (e: React.FormEvent) => {
@@ -49,17 +115,49 @@ export default function GoalsWidget() {
     localStorage.setItem(`majal_goals_${user.id}`, JSON.stringify(updated));
     setNewGoalText("");
     toast.success("✅ Nouvel objectif ajouté !");
+
+    supabase
+      .from("goals")
+      .insert({ user_id: user.id, text: newGoal.text, completed: false })
+      .then(({ error }) => {
+        if (error) {
+          console.error(error);
+          toast.error(MIGRATION_ERROR);
+        }
+      });
   };
 
   const deleteGoal = (id: string) => {
     const updated = goals.filter(g => g.id !== id);
     setGoals(updated);
     localStorage.setItem(`majal_goals_${user.id}`, JSON.stringify(updated));
+
+    supabase
+      .from("goals")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .then(({ error }) => {
+        if (error) {
+          console.error(error);
+          toast.error(MIGRATION_ERROR);
+        }
+      });
   };
 
   const savePrepNotes = (val: string) => {
     setPrepNotes(val);
     localStorage.setItem(`majal_prep_notes_${user.id}`, val);
+    supabase
+      .from("profiles")
+      .update({ prep_notes: val })
+      .eq("user_id", user.id)
+      .then(({ error }) => {
+        if (error) {
+          console.error(error);
+          toast.error(MIGRATION_ERROR);
+        }
+      });
   };
 
   const completedCount = goals.filter(g => g.completed).length;
@@ -127,7 +225,7 @@ export default function GoalsWidget() {
           placeholder={t("space.goals.notepadPlaceholder")}
           className="w-full px-4 py-3 border border-border/70 rounded-xl text-xs text-foreground bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card font-sans transition-all resize-none leading-relaxed"
         />
-        <div className="text-[10px] text-muted-foreground text-right font-sans italic">Sauvegarde automatique locale</div>
+        <div className="text-[10px] text-muted-foreground text-right font-sans italic">Sauvegarde automatique (cloud)</div>
       </div>
     </div>
   );

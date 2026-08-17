@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Shield, Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [email, setEmail]     = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw]   = useState(false);
@@ -20,7 +22,7 @@ export default function AdminLogin() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error || !data.user) {
-        toast.error("Identifiants incorrects");
+        toast.error(t("admin.toast.badCreds"));
         setLoading(false);
         return;
       }
@@ -34,7 +36,7 @@ export default function AdminLogin() {
 
       if (profileError || !profile?.is_admin) {
         await supabase.auth.signOut();
-        toast.error("Accès refusé — compte non autorisé");
+        toast.error(t("admin.toast.accessDenied"));
         setLoading(false);
         return;
       }
@@ -42,7 +44,7 @@ export default function AdminLogin() {
       // Step 3: Admin verified — redirect to dashboard
       navigate("/admin");
     } catch (err: any) {
-      toast.error("Une erreur est survenue");
+      toast.error(t("admin.toast.error"));
       setLoading(false);
     }
   };
@@ -59,7 +61,7 @@ export default function AdminLogin() {
             <Shield className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Majal Admin</h1>
-          <p className="text-gray-500 text-sm mt-1">Accès restreint — Administrateurs uniquement</p>
+          <p className="text-gray-500 text-sm mt-1">{t("admin.login.subtitle")}</p>
         </div>
 
         {/* Login Card */}
@@ -69,7 +71,7 @@ export default function AdminLogin() {
             {/* Email */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                Email administrateur
+                {t("admin.login.emailLabel")}
               </label>
               <div className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 focus-within:border-teal-500 transition-colors">
                 <Mail className="w-4 h-4 text-gray-500 shrink-0" />
@@ -87,7 +89,7 @@ export default function AdminLogin() {
             {/* Password */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                Mot de passe
+                {t("admin.login.passwordLabel")}
               </label>
               <div className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 focus-within:border-teal-500 transition-colors">
                 <Lock className="w-4 h-4 text-gray-500 shrink-0" />
@@ -116,16 +118,16 @@ export default function AdminLogin() {
               className="mt-2 w-full py-3.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer border-none flex items-center justify-center gap-2"
             >
               {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Vérification...</>
-              ) : (
-                <><Shield className="w-4 h-4" /> Accéder au panneau</>
+                 <><Loader2 className="w-4 h-4 animate-spin" /> {t("admin.login.verifying")}</>
+               ) : (
+                 <><Shield className="w-4 h-4" /> {t("admin.login.accessBtn")}</>
               )}
             </button>
           </form>
         </div>
 
         <p className="text-center text-xs text-gray-600 mt-6">
-          Cette page est réservée aux administrateurs de la plateforme Majal.
+          {t("admin.login.footer")}
         </p>
       </div>
     </div>

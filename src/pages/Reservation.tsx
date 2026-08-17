@@ -27,7 +27,10 @@ const Reservation = () => {
   // Dynamic doctor details state
   const [docName, setDocName] = useState("");
   const [docSpecialty, setDocSpecialty] = useState("");
-  const [docPrice, setDocPrice] = useState(3000);
+  const [docIndividual, setDocIndividual] = useState<number | null>(null);
+  const [docCouples, setDocCouples] = useState<number | null>(null);
+  const [docAdolescents, setDocAdolescents] = useState<number | null>(null);
+  const [sessionType, setSessionType] = useState<"individual" | "couples" | "adolescents">("individual");
   const [docEmoji, setDocEmoji] = useState("🧑‍⚕️");
   const [docAvatarUrl, setDocAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(isUUID);
@@ -36,8 +39,8 @@ const Reservation = () => {
     if (isUUID) {
       setLoading(true);
       supabase
-        .from("profiles")
-        .select("user_id, full_name, specialty, price_per_session, avatar_url, approval_status")
+        .from("psychologist_directory")
+        .select("user_id, full_name, specialty, price_individual, price_couples, price_adolescents, avatar_url, approval_status")
         .eq("user_id", id)
         .single()
         .then(({ data, error }) => {
@@ -50,9 +53,20 @@ const Reservation = () => {
               navigate("/psychologues");
               return;
             }
+            const individual = data.price_individual ?? null;
+            const couples = data.price_couples ?? null;
+            const adolescents = data.price_adolescents ?? null;
             setDocName(data.full_name ?? "Psychologue");
             setDocSpecialty(data.specialty ?? "Psychologie clinique");
-            setDocPrice(data.price_per_session ?? 3000);
+            setDocIndividual(individual);
+            setDocCouples(couples);
+            setDocAdolescents(adolescents);
+            // Default the session type to the first offered type.
+            const firstOffered = individual != null ? "individual"
+              : couples != null ? "couples"
+              : adolescents != null ? "adolescents"
+              : "individual";
+            setSessionType(firstOffered);
             setDocAvatarUrl(data.avatar_url);
             setDocEmoji("🧑‍⚕️");
           }
@@ -63,6 +77,21 @@ const Reservation = () => {
       navigate("/psychologues");
     }
   }, [id, isUUID, navigate]);
+
+  const priceForType = (type: "individual" | "couples" | "adolescents") =>
+    type === "individual" ? docIndividual
+      : type === "couples" ? docCouples
+      : docAdolescents;
+
+  const sessionOptions = [
+    { type: "individual" as const,   label: t("res.session.individual")   || "Individuel",   price: docIndividual },
+    { type: "couples" as const,      label: t("res.session.couples")      || "Couple",       price: docCouples },
+    { type: "adolescents" as const,  label: t("res.session.adolescents")  || "Adolescent",   price: docAdolescents },
+  ];
+
+  // Keep the displayed price in sync with the selected session type.
+  const selectedPrice = priceForType(sessionType);
+  const docPriceComputed = selectedPrice ?? 0;
 
   // Live slot availability query from Supabase bookings table
   const [bookedTimes, setBookedTimes] = useState<string[]>([]);
@@ -168,7 +197,8 @@ const Reservation = () => {
           psychologist_id: psychologistId,
           booked_at: bookedAt.toISOString(),
           duration_minutes: 60,
-          price: docPrice,
+          session_type: sessionType,
+          price: docPriceComputed,
           full_name: profile?.full_name || user.email,
           phone: user.phone || '',
         }),
@@ -182,7 +212,9 @@ const Reservation = () => {
         return;
       }
 
-      if (data.url) {
+      if (data.mock) {
+        window.location.href = `/payment/mock?booking_id=${data.payment_id}&amount=${docPriceComputed}`;
+      } else if (data.url) {
         window.location.href = data.url;
       } else {
         throw new Error("Pas d'URL de paiement retournée");
@@ -300,39 +332,68 @@ const Reservation = () => {
                 <div className="text-[13px] text-muted-foreground mt-0.5">{docSpecialty}</div>
               </div>
             </div>
-            <div className="flex flex-col gap-4 mb-6">
-              <div className="flex items-start gap-3">
-                <Calendar className="w-[18px] h-[18px] text-primary shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs text-muted-foreground">{t("res.date")}</div>
-                  <div className="text-sm font-medium mt-0.5">{selectedDateStr}</div>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Clock className="w-[18px] h-[18px] text-primary shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs text-muted-foreground">{t("res.time")}</div>
-                  <div className="text-sm font-medium mt-0.5">{selectedTime || "—"}</div>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Clock className="w-[18px] h-[18px] text-primary shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs text-muted-foreground">{t("res.duration")}</div>
-                  <div className="text-sm font-medium mt-0.5">{t("res.minutes")}</div>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <DollarSign className="w-[18px] h-[18px] text-primary shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs text-muted-foreground">{t("res.price")}</div>
-                  <div className="text-[22px] font-semibold text-primary">{docPrice.toLocaleString()} DZD</div>
-                </div>
-              </div>
-            </div>
+              <div className="flex flex-col gap-4 mb-6">
+               <div className="flex items-start gap-3">
+                 <Calendar className="w-[18px] h-[18px] text-primary shrink-0 mt-0.5" />
+                 <div>
+                   <div className="text-xs text-muted-foreground">{t("res.date")}</div>
+                   <div className="text-sm font-medium mt-0.5">{selectedDateStr}</div>
+                 </div>
+               </div>
+               <div className="flex items-start gap-3">
+                 <Clock className="w-[18px] h-[18px] text-primary shrink-0 mt-0.5" />
+                 <div>
+                   <div className="text-xs text-muted-foreground">{t("res.time")}</div>
+                   <div className="text-sm font-medium mt-0.5">{selectedTime || "—"}</div>
+                 </div>
+               </div>
+               <div className="flex items-start gap-3">
+                 <Clock className="w-[18px] h-[18px] text-primary shrink-0 mt-0.5" />
+                 <div>
+                   <div className="text-xs text-muted-foreground">{t("res.duration")}</div>
+                   <div className="text-sm font-medium mt-0.5">{t("res.minutes")}</div>
+                 </div>
+               </div>
+
+               {/* Session type selector */}
+               <div className="flex flex-col gap-2">
+                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("res.sessionType") || "Type de séance"}</div>
+                 <div className="flex flex-wrap gap-2">
+                   {sessionOptions.map((opt) => {
+                     const offered = opt.price != null;
+                     const active = sessionType === opt.type;
+                     return (
+                       <button
+                         key={opt.type}
+                         type="button"
+                         disabled={!offered}
+                         onClick={() => offered && setSessionType(opt.type)}
+                         className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all cursor-pointer ${
+                           !offered
+                             ? "opacity-40 cursor-not-allowed border-border bg-teal-hero text-muted-foreground"
+                             : active
+                               ? "bg-primary text-primary-foreground border-primary"
+                               : "border-border bg-teal-hero text-foreground hover:border-primary/30 hover:bg-teal-pale"
+                         }`}
+                       >
+                         {opt.label}{!offered && ` (${t("res.session.notOffered") || "Non proposé"})`}
+                       </button>
+                     );
+                   })}
+                 </div>
+               </div>
+
+               <div className="flex items-start gap-3">
+                 <DollarSign className="w-[18px] h-[18px] text-primary shrink-0 mt-0.5" />
+                 <div>
+                   <div className="text-xs text-muted-foreground">{t("res.price")}</div>
+                   <div className="text-[22px] font-semibold text-primary">{docPriceComputed.toLocaleString()} DZD</div>
+                 </div>
+               </div>
+             </div>
             <button
               onClick={confirmBooking}
-              disabled={!selectedDay || !selectedTime || booking}
+              disabled={!selectedDay || !selectedTime || booking || selectedPrice == null}
               className={`w-full py-3.5 rounded-xl text-[15px] font-medium transition-all cursor-pointer font-sans border-none ${
                 selectedDay && selectedTime && !booking
                   ? "bg-primary text-primary-foreground hover:bg-teal-mid"

@@ -16,6 +16,13 @@ interface PsySettingsPageProps {
     workingDays: string[];
   };
   updateClinicSetting: (key: string, value: any) => void;
+  notificationPreferences: {
+    newBookings: boolean;
+    reminders: boolean;
+    messages: boolean;
+    payments: boolean;
+  };
+  updateNotificationPreference: (key: string, value: boolean) => void;
   isAvailableNow: boolean;
   setIsAvailableNow: (v: boolean) => void;
   videoPreviewUrl: string | null;
@@ -29,7 +36,8 @@ interface PsySettingsPageProps {
 }
 
 export default function PsySettingsPage({
-  clinicSettings, updateClinicSetting, isAvailableNow, setIsAvailableNow,
+  clinicSettings, updateClinicSetting, notificationPreferences, updateNotificationPreference,
+  isAvailableNow, setIsAvailableNow,
   videoPreviewUrl, handleRemoveVideo, uploadingVideo, handleSaveVideo,
   pushSupported, pushSubscribed, pushLoading, pushToggle
 }: PsySettingsPageProps) {
@@ -218,18 +226,23 @@ export default function PsySettingsPage({
             )}
           </div>
           {[
-            { title: t("psy.settings.notif.newBookingsTitle"), desc: t("psy.settings.notif.newBookingsDesc"), checked: true },
-            { title: t("psy.settings.notif.remindersTitle"),   desc: t("psy.settings.notif.remindersDesc"),   checked: true },
-            { title: t("psy.settings.notif.messagesTitle"),    desc: t("psy.settings.notif.messagesDesc"),    checked: false },
-            { title: t("psy.settings.notif.paymentsTitle"),    desc: t("psy.settings.notif.paymentsDesc"),    checked: true },
+            { key: "newBookings", title: t("psy.settings.notif.newBookingsTitle"), desc: t("psy.settings.notif.newBookingsDesc"), checked: notificationPreferences.newBookings },
+            { key: "reminders",   title: t("psy.settings.notif.remindersTitle"),   desc: t("psy.settings.notif.remindersDesc"),   checked: notificationPreferences.reminders },
+            { key: "messages",    title: t("psy.settings.notif.messagesTitle"),    desc: t("psy.settings.notif.messagesDesc"),    checked: notificationPreferences.messages },
+            { key: "payments",    title: t("psy.settings.notif.paymentsTitle"),    desc: t("psy.settings.notif.paymentsDesc"),    checked: notificationPreferences.payments },
           ].map((n, i, arr) => (
-            <div key={i} className={`flex items-center justify-between py-4 ${i < arr.length - 1 ? "border-b border-border/30" : ""}`}>
+            <div key={n.key} className={`flex items-center justify-between py-4 ${i < arr.length - 1 ? "border-b border-border/30" : ""}`}>
               <div className="pe-4">
                 <h4 className="text-sm font-semibold text-foreground">{n.title}</h4>
                 <p className="text-xs text-muted-foreground mt-1 leading-normal font-sans">{n.desc}</p>
               </div>
               <label className="relative w-12 h-[26px] shrink-0">
-                <input type="checkbox" defaultChecked={n.checked} className="opacity-0 w-0 h-0" />
+                <input
+                  type="checkbox"
+                  checked={n.checked}
+                  onChange={(e) => updateNotificationPreference(n.key, e.target.checked)}
+                  className="opacity-0 w-0 h-0"
+                />
                 <span className="toggle-slider" />
               </label>
             </div>

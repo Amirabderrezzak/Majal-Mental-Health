@@ -3,7 +3,12 @@ import { BookOpen, Trash2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import CrisisHelpline from "./CrisisHelpline";
+
+const MIGRATION_ERROR = "Erreur de sauvegarde. Veuillez exécuter la migration SQL.";
+
+type JournalRow = { id: string; created_at: string; mood: string; text: string };
 
 export default function JournalPage() {
   const { t, lang } = useLanguage();
@@ -15,15 +20,45 @@ export default function JournalPage() {
 
   useEffect(() => {
     if (!user) return;
-    const stored = localStorage.getItem(`majal_journal_entries_${user.id}`);
-    if (stored) {
-      try {
-        setJournalEntries(JSON.parse(stored));
-      } catch (e) {
-        console.error(e);
+    let cancelled = false;
+
+    const load = async () => {
+      const { data, error } = await supabase
+        .from("journal_entries")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (!cancelled && error) {
+        console.error(error);
       }
-    }
-  }, []);
+
+      if (!cancelled && data && data.length > 0) {
+        const rows = data as unknown as JournalRow[];
+        const mapped = rows.map((row) => ({
+          id: row.id,
+          date: row.created_at,
+          mood: row.mood,
+          text: row.text,
+        }));
+        setJournalEntries(mapped);
+        localStorage.setItem(`majal_journal_entries_${user.id}`, JSON.stringify(mapped));
+        return;
+      }
+
+      const stored = localStorage.getItem(`majal_journal_entries_${user.id}`);
+      if (stored && !cancelled) {
+        try {
+          setJournalEntries(JSON.parse(stored));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const saveJournalEntry = () => {
     if (!journalText.trim()) {
@@ -40,7 +75,18 @@ export default function JournalPage() {
     setJournalEntries(updated);
     localStorage.setItem(`majal_journal_entries_${user.id}`, JSON.stringify(updated));
     setJournalText("");
-    toast.success("✅ Entrée de journal enregistrée avec succès !");
+
+    supabase
+      .from("journal_entries")
+      .insert({ user_id: user.id, mood: newEntry.mood, text: newEntry.text })
+      .then(({ error }) => {
+        if (error) {
+          console.error(error);
+          toast.error(MIGRATION_ERROR);
+        } else {
+          toast.success("✅ Entrée de journal enregistrée avec succès !");
+        }
+      });
   };
 
   const deleteEntry = (id: string) => {
@@ -48,6 +94,18 @@ export default function JournalPage() {
     setJournalEntries(updated);
     localStorage.setItem(`majal_journal_entries_${user.id}`, JSON.stringify(updated));
     toast.success("✅ Entrée supprimée.");
+
+    supabase
+      .from("journal_entries")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .then(({ error }) => {
+        if (error) {
+          console.error(error);
+          toast.error(MIGRATION_ERROR);
+        }
+      });
   };
 
   const moods = [

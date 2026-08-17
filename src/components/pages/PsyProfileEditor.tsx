@@ -1,6 +1,14 @@
 import { Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CATEGORIES } from "@/lib/categories";
+import { toast } from "sonner";
+
+interface PriceBand {
+  key: "price_individual" | "price_couples" | "price_adolescents";
+  label: string;
+  min: number;
+  max: number;
+}
 
 interface PsyProfileEditorProps {
   profileData: {
@@ -9,6 +17,9 @@ interface PsyProfileEditorProps {
     bio: string;
     city: string;
     price_per_session: number;
+    price_individual: number | null;
+    price_couples: number | null;
+    price_adolescents: number | null;
     years_experience: number;
     phone: string;
     avatar_url: string;
@@ -28,6 +39,23 @@ export default function PsyProfileEditor({
   saveProfile, saving, psySpecs, savingSpecs, toggleSpec
 }: PsyProfileEditorProps) {
   const { t, lang } = useLanguage();
+
+  const priceBands: PriceBand[] = [
+    { key: "price_individual",   label: t("editor.price.individual"),   min: 1900, max: 3200 },
+    { key: "price_couples",      label: t("editor.price.couples"),      min: 3500, max: 5200 },
+    { key: "price_adolescents",  label: t("editor.price.adolescents"),  min: 1500, max: 3000 },
+  ];
+
+  const handleSave = () => {
+    for (const band of priceBands) {
+      const value = profileData[band.key];
+      if (value != null && (value < band.min || value > band.max)) {
+        toast.error(`${band.label} : le tarif doit être entre ${band.min} et ${band.max} DA.`);
+        return;
+      }
+    }
+    saveProfile();
+  };
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl space-y-6 animate-in fade-in duration-500">
@@ -60,7 +88,6 @@ export default function PsyProfileEditor({
             { label: t("space.phone"),                         key: "phone",            type: "tel" },
             { label: t("auth.specialtyLabel"),                 key: "specialty",        type: "text" },
             { label: t("auth.cityLabel"),                      key: "city",             type: "text" },
-            { label: t("complete.step1.price"),                key: "price_per_session",type: "number" },
             { label: t("psy.dashboard.profile.yearsExperience"), key: "years_experience", type: "number" },
           ] as const).map((f) => (
             <div key={f.key} className="flex flex-col gap-2">
@@ -76,11 +103,36 @@ export default function PsyProfileEditor({
         </div>
 
         <div className="mt-5">
-          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">{t("psy.dashboard.profile.bio")}</label>
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Tarifs par type de séance (DA)</h4>
+          <p className="text-[11px] text-muted-foreground font-sans mb-3">Laissez vide pour ne pas proposer ce type de séance.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {priceBands.map((band) => (
+              <div key={band.key} className="flex flex-col gap-2">
+                <label className="text-xs font-semibold text-muted-foreground">{band.label}</label>
+                <input
+                  type="number"
+                  min={band.min}
+                  max={band.max}
+                  value={profileData[band.key] ?? ""}
+                  onChange={(e) => setProfileData((p) => ({ ...p, [band.key]: e.target.value === "" ? null : parseInt(e.target.value, 10) }))}
+                  placeholder={`${band.min}–${band.max}`}
+                  className="px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card font-sans transition-all"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("psy.dashboard.profile.bio")}</label>
+            <span className="text-[11px] text-muted-foreground font-sans">{profileData.bio.length}/1000</span>
+          </div>
           <textarea
             value={profileData.bio}
             onChange={(e) => setProfileData((p) => ({ ...p, bio: e.target.value }))}
             rows={4}
+            maxLength={1000}
             placeholder={t("psy.dashboard.profile.bioPlaceholder")}
             className="w-full px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card font-sans transition-all resize-none leading-relaxed"
           />
@@ -129,7 +181,7 @@ export default function PsyProfileEditor({
       </div>
 
       <button
-        onClick={saveProfile}
+        onClick={handleSave}
         disabled={saving}
         className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid transition-all disabled:opacity-70 flex items-center justify-center gap-2 font-sans hover:shadow-sm"
       >

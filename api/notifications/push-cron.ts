@@ -17,14 +17,28 @@ try {
 
 const CRON_SECRET = process.env.CRON_SECRET || '';
 
+// Reject unless the request proves knowledge of the shared CRON_SECRET, supplied
+// either via the `x-cron-secret` header or an `Authorization: Bearer <secret>`
+// header. If CRON_SECRET is unset (missing env), no value can match, so the
+// endpoint stays locked down (returns 401 when the header is absent/mismatched).
+function isCronAuthorized(req: any): boolean {
+  if (!CRON_SECRET) return false;
+  const headerSecret = req.headers['x-cron-secret'];
+  const authHeader = req.headers.authorization;
+  const bearer = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : null;
+  const provided = headerSecret || bearer;
+  return provided === CRON_SECRET;
+}
+
 export default async function handler(req: any, res: any) {
-  // Only allow GET (Vercel cron) or authenticated POST
-  if (req.method === 'GET') {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || authHeader !== `Bearer ${CRON_SECRET}`) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-  } else if (req.method !== 'POST') {
+  // Require the shared secret for every method (GET = Vercel cron, POST = manual).
+  if (!isCronAuthorized(req)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 

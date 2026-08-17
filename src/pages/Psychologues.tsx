@@ -100,7 +100,7 @@ const Psychologues = () => {
       .single();
 
     if (error) {
-      toast.error("Erreur lors de l'envoi de la demande.");
+      toast.error(t("psy.toast.requestError"));
       setRequestStatus(null);
       setRequestingPsyId(null);
       return;
@@ -122,16 +122,16 @@ const Psychologues = () => {
         setRequestStatus(newStatus);
         if (newStatus === "accepted") {
           const roomUrl = payload.new.room_url;
-          toast.success("Le psychologue a accepté ! Ouverture de la session...");
+          toast.success(t("psy.toast.accepted"));
           setTimeout(() => {
             if (roomUrl) {
               window.open(roomUrl, "_blank");
             }
           }, 1000);
         } else if (newStatus === "declined") {
-          toast.error("Le psychologue n'est pas disponible pour le moment.");
+          toast.error(t("psy.toast.unavailable"));
         } else if (newStatus === "expired") {
-          toast.error("La demande a expiré. Le psychologue n'a pas répondu.");
+          toast.error(t("psy.toast.expired"));
         }
         setTimeout(() => {
           setRequestStatus(null);
@@ -172,8 +172,13 @@ const Psychologues = () => {
               className="w-[88px] h-[88px] rounded-full object-cover border-[3px] border-card shadow-card"
             />
           ) : (
-            <div className="w-[88px] h-[88px] rounded-full border-[3px] border-card shadow-card text-[64px] flex items-center justify-center bg-card">
-              {d.emoji}
+            <div className="w-[88px] h-[88px] rounded-full border-[3px] border-card shadow-card text-2xl font-semibold flex items-center justify-center bg-card text-primary">
+              {d.name
+                .split(/\s+/)
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((w) => w[0]?.toUpperCase())
+                .join("")}
             </div>
           )}
           <h3 className="font-serif text-lg text-primary text-center">{d.name}</h3>
@@ -348,8 +353,8 @@ const Psychologues = () => {
                 <label className="block text-[13px] font-medium text-muted-foreground mb-2">{t("psy.language")}</label>
                 <select value={langFilter} onChange={(e) => setLangFilter(e.target.value)} className="w-full p-2.5 border border-border rounded-[10px] text-sm text-foreground bg-card cursor-pointer outline-none font-sans">
                   <option value="">{t("psy.all")}</option>
-                  <option value="Français">Français</option>
-                  <option value="Arabe">Arabe</option>
+                   <option value="Français">{t("space.lang.french")}</option>
+                   <option value="Arabe">{t("space.lang.arabic")}</option>
                 </select>
               </div>
               <div>
@@ -405,7 +410,7 @@ const Psychologues = () => {
           </div>
         ) : isError ? (
           <div className="text-center py-20 text-muted-foreground">
-            <p>Une erreur est survenue. Veuillez rafraîchir la page.</p>
+             <p>{t("psy.errorLoad")}</p>
           </div>
         ) : (
           <>

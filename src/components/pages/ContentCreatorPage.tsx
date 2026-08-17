@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PenTool, Volume2, Users, Trash2, MessageSquare } from "lucide-react";
+import LiveAudioModal from "./LiveAudioModal";
 
 interface ContentCreatorProps {
   t: (key: string) => string;
@@ -21,8 +22,8 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
   const [publishedStories, setPublishedStories] = useState<{ id?: string; text: string; bg: string }[]>([]);
 
   const [audioTitle, setAudioTitle] = useState("");
-  const [activeAudioRoom, setActiveAudioRoom] = useState<any | null>(null);
-  const [simMute, setSimMute] = useState(false);
+  const [liveRoom, setLiveRoom] = useState<{ id: string; url: string; title: string } | null>(null);
+  const [startingRoom, setStartingRoom] = useState(false);
 
   const [forumThreads, setForumThreads] = useState<any[]>([]);
   const [selectedThread, setSelectedThread] = useState<any | null>(null);
@@ -90,17 +91,6 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
     fetchDbStories();
     fetchForumThreads();
 
-    const storedAudio = localStorage.getItem("majal_active_audio");
-    if (storedAudio) {
-      try {
-        const rooms = JSON.parse(storedAudio);
-        const currentRoom = rooms.find((r: any) => r.host === profileData.full_name);
-        if (currentRoom) {
-          setActiveAudioRoom(currentRoom);
-        }
-      } catch(e) {}
-    }
-
     const storiesChannel = supabase
       .channel("psy:stories")
       .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => {
@@ -123,25 +113,6 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
       forumChannel.unsubscribe();
     };
   }, []);
-
-  useEffect(() => {
-    if (!activeAudioRoom) return;
-    const interval = setInterval(() => {
-      const storedAudio = localStorage.getItem("majal_active_audio");
-      if (storedAudio) {
-        try {
-          const rooms = JSON.parse(storedAudio);
-          const currentRoom = rooms.find((r: any) => r.id === activeAudioRoom.id);
-          if (currentRoom) {
-            setActiveAudioRoom(currentRoom);
-          } else {
-            setActiveAudioRoom(null);
-          }
-        } catch(e) {}
-      }
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [activeAudioRoom]);
 
   const handlePublishStory = async () => {
     if (!storyText.trim() || !user) return;
@@ -186,50 +157,69 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
     }
   };
 
-  const handleStartAudioRoom = () => {
+  const handleStartAudioRoom = async () => {
     if (!audioTitle.trim()) {
       toast.error("Veuillez donner un sujet au salon.");
       return;
     }
-
-    const newRoom = {
-      id: "room-" + Date.now(),
-      title: audioTitle.trim(),
-      host: profileData.full_name || "Dr. Sofia Ben",
-      hostAvatar: profileData.avatar_url || undefined,
-      listeners: [],
-      speakers: [],
-    };
-
-    const storedAudio = localStorage.getItem("majal_active_audio");
-    let rooms = [];
-    if (storedAudio) {
-      try { rooms = JSON.parse(storedAudio); } catch(e) {}
+    if (!user) {
+      toast.error("Vous devez être connecté pour lancer un salon.");
+      return;
     }
 
-    rooms = rooms.filter((r: any) => r.host !== (profileData.full_name || "Dr. Sofia Ben"));
-    rooms.push(newRoom);
+    setStartingRoom(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        toast.error("Session expirée. Veuillez vous reconnecter.");
+        return;
+      }
 
-    localStorage.setItem("majal_active_audio", JSON.stringify(rooms));
-    setActiveAudioRoom(newRoom);
-    setAudioTitle("");
-    setSimMute(false);
-    toast.success("🎙️ Le salon audio en direct est lancé ! Vos patients peuvent maintenant le rejoindre.");
+      const response = await fetch('/api/calls/create-audio-room', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: audioTitle.trim() }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Échec de la création du salon.");
+      }
+
+      setLiveRoom({ id: data.id, url: data.url, title: audioTitle.trim() });
+      setAudioTitle("");
+      toast.success("🎙️ Le salon audio en direct est lancé ! Vos patients peuvent maintenant le rejoindre.");
+    } catch (err) {
+      console.error("Audio room start error:", err);
+      toast.error(err instanceof Error ? err.message : "Impossible de lancer le salon audio. Vérifiez la configuration du service.");
+    } finally {
+      setStartingRoom(false);
+    }
   };
 
-  const handleStopAudioRoom = () => {
-    if (!activeAudioRoom) return;
+  const handleStopAudioRoom = async () => {
+    if (!liveRoom) return;
 
-    const storedAudio = localStorage.getItem("majal_active_audio");
-    let rooms = [];
-    if (storedAudio) {
-      try { rooms = JSON.parse(storedAudio); } catch(e) {}
+    try {
+      const { error } = await (supabase as any)
+        .from('audio_rooms')
+        .delete()
+        .eq('id', liveRoom.id);
+
+      if (error) {
+        toast.error("Erreur lors de la fermeture du salon.");
+      } else {
+        toast.success("🛑 Le salon audio a été fermé.");
+      }
+    } catch (err) {
+      console.error("Audio room stop error:", err);
+    } finally {
+      setLiveRoom(null);
     }
-
-    rooms = rooms.filter((r: any) => r.id !== activeAudioRoom.id);
-    localStorage.setItem("majal_active_audio", JSON.stringify(rooms));
-    setActiveAudioRoom(null);
-    toast.success("🛑 Le salon audio a été fermé.");
   };
 
   const handlePostForumReply = async (e: React.FormEvent) => {
@@ -387,7 +377,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
       {contentTab === "audio" && (
         <div className="grid grid-cols-1 md:grid-cols-[1fr_360px] gap-8">
           <div className="dashboard-card p-6 md:p-8 space-y-6">
-            {!activeAudioRoom ? (
+            {!liveRoom ? (
               <>
                 <h3 className="font-serif text-lg font-semibold text-foreground border-b border-border/30 pb-3">
                   Lancer un Salon Audio en Direct
@@ -411,9 +401,10 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
 
                 <button
                   onClick={handleStartAudioRoom}
-                  className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid hover:shadow-sm transition-all"
+                  disabled={startingRoom}
+                  className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid hover:shadow-sm transition-all disabled:opacity-60"
                 >
-                  {t("psy.content.startAudio")}
+                  {startingRoom ? "Création en cours..." : t("psy.content.startAudio")}
                 </button>
               </>
             ) : (
@@ -425,7 +416,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
                     </span>
                     <span className="text-[10px] uppercase font-bold text-red-600 tracking-wider">Cercle en Direct</span>
-                    <h3 className="font-serif text-lg font-semibold text-foreground mt-1">{activeAudioRoom.title}</h3>
+                    <h3 className="font-serif text-lg font-semibold text-foreground mt-1">{liveRoom.title}</h3>
                   </div>
                   <button
                     onClick={handleStopAudioRoom}
@@ -436,73 +427,24 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
                 </div>
 
                 <div className="flex flex-col items-center justify-center py-6 bg-teal-hero/5 rounded-2xl border border-solid border-primary/5">
-                  <div className="relative flex items-center justify-center my-4">
-                    {!simMute && (
-                      <>
-                        <div className="absolute w-24 h-24 rounded-full bg-primary/15 animate-ping duration-1500" />
-                        <div className="absolute w-28 h-28 rounded-full bg-primary/5 animate-pulse duration-2000" />
-                      </>
-                    )}
-                    {profileData.avatar_url ? (
-                      <img src={profileData.avatar_url} alt="Host" className="w-20 h-20 rounded-full object-cover border-2 border-solid border-primary relative z-10 shadow-md" />
-                    ) : (
-                      <div className="w-20 h-20 rounded-full bg-teal-pale border-2 border-solid border-primary flex items-center justify-center text-primary font-bold text-xl relative z-10 shadow-md">
-                        {getInitials(profileData.full_name)}
-                      </div>
-                    )}
-                    <span className="absolute bottom-0 right-0 z-20 bg-primary text-primary-foreground text-[8px] font-bold px-2 py-0.5 rounded-full border border-solid border-white">
-                      MIC ON
-                    </span>
-                  </div>
+                  {profileData.avatar_url ? (
+                    <img src={profileData.avatar_url} alt="Host" className="w-20 h-20 rounded-full object-cover border-2 border-solid border-primary relative z-10 shadow-md" />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-teal-pale border-2 border-solid border-primary flex items-center justify-center text-primary font-bold text-xl relative z-10 shadow-md">
+                      {getInitials(profileData.full_name)}
+                    </div>
+                  )}
                   <div className="text-sm font-semibold text-foreground mt-2">{profileData.full_name}</div>
                   <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mt-0.5 font-sans">Organisateur</div>
-
+                  <p className="text-xs text-muted-foreground text-center mt-4 max-w-xs">
+                    Votre salon est en direct. Ouvrez la salle pour parler et gérer votre micro.
+                  </p>
                   <button
-                    onClick={() => setSimMute(!simMute)}
-                    className={`px-5 py-2 mt-4 rounded-xl text-xs font-semibold border-none cursor-pointer transition-all shadow-sm ${
-                      simMute ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-teal-pale text-primary hover:bg-primary hover:text-white"
-                    }`}
+                    onClick={() => setLiveRoom(liveRoom)}
+                    className="px-5 py-2 mt-4 rounded-xl text-xs font-semibold border-none cursor-pointer transition-all shadow-sm bg-primary text-primary-foreground hover:bg-teal-mid"
                   >
-                    {simMute ? "Activer le micro" : "Couper le micro"}
+                    Ouvrir la salle audio
                   </button>
-                </div>
-
-                <div className="space-y-3 font-sans">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {t("psy.content.activeSpeakers") || "Intervenants"} ({activeAudioRoom.speakers.length + 1})
-                  </h4>
-                  <div className="flex flex-wrap gap-2.5">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-teal-pale text-xs font-semibold text-primary border border-solid border-primary/10">
-                      <span>🎙️ {profileData.full_name} (Moi)</span>
-                    </div>
-                    {activeAudioRoom.speakers.map((s: any) => (
-                      <div key={s.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/40 text-xs font-semibold text-foreground border border-solid border-border/20">
-                        <span>{s.name}</span>
-                        <button
-                          onClick={() => {
-                            const updatedRoom = {
-                              ...activeAudioRoom,
-                              speakers: activeAudioRoom.speakers.filter((x: any) => x.id !== s.id),
-                              listeners: [...activeAudioRoom.listeners, { id: s.id, name: s.name }]
-                            };
-                            setActiveAudioRoom(updatedRoom);
-                            const storedAudio = localStorage.getItem("majal_active_audio");
-                            if (storedAudio) {
-                              try {
-                                const rooms = JSON.parse(storedAudio);
-                                const updatedRooms = rooms.map((r: any) => r.id === activeAudioRoom.id ? updatedRoom : r);
-                                localStorage.setItem("majal_active_audio", JSON.stringify(updatedRooms));
-                              } catch(e) {}
-                            }
-                          }}
-                          className="bg-transparent border-none text-muted-foreground hover:text-red-600 font-bold cursor-pointer font-sans"
-                          title="Retirer la parole"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </div>
             )}
@@ -510,49 +452,34 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
 
           <div className="space-y-6">
             <div className="dashboard-card p-6 space-y-4">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Auditeurs dans le salon</h4>
-              {activeAudioRoom ? (
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vos salons</h4>
+              {liveRoom ? (
                 <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-                  {activeAudioRoom.listeners.map((l: any) => (
-                    <div key={l.id} className="flex items-center justify-between p-2 rounded-xl border border-solid border-border/20 bg-teal-hero/5 font-sans">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[9px]">{getInitials(l.name)}</div>
-                        <span className="text-xs font-semibold text-foreground">{l.name}</span>
-                      </div>
-                      <button
-                        onClick={() => {
-                          const updatedRoom = {
-                            ...activeAudioRoom,
-                            listeners: activeAudioRoom.listeners.filter((x: any) => x.id !== l.id),
-                            speakers: [...activeAudioRoom.speakers, { id: l.id, name: l.name }]
-                          };
-                          setActiveAudioRoom(updatedRoom);
-                          const storedAudio = localStorage.getItem("majal_active_audio");
-                          if (storedAudio) {
-                            try {
-                              const rooms = JSON.parse(storedAudio);
-                              const updatedRooms = rooms.map((r: any) => r.id === activeAudioRoom.id ? updatedRoom : r);
-                              localStorage.setItem("majal_active_audio", JSON.stringify(updatedRooms));
-                            } catch(e) {}
-                          }
-                          toast.success(`🎙️ Parole accordée à ${l.name}.`);
-                        }}
-                        className="px-2 py-1 bg-teal-pale text-primary rounded text-[9px] font-bold hover:bg-primary hover:text-white transition-all border-none cursor-pointer"
-                      >
-                        Inviter à parler
-                      </button>
+                  <div className="flex items-center justify-between p-2 rounded-xl border border-solid border-primary/20 bg-teal-hero/5 font-sans">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+                      </span>
+                      <span className="text-xs font-semibold text-foreground">{liveRoom.title}</span>
                     </div>
-                  ))}
-                  {activeAudioRoom.listeners.length === 0 && (
-                    <p className="text-xs text-muted-foreground italic text-center py-4">En attente d'auditeurs...</p>
-                  )}
+                    <span className="text-[9px] uppercase font-bold text-red-600">En direct</span>
+                  </div>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground italic text-center py-4 font-sans">Lancez un salon pour voir vos auditeurs.</p>
+                <p className="text-xs text-muted-foreground italic text-center py-4 font-sans">Aucun salon en cours. Lancez-en un pour être découvert par vos patients.</p>
               )}
             </div>
           </div>
         </div>
+      )}
+
+      {liveRoom && (
+        <LiveAudioModal
+          roomUrl={liveRoom.url}
+          title={liveRoom.title}
+          onClose={() => {}}
+        />
       )}
 
       {contentTab === "forum" && (

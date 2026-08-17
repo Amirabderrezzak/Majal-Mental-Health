@@ -67,4 +67,23 @@ export default defineConfig(() => ({
       "@tanstack/query-core",
     ],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("react-router") || id.includes("@remix-run")) return "vendor-router";
+          if (id.includes("@tanstack")) return "vendor-query";
+          if (
+            id.includes("@radix-ui") ||
+            id.includes("class-variance-authority") ||
+            id.includes("clsx") ||
+            id.includes("tailwind-merge") ||
+            id.includes("lucide-react")
+          ) return "vendor-ui";
+          return "vendor";
+        },
+      },
+    },
+  },
 }));

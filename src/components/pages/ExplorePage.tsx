@@ -10,10 +10,11 @@ import LiveAudioModal from "./LiveAudioModal";
 interface AudioRoom {
   id: string;
   title: string;
-  host: string;
-  hostAvatar?: string;
-  listeners: { id: string; name: string }[];
-  speakers: { id: string; name: string }[];
+  host_id?: string;
+  host_name?: string | null;
+  is_live?: boolean;
+  participant_count?: number;
+  created_at?: string;
 }
 
 export default function ExplorePage() {
@@ -26,9 +27,7 @@ export default function ExplorePage() {
   const [postingGrat, setPostingGrat] = useState(false);
   const [selectedStoryTherapist, setSelectedStoryTherapist] = useState<{ name: string; avatar?: string; stories: { text: string; bg: string }[] } | null>(null);
   const [currentStorySlide, setCurrentStorySlide] = useState(0);
-  const [activeRoom, setActiveRoom] = useState<AudioRoom | null>(null);
-  const [isMuted, setIsMuted] = useState(true);
-  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<{ url: string; title: string } | null>(null);
 
   useEffect(() => {
     let timeout: any;
@@ -134,27 +133,23 @@ export default function ExplorePage() {
     fetchGratitudes();
     fetchDbStories();
 
-    const activeAudio = localStorage.getItem("majal_active_audio");
-    if (activeAudio) {
-      try { setAudioRooms(JSON.parse(activeAudio)); } catch(e) {}
-    } else {
-      const defRooms = [
-        {
-          id: "room-1",
-          title: "Gérer le surmenage professionnel et l'anxiété",
-          host: "Dr. Sofia Ben",
-          hostAvatar: undefined,
-          listeners: [
-            { id: "l1", name: "Karim" },
-            { id: "l2", name: "Amel" },
-            { id: "l3", name: "Sara" }
-          ],
-          speakers: []
-        }
-      ];
-      setAudioRooms(defRooms);
-      localStorage.setItem("majal_active_audio", JSON.stringify(defRooms));
-    }
+    const fetchAudioRooms = async () => {
+      const { data } = await (supabase as any)
+        .from("audio_rooms_public")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (data) {
+        setAudioRooms(data as AudioRoom[]);
+      }
+    };
+    fetchAudioRooms();
+
+    const audioChannel = supabase
+      .channel("public:audio_rooms")
+      .on("postgres_changes", { event: "*", schema: "public", table: "audio_rooms" }, () => {
+        fetchAudioRooms();
+      })
+      .subscribe();
 
     const gratitudeChannel = supabase
       .channel("public:gratitudes")
@@ -171,6 +166,7 @@ export default function ExplorePage() {
       .subscribe();
 
     return () => {
+      audioChannel.unsubscribe();
       gratitudeChannel.unsubscribe();
       storiesChannel.unsubscribe();
     };
@@ -256,18 +252,19 @@ export default function ExplorePage() {
                   <div>
                     <div className="font-semibold text-sm text-foreground leading-snug">{room.title}</div>
                     <div className="text-[11px] text-muted-foreground mt-1 font-sans">
-                      Hôte : {room.host} · {room.listeners.length} auditeurs
+                      {room.host_name ? `Animé par ${room.host_name} · ` : ""}Salon audio en direct · Rejoignez la discussion
                     </div>
                   </div>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (!user) return;
-                      const updatedRoom = {
-                        ...room,
-                        listeners: [...room.listeners.filter(x => x.id !== user.id), { id: user.id, name: "Moi" }]
-                      };
-                      setActiveRoom(updatedRoom);
-                      setIsMuted(true);
+                      const { data: url, error } = await (supabase as any)
+                        .rpc("get_audio_room_url", { room_id: room.id });
+                      if (error || !url) {
+                        toast.error("Impossible de rejoindre le salon pour le moment.");
+                        return;
+                      }
+                      setSelectedRoom({ url, title: room.title });
                     }}
                     className="px-4 py-2.5 bg-primary text-primary-foreground hover:bg-teal-mid rounded-xl text-xs font-semibold border-none cursor-pointer transition-all shadow-sm shrink-0 self-end sm:self-auto"
                   >
@@ -275,6 +272,11 @@ export default function ExplorePage() {
                   </button>
                 </div>
               ))}
+              {audioRooms.length === 0 && (
+                <p className="text-xs text-muted-foreground italic text-center py-4 font-sans">
+                  Aucun salon audio en direct pour le moment. Revenez bientôt !
+                </p>
+              )}
             </div>
           </div>
 
@@ -413,16 +415,9 @@ export default function ExplorePage() {
       )}
 
       <LiveAudioModal
-        activeRoom={activeRoom}
-        setActiveRoom={(room) => {
-          setActiveRoom(room);
-          if (!room) setIsSpeaking(false);
-        }}
-        isMuted={isMuted}
-        setIsMuted={setIsMuted}
-        isSpeaking={isSpeaking}
-        setIsSpeaking={setIsSpeaking}
-        getInitials={getInitials}
+        roomUrl={selectedRoom?.url || null}
+        title={selectedRoom?.title || ""}
+        onClose={() => setSelectedRoom(null)}
       />
     </div>
   );

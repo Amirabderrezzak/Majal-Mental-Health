@@ -77,7 +77,7 @@ const Profil = () => {
   // ── Fetch real profile ────────────────────────────────────────────────────
   useEffect(() => {
     if (!isUUID) {
-      toast.error("ID de psychologue invalide.");
+      toast.error(t("prof.toast.invalidId"));
       navigate("/psychologues");
       return;
     }
@@ -85,7 +85,7 @@ const Profil = () => {
 
     Promise.all([
       supabase
-        .from("profiles")
+        .from("psychologist_directory")
         .select("user_id, full_name, specialty, city, bio, price_per_session, years_experience, language, avatar_url, video_url, is_available_now")
         .eq("user_id", id)
         .single(),
@@ -104,7 +104,7 @@ const Profil = () => {
     ]).then(([profileRes, reviewsRes, ratingRes]) => {
       if (profileRes.error) {
         console.error("Error fetching psychologist profile:", profileRes.error);
-        toast.error("Impossible de charger le profil.");
+        toast.error(t("prof.toast.loadError"));
         navigate("/psychologues");
         return;
       }
@@ -125,7 +125,7 @@ const Profil = () => {
   }, [id, isUUID, user, navigate]);
 
   // ── Derived display values ────────────────────────────────────────────────
-  const name       = psyProfile?.full_name ?? "Psychologue";
+  const name       = psyProfile?.full_name ?? t("prof.defaultName");
   const specialty  = psyProfile?.specialty ?? "";
   const city       = psyProfile?.city ?? null;
   const bio        = psyProfile?.bio ?? null;
@@ -134,6 +134,21 @@ const Profil = () => {
   const langs      = psyProfile?.language ? [psyProfile.language] : ["Français"];
   const avatarUrl  = psyProfile?.avatar_url ?? null;
   const emoji      = "🧑‍⚕️";
+
+  // ── Start a conversation with this psychologist ───────────────────────────
+  const handleMessage = () => {
+    if (!user) {
+      navigate("/connexion", { state: { from: { pathname: `/profil/${id}` } } });
+      return;
+    }
+    if (user.id === id) {
+      toast.error(t("prof.toast.selfMessage"));
+      return;
+    }
+    navigate(
+      `/mon-espace?page=messages&psy=${encodeURIComponent(id ?? "")}&name=${encodeURIComponent(name)}`
+    );
+  };
   const avgRating  = ratingStats.avg_rating ?? 0;
   const reviewCount = ratingStats.review_count ?? 0;
   const bookingId  = id;
@@ -152,7 +167,7 @@ const Profil = () => {
   // ── Submit review ─────────────────────────────────────────────────────────
   const submitReview = async () => {
     if (!user) { navigate("/connexion"); return; }
-    if (!isUUID) { toast.error("Les avis ne sont disponibles que pour les profils vérifiés."); return; }
+    if (!isUUID) { toast.error(t("prof.toast.reviewRestricted")); return; }
     setSubmittingReview(true);
     const { error } = await supabase.from("reviews").insert({
       patient_id: user.id,
@@ -162,9 +177,9 @@ const Profil = () => {
     });
     setSubmittingReview(false);
     if (error) {
-      toast.error("Erreur lors de l'envoi de l'avis.");
+      toast.error(t("prof.toast.reviewError"));
     } else {
-      toast.success("✅ Avis publié avec succès !");
+      toast.success(t("prof.toast.reviewSuccess"));
       setShowReviewModal(false);
       setUserAlreadyReviewed(true);
       setReviews(prev => [{
@@ -261,7 +276,7 @@ const Profil = () => {
                       {t("psy.availableNow")}
                     </div>
                   ) : (
-                    <div className="text-sm font-medium">Disponible cette semaine</div>
+                     <div className="text-sm font-medium">{t("prof.availableThisWeek")}</div>
                   )}
                 </div>
               </div>
@@ -269,7 +284,7 @@ const Profil = () => {
                 <div className="flex items-start gap-3 mb-4">
                   <Award className="w-[18px] h-[18px] text-primary shrink-0 mt-0.5" />
                   <div>
-                    <div className="text-xs text-muted-foreground">N° d'ordre</div>
+                     <div className="text-xs text-muted-foreground">{t("prof.orderNumber")}</div>
                     <div className="text-sm font-medium">{psyProfile.order_number}</div>
                   </div>
                 </div>
@@ -279,7 +294,8 @@ const Profil = () => {
                 className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-[15px] font-medium no-underline flex items-center justify-center gap-2 hover:bg-teal-mid transition-colors mb-2.5">
                 <Calendar className="w-4 h-4" /> {t("prof.bookNow")}
               </Link>
-              <button className="w-full py-3 rounded-xl border border-border bg-teal-hero text-primary text-[15px] font-medium flex items-center justify-center gap-2 hover:border-primary transition-colors cursor-pointer">
+              <button onClick={handleMessage}
+                className="w-full py-3 rounded-xl border border-border bg-teal-hero text-primary text-[15px] font-medium flex items-center justify-center gap-2 hover:border-primary transition-colors cursor-pointer">
                 <MessageSquare className="w-4 h-4" /> {t("prof.message")}
               </button>
             </div>
@@ -305,7 +321,7 @@ const Profil = () => {
                 <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
                   <h2 className="font-serif text-xl text-primary mb-4">{t("prof.bio")}</h2>
                   <p className="text-[15px] text-foreground leading-[1.75]">
-                    {bio ?? "Psychologue clinicien spécialisé dans l'accompagnement des adultes et des adolescents. Mon approche thérapeutique est basée sur l'écoute active, l'empathie et des méthodes éprouvées comme la thérapie cognitivo-comportementale (TCC) et la thérapie d'acceptation et d'engagement (ACT)."}
+                     {bio ?? t("prof.bioDefault")}
                   </p>
                 </div>
 
@@ -326,7 +342,7 @@ const Profil = () => {
                 <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
                   <h2 className="font-serif text-xl text-primary mb-4">{t("prof.approach")}</h2>
                   <div className="flex flex-col gap-3">
-                    {["Thérapie cognitivo-comportementale (TCC)", "Thérapie d'acceptation et d'engagement (ACT)", "Pleine conscience (Mindfulness)", "Approche centrée sur la personne"].map(a => (
+                    {[t("prof.approach.tcc"), t("prof.approach.act"), t("prof.approach.mindfulness"), t("prof.approach.person")].map(a => (
                       <div key={a} className="flex items-center gap-3 text-[15px] text-foreground">
                         <Check className="w-5 h-5 text-teal-light shrink-0" /> {a}
                       </div>
@@ -339,7 +355,7 @@ const Profil = () => {
                     <GraduationCap className="w-[22px] h-[22px]" /> {t("prof.training")}
                   </h2>
                   <div className="flex flex-col gap-3.5">
-                    {["Doctorat en Psychologie Clinique — Université d'Alger", "Master en Psychologie — Université Paris Descartes", "Certification TCC — Institut Français de TCC"].map(f => (
+                    {[t("prof.training.d1"), t("prof.training.d2"), t("prof.training.d3")].map(f => (
                       <div key={f} className="flex items-start gap-3 text-[15px] text-foreground">
                         <Award className="w-5 h-5 text-primary shrink-0 mt-0.5" /> {f}
                       </div>
@@ -407,7 +423,7 @@ const Profil = () => {
                 {user && !userAlreadyReviewed && isUUID && (
                   <button onClick={() => setShowReviewModal(true)}
                     className="w-full mb-6 py-3 rounded-xl border-2 border-dashed border-teal-light text-primary text-[15px] font-medium bg-transparent cursor-pointer hover:bg-teal-pale transition-colors flex items-center justify-center gap-2">
-                    <Star className="w-4 h-4" /> Laisser un avis
+                    <Star className="w-4 h-4" /> {t("prof.leaveReview")}
                   </button>
                 )}
 
@@ -415,8 +431,8 @@ const Profil = () => {
                 {reviews.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground">
                     <Star className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                    <p className="text-sm">Aucun avis pour le moment.</p>
-                    <p className="text-xs mt-1">Soyez le premier à partager votre expérience.</p>
+                    <p className="text-sm">{t("prof.noReviews")}</p>
+                    <p className="text-xs mt-1">{t("prof.noReviewsHint")}</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-4">
@@ -428,7 +444,7 @@ const Profil = () => {
                               {r.patient_id === user?.id ? (user?.email?.[0].toUpperCase() ?? "M") : "P"}
                             </div>
                             <span className="font-semibold text-sm">
-                              {r.patient_id === user?.id ? "Vous" : "Patient"}
+                              {r.patient_id === user?.id ? t("prof.you") : t("psy.common.patient")}
                             </span>
                           </div>
                           <span className="text-xs text-muted-foreground">{formatDate(r.created_at)}</span>
@@ -453,13 +469,13 @@ const Profil = () => {
           <div className="bg-card rounded-2xl p-8 max-w-md w-full shadow-card-hover"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="font-serif text-xl text-primary">Votre avis</h3>
+              <h3 className="font-serif text-xl text-primary">{t("prof.reviewModalTitle")}</h3>
               <button onClick={() => setShowReviewModal(false)} className="bg-transparent border-none cursor-pointer text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-sm text-muted-foreground mb-5">Évaluez votre expérience avec {name}</p>
+            <p className="text-sm text-muted-foreground mb-5">{t("prof.reviewRate")} {name}</p>
 
             {/* Star picker */}
             <div className="flex gap-2 justify-center mb-6">
@@ -477,13 +493,13 @@ const Profil = () => {
             </div>
 
             <textarea value={reviewComment} onChange={e => setReviewComment(e.target.value)}
-              rows={4} placeholder="Partagez votre expérience (optionnel)..."
+              rows={4} placeholder={t("prof.reviewPlaceholder")}
               className="w-full px-4 py-3 border border-border rounded-xl text-[15px] text-foreground bg-teal-hero outline-none focus:border-teal-light resize-none font-sans mb-5" />
 
             <button onClick={submitReview} disabled={submittingReview}
               className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-medium border-none cursor-pointer hover:bg-teal-mid transition-colors disabled:opacity-70 flex items-center justify-center gap-2 font-sans">
-              {submittingReview && <Loader2 className="w-4 h-4 animate-spin" />}
-              Publier l'avis
+               {submittingReview && <Loader2 className="w-4 h-4 animate-spin" />}
+              {t("prof.publishReview")}
             </button>
           </div>
         </div>

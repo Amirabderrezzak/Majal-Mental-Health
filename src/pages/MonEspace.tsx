@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -62,6 +63,7 @@ interface Profile {
 
 export default function MonEspace() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const { t, lang, dir } = useLanguage();
   const { isSupported: pushSupported, preferenceEnabled: pushSubscribed, loading: pushLoading, togglePreference: pushToggle } = usePushNotifications(user?.id ?? null);
   const [activePage, setActivePage] = useState<Page>("dashboard");
@@ -103,9 +105,9 @@ export default function MonEspace() {
       localStorage.setItem(`majal_streak_${user.id}`, "5");
     }
     setUnlockedBadges([
-      { id: "1", name: "Pionnier Majal", emoji: "🌱", desc: "Création de compte complétée." },
-      { id: "2", name: "Esprit Zen", emoji: "🧘", desc: "A complété 5 exercices de respiration." },
-      { id: "3", name: "Explorateur", emoji: "🗺️", desc: "A lu 3 réflexions de thérapeutes." }
+      { id: "1", name: t("space.badge.pioneer"), emoji: "🌱", desc: t("space.badge.pioneerDesc") },
+      { id: "2", name: t("space.badge.zen"), emoji: "🧘", desc: t("space.badge.zenDesc") },
+      { id: "3", name: t("space.badge.explorer"), emoji: "🗺️", desc: t("space.badge.explorerDesc") }
     ]);
   }, [user]);
 
@@ -123,7 +125,7 @@ export default function MonEspace() {
 
         all.forEach(b => {
           const p = psyProfiles?.find(x => x.user_id === b.psychologist_id);
-          b.psychologist_name = p?.full_name || "Un Psychologue";
+          b.psychologist_name = p?.full_name || t("space.defaultPsy");
           b.psychologist_avatar = p?.avatar_url || undefined;
           b.psychologist_specialty = p?.specialty || undefined;
         });
@@ -174,9 +176,9 @@ export default function MonEspace() {
       setCancelling(null);
 
       if (!response.ok || data.error) {
-        toast.error(data.error || "Erreur lors de l'annulation.");
+        toast.error(data.error || t("space.toast.cancelError"));
       } else {
-        toast.success("✅ Séance annulée.");
+        toast.success(t("space.toast.cancelled"));
         const cancelledBooking = upcoming.find(b => b.id === id);
         if (cancelledBooking) {
           setUpcoming(prev => prev.filter(b => b.id !== id));
@@ -185,7 +187,7 @@ export default function MonEspace() {
       }
     } catch (err) {
       setCancelling(null);
-      toast.error("Erreur de connexion lors de l'annulation.");
+      toast.error(t("space.toast.cancelError"));
     }
   };
 
@@ -211,9 +213,9 @@ export default function MonEspace() {
       const data = await response.json();
 
       if (!response.ok || data.error) {
-        toast.error(data.error || "Erreur lors du report.");
+        toast.error(data.error || t("space.toast.rescheduleError"));
       } else {
-        toast.success("✅ Séance reportée avec succès !");
+        toast.success(t("space.toast.rescheduled"));
         setUpcoming(prev => prev.map(b =>
           b.id === booking.id
             ? { ...b, booked_at: newDateTime }
@@ -221,9 +223,23 @@ export default function MonEspace() {
         ));
       }
     } catch (err) {
-      toast.error("Erreur de connexion lors du report.");
+      toast.error(t("space.toast.rescheduleError"));
     }
   };
+
+  // ── Deep-link: ?page=messages&psy=<id>&name=<name> from a profile ───────────
+  useEffect(() => {
+    if (!user) return;
+    const page = searchParams.get("page");
+    if (page !== "messages") return;
+    setActivePage("messages");
+    const psy = searchParams.get("psy");
+    if (psy) {
+      setActiveChatUserId(psy);
+      const decodedName = searchParams.get("name");
+      setActiveChatUserName(decodedName ? decodeURIComponent(decodedName) : t("prof.defaultName"));
+    }
+  }, [user, searchParams]);
 
   const initials = getInitials(profile.full_name || user?.email || "?");
 

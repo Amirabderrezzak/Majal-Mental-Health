@@ -96,10 +96,17 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { user_id, title, body, url } = req.body;
+    // SECURITY: a client may only push notifications to their own account.
+    // The caller's identity is derived from the verified JWT (user.id) and the
+    // requested target is forced to equal it, so no user can push to another
+    // user's devices. Therapist→patient and other server-generated pushes are
+    // handled by server-side/service-role flows (e.g. push-cron), which call
+    // sendPushToUser() directly and are not subject to this restriction.
+    const user_id = user.id;
+    const { title, body, url } = req.body;
 
-    if (!user_id || !title || !body) {
-      return res.status(400).json({ error: 'user_id, title, and body are required' });
+    if (!title || !body) {
+      return res.status(400).json({ error: 'title and body are required' });
     }
 
     const result = await sendPushToUser(user_id, title, body, url);

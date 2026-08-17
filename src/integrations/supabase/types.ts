@@ -100,6 +100,9 @@ export type Database = {
           order_number: string | null
           phone: string | null
           price_per_session: number | null
+          price_individual: number | null
+          price_couples: number | null
+          price_adolescents: number | null
           specialty: string | null
           updated_at: string
           user_id: string
@@ -119,6 +122,9 @@ export type Database = {
           order_number?: string | null
           phone?: string | null
           price_per_session?: number | null
+          price_individual?: number | null
+          price_couples?: number | null
+          price_adolescents?: number | null
           specialty?: string | null
           updated_at?: string
           user_id: string
@@ -138,6 +144,9 @@ export type Database = {
           order_number?: string | null
           phone?: string | null
           price_per_session?: number | null
+          price_individual?: number | null
+          price_couples?: number | null
+          price_adolescents?: number | null
           specialty?: string | null
           updated_at?: string
           user_id?: string
@@ -247,6 +256,27 @@ export type Database = {
     }
 
     Views: {
+      psychologist_directory: {
+        Row: {
+          user_id: string
+          full_name: string | null
+          specialty: string | null
+          city: string | null
+          bio: string | null
+          price_per_session: number | null
+          price_individual: number | null
+          price_couples: number | null
+          price_adolescents: number | null
+          avatar_url: string | null
+          approval_status: string
+          is_available_now: boolean
+          years_experience: number | null
+          language: string | null
+          video_url: string | null
+          created_at: string
+        }
+        Relationships: []
+      }
       psychologist_ratings: {
         Row: {
           avg_rating: number | null

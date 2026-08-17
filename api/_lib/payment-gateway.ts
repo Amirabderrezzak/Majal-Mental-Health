@@ -113,12 +113,21 @@ class MockGateway implements PaymentGateway {
 export function getPaymentGateway(): PaymentGateway {
   const publicKey = process.env.SOFIZPAY_PUBLIC_KEY;
   const sandbox = process.env.SOFIZPAY_SANDBOX === "true";
+  const isProduction = process.env.NODE_ENV === "production";
 
   if (publicKey) {
     console.log(`SofizPay gateway: ${sandbox ? "SANDBOX" : "PRODUCTION"} mode`);
     return new SofizPayGateway(publicKey, sandbox);
   }
 
-  console.warn("SOFIZPAY_PUBLIC_KEY not set — using mock payment gateway");
+  // PRODUCTION GATE: the mock gateway lets anyone "pay" for free (its webhook/
+  // confirm marks bookings confirmed with no real transaction). It must NEVER be
+  // usable in production. In prod without a real key we fail closed so a free
+  // mock confirmation is impossible; the mock is only a dev convenience.
+  if (isProduction) {
+    throw new Error("Payment gateway not configured");
+  }
+
+  console.warn("SOFIZPAY_PUBLIC_KEY not set — using mock payment gateway (development only)");
   return new MockGateway();
 }

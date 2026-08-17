@@ -12,7 +12,6 @@ export interface PsyProfile {
   exp: number;
   langs: string[];
   dispo: string;
-  emoji: string;
   avatar_url: string | null;
   video_url: string | null;
   is_available_now: boolean;
@@ -44,8 +43,7 @@ function mapProfile(row: {
     price: row.price_per_session ?? 3000,
     exp: row.years_experience ?? 0,
     langs: row.language ? [row.language] : ["Français"],
-    dispo: "Disponible cette semaine",
-    emoji: "🧑‍⚕️",
+    dispo: row.is_available_now ? "Disponible maintenant" : "Disponibilité sur demande",
     avatar_url: row.avatar_url,
     video_url: row.video_url ?? null,
     is_available_now: row.is_available_now ?? false,
@@ -63,9 +61,8 @@ export function usePsychologists() {
     queryKey: ["psychologists"],
     queryFn: async (): Promise<PsyProfile[]> => {
       const { data, error } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, specialty, city, bio, price_per_session, years_experience, language, avatar_url, video_url, is_available_now")
-        .eq("user_type", "psychologue")
+        .from("psychologist_directory")
+        .select("user_id, full_name, specialty, city, bio, price_per_session, years_experience, language, avatar_url, video_url, is_available_now, created_at")
         .eq("approval_status", "approved")
         .order("created_at", { ascending: true });
 

@@ -54,12 +54,12 @@ const Connexion = () => {
       });
 
       if (error) {
-        toast.error(error.message || "Erreur de connexion Google");
+        toast.error(error.message || t("auth.toast.googleError"));
         setLoading(false);
       }
     } catch (err) {
       console.error("Unexpected error:", err);
-      toast.error("Une erreur inattendue est survenue");
+      toast.error(t("auth.toast.unexpected"));
       setLoading(false);
     }
   };

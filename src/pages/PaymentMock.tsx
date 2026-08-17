@@ -2,8 +2,11 @@ import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { DollarSign, ShieldCheck } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function PaymentMock() {
+  const { t } = useLanguage();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const booking_id = params.get("booking_id");
@@ -15,18 +18,24 @@ export default function PaymentMock() {
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     try {
-      const res = await fetch("/api/payments/webhook", {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const res = await fetch("/api/payments/confirm", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ booking_id, status: "success" }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ payment_id: booking_id }),
       });
 
       if (!res.ok) throw new Error("Webhook failed");
 
-      toast.success("Paiement réussi ! Réservation confirmée.");
+      toast.success(t("pay.success"));
       navigate("/mon-espace");
     } catch (err) {
-      toast.error("Échec de la simulation de paiement");
+      toast.error(t("pay.failed"));
     } finally {
       setPaying(false);
     }
@@ -40,9 +49,9 @@ export default function PaymentMock() {
             <DollarSign size={32} />
           </div>
         </div>
-        <h1 className="text-2xl font-serif text-slate-900 mb-2">Paiement Sécurisé</h1>
+        <h1 className="text-2xl font-serif text-slate-900 mb-2">{t("pay.title")}</h1>
         <p className="text-slate-500 mb-8">
-          Montant à régler : <strong className="text-slate-800 text-xl">{amount} DZD</strong>
+          {t("pay.amountLabel")} <strong className="text-slate-800 text-xl">{amount} DZD</strong>
         </p>
 
         <button
@@ -55,13 +64,13 @@ export default function PaymentMock() {
           ) : (
             <>
               <ShieldCheck size={20} />
-              Payer maintenant
+              {t("pay.payBtn")}
             </>
           )}
         </button>
 
         <p className="text-xs text-slate-400 mt-6">
-          Il s'agit d'une simulation de paiement. En production, ceci sera remplacé par Sofizpay ou CIB/Edahabia.
+          {t("pay.simNote")}
         </p>
       </div>
     </div>

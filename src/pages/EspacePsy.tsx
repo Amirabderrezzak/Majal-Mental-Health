@@ -134,6 +134,13 @@ export default function EspacePsy() {
     workingDays: ["Sun", "Mon", "Tue", "Wed", "Thu"],
   });
 
+  const [notificationPreferences, setNotificationPreferences] = useState({
+    newBookings: true,
+    reminders: true,
+    messages: false,
+    payments: true,
+  });
+
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [selectedPatientName, setSelectedPatientName] = useState<string>("");
   const [selectedPatientInitials, setSelectedPatientInitials] = useState<string>("");
@@ -143,25 +150,13 @@ export default function EspacePsy() {
 
   const [selectedReceiptBooking, setSelectedReceiptBooking] = useState<Booking | null>(null);
 
-  useEffect(() => {
-    if (!user) return;
-    const stored = localStorage.getItem(`majal_settings_${user.id}`);
-    if (stored) {
-      try {
-        setClinicSettings(JSON.parse(stored));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }, [user]);
-
-  // Load profile data (availability + video)
+  // Load profile data (availability + video + clinic settings + notification prefs)
   useEffect(() => {
     if (!user) return;
     const loadProfile = async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("is_available_now, video_url")
+        .select("is_available_now, video_url, clinic_settings, notification_preferences")
         .eq("user_id", user.id)
         .single();
       if (data) {
@@ -169,6 +164,12 @@ export default function EspacePsy() {
         if (data.video_url) {
           setVideoUrl(data.video_url);
           setVideoPreviewUrl(data.video_url);
+        }
+        if (data.clinic_settings) {
+          setClinicSettings(prev => ({ ...prev, ...data.clinic_settings }));
+        }
+        if (data.notification_preferences) {
+          setNotificationPreferences(prev => ({ ...prev, ...data.notification_preferences }));
         }
       }
     };
@@ -343,8 +344,6 @@ export default function EspacePsy() {
     if (accept) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        console.log("[Video] Accepting request:", requestId, "psychologist:", user?.id);
-        console.log("[Video] Session token present:", !!session?.access_token);
         const res = await fetch("/api/calls/create-instant-room", {
           method: "POST",
           headers: {
@@ -357,7 +356,6 @@ export default function EspacePsy() {
           }),
         });
         const data = await res.json();
-        console.log("[Video] API response:", res.status, data);
         if (res.ok && data.url) {
           setImmediateRequests((prev) => prev.filter((r) => r.id !== requestId));
           toast.success("Session ouverte !");
@@ -371,7 +369,6 @@ export default function EspacePsy() {
       }
     } else {
       try {
-        console.log("[Video] Declining request:", requestId);
         const { data, error } = await supabase
           .from("immediate_session_requests")
           .update({
@@ -380,7 +377,6 @@ export default function EspacePsy() {
           })
           .eq("id", requestId)
           .select();
-        console.log("[Video] Decline result:", { data, error });
         if (error) {
           toast.error("Erreur lors du refus: " + error.message);
         } else {
@@ -435,10 +431,33 @@ export default function EspacePsy() {
   const updateClinicSetting = (key: string, value: any) => {
     const updated = { ...clinicSettings, [key]: value };
     setClinicSettings(updated);
-    if (user) {
-      localStorage.setItem(`majal_settings_${user.id}`, JSON.stringify(updated));
-    }
-    toast.success("✅ Paramètre mis à jour !");
+    if (!user) return;
+    setTimeout(async () => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ clinic_settings: updated })
+        .eq("user_id", user.id);
+      if (error) {
+        console.error("Failed to update clinic settings:", error);
+        toast.error("Erreur lors de la mise à jour. Veuillez exécuter la migration SQL d'abord.");
+      }
+    }, 500);
+  };
+
+  const updateNotificationPreference = (key: string, value: boolean) => {
+    const updated = { ...notificationPreferences, [key]: value };
+    setNotificationPreferences(updated);
+    if (!user) return;
+    setTimeout(async () => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ notification_preferences: updated })
+        .eq("user_id", user.id);
+      if (error) {
+        console.error("Failed to update notification preferences:", error);
+        toast.error("Erreur lors de la mise à jour. Veuillez exécuter la migration SQL d'abord.");
+      }
+    }, 500);
   };
 
   useEffect(() => {
@@ -491,12 +510,16 @@ export default function EspacePsy() {
   const [activeChatUserName, setActiveChatUserName] = useState<string>("");
 
   // Profile form state
+  const BIO_MAX_LENGTH = 1000;
   const [profileData, setProfileData] = useState({
     full_name: "",
     specialty: "",
     bio: "",
     city: "",
     price_per_session: 3000,
+    price_individual: null as number | null,
+    price_couples: null as number | null,
+    price_adolescents: null as number | null,
     years_experience: 0,
     phone: "",
     avatar_url: "",
@@ -542,23 +565,26 @@ export default function EspacePsy() {
   // Fetch real profile data
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("profiles")
-      .select("full_name, specialty, bio, city, price_per_session, years_experience, phone, approval_status, avatar_url")
-      .eq("user_id", user.id)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          setProfileData({
-            full_name: data.full_name ?? "",
-            specialty: data.specialty ?? "",
-            bio: data.bio ?? "",
-            city: data.city ?? "",
-            price_per_session: data.price_per_session ?? 3000,
-            years_experience: data.years_experience ?? 0,
-            phone: data.phone ?? "",
-            avatar_url: data.avatar_url ?? "",
-          });
+      supabase
+        .from("profiles")
+        .select("full_name, specialty, bio, city, price_per_session, price_individual, price_couples, price_adolescents, years_experience, phone, approval_status, avatar_url")
+        .eq("user_id", user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            setProfileData({
+              full_name: data.full_name ?? "",
+              specialty: data.specialty ?? "",
+              bio: data.bio ?? "",
+              city: data.city ?? "",
+              price_per_session: data.price_per_session ?? 3000,
+              price_individual: data.price_individual ?? null,
+              price_couples: data.price_couples ?? null,
+              price_adolescents: data.price_adolescents ?? null,
+              years_experience: data.years_experience ?? 0,
+              phone: data.phone ?? "",
+              avatar_url: data.avatar_url ?? "",
+            });
           if (data.approval_status) {
             setApprovalStatus(data.approval_status);
           }
@@ -663,12 +689,19 @@ export default function EspacePsy() {
   const saveProfile = async () => {
     if (!user) return;
     setSaving(true);
+    // Always filter by user_id (the unique column) so the existing profile row
+    // is updated in place. An upsert without onConflict would generate a new
+    // primary key and violate the user_id UNIQUE constraint, silently failing.
+    const { bio, price_individual, ...rest } = profileData;
     const { error } = await supabase
       .from("profiles")
-      .upsert({
-        user_id: user.id,
-        ...profileData,
-      });
+      .update({
+        ...rest,
+        // Keep price_per_session in sync as the headline "individual" price.
+        price_per_session: price_individual,
+        bio: (bio ?? "").trim().slice(0, BIO_MAX_LENGTH),
+      })
+      .eq("user_id", user.id);
     setSaving(false);
     if (error) {
       toast.error("Erreur lors de la sauvegarde.");
@@ -823,6 +856,8 @@ export default function EspacePsy() {
         <PsySettingsPage
           clinicSettings={clinicSettings}
           updateClinicSetting={updateClinicSetting}
+          notificationPreferences={notificationPreferences}
+          updateNotificationPreference={updateNotificationPreference}
           isAvailableNow={isAvailableNow}
           setIsAvailableNow={setIsAvailableNow}
           videoPreviewUrl={videoPreviewUrl}

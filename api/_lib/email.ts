@@ -317,6 +317,35 @@ export async function sendNewMessageNotification(opts: {
   });
 }
 
+// ── Contact Form Submission ───────────────────────────────────────────────────
+export async function sendContactFormEmail(opts: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}) {
+  const to = process.env.CONTACT_TO_EMAIL || 'support@majal.dz';
+  return resend.emails.send({
+    from: FROM,
+    to,
+    replyTo: opts.email,
+    subject: `📨 Nouveau message de contact — ${opts.subject}`,
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Nouveau message de contact</h2>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Vous avez reçu un nouveau message via le formulaire de contact.</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdfa;border-radius:10px;border:1px solid #99f6e4;margin-bottom:24px;">
+        <tr><td style="padding:20px 24px;">
+          <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>👤 Nom :</strong> ${escapeHtml(opts.name)}</p>
+          <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>📧 Email :</strong> ${escapeHtml(opts.email)}</p>
+          <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>🏷 Sujet :</strong> ${escapeHtml(opts.subject)}</p>
+          <p style="margin:0;font-size:14px;color:#374151;"><strong>💬 Message :</strong></p>
+          <p style="margin:8px 0 0;font-size:14px;color:#374151;white-space:pre-wrap;">${escapeHtml(opts.message)}</p>
+        </td></tr>
+      </table>
+    `),
+  });
+}
+
 // ── 10. No-Show Notification ──────────────────────────────────────────────────
 export async function sendNoShowNotification(opts: {
   recipientEmail: string;
