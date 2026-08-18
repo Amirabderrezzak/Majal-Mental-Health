@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import AdminRoute from "@/components/AdminRoute";
+import { Analytics } from "@vercel/analytics/react";
 
 // Pages (code-split via React.lazy)
 const Index = lazy(() => import("./pages/Index.tsx"));
@@ -72,6 +73,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <ScrollToTop />
+          <Analytics />
           <AuthProvider>
             <Suspense fallback={<RouteFallback />}>
               <Routes>
