@@ -1,4 +1,5 @@
 import { LogOut, X, LayoutDashboard, Calendar, Users, MessageSquare, DollarSign, User, Settings, PenTool } from "lucide-react";
+
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export type Page = "dashboard" | "sessions" | "patients" | "messages" | "earnings" | "profile" | "settings" | "content";
@@ -35,17 +36,16 @@ export default function PsySidebar({ sidebarOpen, setSidebarOpen, activePage, se
   ];
 
   return (
-    <aside className={`fixed inset-y-0 z-50 w-64 bg-white flex flex-col transform transition-transform duration-300 ${dir === "rtl" ? "right-0 border-l" : "left-0 border-r"} border-border/60 ${
+      <aside className={`fixed inset-y-0 z-50 w-64 bg-card flex flex-col transform transition-transform duration-300 ${dir === "rtl" ? "right-0 border-l" : "left-0 border-r"} border-border/60 ${
       sidebarOpen ? "translate-x-0" : (dir === "rtl" ? "translate-x-full" : "-translate-x-full")
     } lg:translate-x-0`}>
       <div className="px-6 py-5 border-b border-border/60 flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 border-2 border-primary rounded-lg flex items-center justify-center font-serif text-[13px] text-primary bg-teal-pale/30">MJ</div>
-            <span className="text-base font-serif text-foreground font-semibold">Majal</span>
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg border border-primary/30 text-primary font-semibold text-sm">MJ</div>
+            </div>
+            <span className="text-[10px] text-primary font-semibold tracking-wider mt-1 block">{t("psy.dashboard.spaceTitle").toUpperCase()}</span>
           </div>
-          <span className="text-[10px] text-primary font-semibold tracking-wider mt-1 block">{t("psy.dashboard.spaceTitle").toUpperCase()}</span>
-        </div>
         <button onClick={() => setSidebarOpen(false)} className="lg:hidden bg-transparent border-none cursor-pointer text-muted-foreground hover:text-foreground">
           <X className="w-5 h-5" />
         </button>
@@ -57,9 +57,9 @@ export default function PsySidebar({ sidebarOpen, setSidebarOpen, activePage, se
             <li key={item.id}>
               <button
                 onClick={() => { setActivePage(item.id); setSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all bg-transparent border-none cursor-pointer glass-nav-item ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 bg-transparent border-none cursor-pointer glass-nav-item ${
                   activePage === item.id
-                    ? "active bg-teal-pale text-primary font-semibold shadow-sm"
+                    ? "active bg-teal-pale text-primary font-semibold shadow-rest"
                     : "text-muted-foreground hover:bg-accent/40 hover:text-foreground"
                 }`}
               >

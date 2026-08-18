@@ -239,9 +239,9 @@ const Psychologues = () => {
                 handleImmediateRequest(d.id);
               }}
               disabled={requestStatus !== null}
-              className="flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-[10px] bg-emerald-50 border border-emerald-200 text-[13px] font-semibold text-emerald-700 mb-3.5 w-full cursor-pointer hover:bg-emerald-100 transition-colors disabled:opacity-60"
+              className="flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-[10px] bg-teal-pale border border-primary/15 text-[13px] font-semibold text-primary mb-3.5 w-full cursor-pointer hover:bg-teal-pale transition-colors disabled:opacity-60"
             >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-teal-pale0 animate-pulse" />
               {requestingPsyId === d.id && requestStatus === "sending" ? t("psy.requestSending") : t("psy.talkNow")}
             </button>
           )}
@@ -452,8 +452,8 @@ const Psychologues = () => {
             )}
             {requestStatus === "accepted" && (
               <>
-                <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto">
-                  <CheckCircle className="w-8 h-8 text-emerald-600" />
+                <div className="w-16 h-16 rounded-full bg-teal-pale flex items-center justify-center mx-auto">
+                  <CheckCircle className="w-8 h-8 text-primary" />
                 </div>
                 <h3 className="font-serif text-lg font-semibold text-foreground">{t("psy.requestAccepted")}</h3>
                 <p className="text-sm text-muted-foreground">{t("psy.requestAcceptedDesc")}</p>

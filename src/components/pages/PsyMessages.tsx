@@ -1,4 +1,4 @@
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, ChevronLeft } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getInitials } from "@/lib/utils";
 import ChatWindow from "@/components/ChatWindow";
@@ -42,7 +42,7 @@ export default function PsyMessages({
 
   return (
     <div className="flex h-full min-h-[500px] animate-in fade-in duration-500">
-      <div className="w-[320px] border-r border-border/60 bg-white flex flex-col shrink-0">
+      <div className={`w-full md:w-[320px] md:shrink-0 md:border-r md:border-border/60 bg-white flex flex-col ${activeChatUserId ? "hidden md:flex" : "flex"}`}>
         <div className="p-4 border-b border-border/60">
           <h3 className="font-serif text-base font-semibold text-foreground">{t("space.discussionsTitle")}</h3>
         </div>
@@ -70,9 +70,18 @@ export default function PsyMessages({
         </div>
       </div>
 
-      <div className="flex-1 bg-accent/10">
+      <div className={`relative flex-1 bg-accent/10 ${activeChatUserId ? "flex" : "hidden md:flex"}`}>
         {activeChatUserId ? (
-          <ChatWindow otherUserId={activeChatUserId} otherUserName={activeChatUserName} />
+          <>
+            <button
+              onClick={() => setActiveChatUserId(null)}
+              className="md:hidden absolute z-10 top-2 start-2 flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/90 border border-border shadow-sm text-xs font-semibold text-foreground"
+            >
+              <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
+              {t("space.back")}
+            </button>
+            <ChatWindow otherUserId={activeChatUserId} otherUserName={activeChatUserName} />
+          </>
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
             <MessageSquare className="w-12 h-12 mb-3 opacity-20" />

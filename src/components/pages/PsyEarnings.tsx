@@ -39,7 +39,7 @@ function ReceiptModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-foreground/45 backdrop-blur-xs transition-opacity" onClick={() => setSelectedReceiptBooking(null)} />
+      <div className="absolute inset-0 bg-foreground/45 transition-opacity" onClick={() => setSelectedReceiptBooking(null)} />
       <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 md:p-8 animate-in zoom-in duration-200 flex flex-col justify-between">
         <div id="receipt-print-area" className="space-y-6">
           <div className="flex justify-between items-start border-b border-border/40 pb-4">
@@ -50,7 +50,7 @@ function ReceiptModal({
               </div>
               <p className="text-[10px] text-muted-foreground mt-1 font-sans">Espace de consultation en ligne</p>
             </div>
-            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-solid border-emerald-100 uppercase tracking-wider font-sans">
+            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-teal-pale text-primary border border-solid border-border uppercase tracking-wider font-sans">
               {t("psy.earnings.receipt.statusPaid")}
             </span>
           </div>
@@ -180,8 +180,8 @@ export default function PsyEarnings({
           {bookings.filter(b => b.status === "confirmed" || b.status === "done").slice(0, 10).map((b) => (
             <div key={b.id} className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-teal-hero/25 transition-colors">
               <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
-                  <DollarSign className="w-5 h-5 text-emerald-600" />
+                <div className="w-10 h-10 rounded-xl bg-teal-pale border border-border flex items-center justify-center shrink-0">
+                  <DollarSign className="w-5 h-5 text-primary" />
                 </div>
                 <div>
                   <div className="font-semibold text-sm text-foreground">{b.patient_name}</div>
@@ -189,11 +189,11 @@ export default function PsyEarnings({
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="text-sm font-bold text-emerald-600 font-sans">+{(b.price || 0).toLocaleString()} DA</div>
+                <div className="text-sm font-bold text-primary font-sans">+{(b.price || 0).toLocaleString()} DA</div>
                 <button
                   type="button"
                   onClick={() => setSelectedReceiptBooking(b)}
-                  className="px-2.5 py-1.5 rounded-lg border border-solid border-emerald-200/50 hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 transition-all text-xs font-semibold bg-transparent cursor-pointer font-sans"
+                  className="px-2.5 py-1.5 rounded-lg border border-solid border-primary/15 hover:bg-teal-pale text-primary hover:text-primary transition-all text-xs font-semibold bg-transparent cursor-pointer font-sans"
                 >
                   {t("psy.earnings.receipt.generate")}
                 </button>

@@ -132,6 +132,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "psy.dashboard.nav.earnings": { fr: "Revenus", ar: "الأرباح" },
   "psy.dashboard.nav.profile": { fr: "Profil professionnel", ar: "الملف المهني" },
   "psy.dashboard.nav.settings": { fr: "Paramètres", ar: "الإعدادات" },
+  "psy.dashboard.nav.more": { fr: "Plus", ar: "المزيد" },
   "psy.dashboard.spaceTitle": { fr: "Espace Psychologue", ar: "فضاء الأخصائي النفسي" },
   "psy.dashboard.welcome": { fr: "Bienvenue", ar: "مرحباً" },
   "psy.dashboard.welcomeSub": { fr: "Voici un aperçu de votre activité aujourd'hui", ar: "إليك نظرة عامة على نشاطك اليوم" },
@@ -269,7 +270,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "editor.price.individual": { fr: "Tarif individuel (DA)", ar: "سعر الفردي (د.ج)" },
   "editor.price.couples": { fr: "Tarif couple (DA)", ar: "سعر الزوجي (د.ج)" },
   "editor.price.adolescents": { fr: "Tarif adolescent (DA)", ar: "سعر المراهق (د.ج)" },
-  "space.saved": { fr: "✅ Modifications enregistrées !", ar: "✅ تم حفظ التعديلات!" },
+  "space.saved": { fr: "Modifications enregistrées !", ar: "تم حفظ التعديلات!" },
   "space.weeks": { fr: "sem.", ar: "أسابيع" },
   "space.cancel": { fr: "Annuler", ar: "إلغاء" },
   "space.continuePath": { fr: "Poursuivre votre parcours", ar: "مواصلة مسارك العلاجي" },
@@ -544,7 +545,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "chat.holdToRecord": { fr: "Maintenir pour enregistrer", ar: "اضغط مع الاستمرار للتسجيل" },
 
   // ----- Auth toasts -----
-  "auth.toast.accountCreated": { fr: "✅ Compte créé ! Vérifiez votre email pour confirmer votre inscription.", ar: "✅ تم إنشاء الحساب! تحقق من بريدك الإلكتروني لتأكيد التسجيل." },
+  "auth.toast.accountCreated": { fr: "Compte créé ! Vérifiez votre email pour confirmer votre inscription.", ar: "تم إنشاء الحساب! تحقق من بريدك الإلكتروني لتأكيد التسجيل." },
   "auth.toast.googleError": { fr: "Erreur de connexion Google", ar: "خطأ في تسجيل الدخول عبر جوجل" },
   "auth.toast.unexpected": { fr: "Une erreur inattendue est survenue", ar: "حدث خطأ غير متوقع" },
 
@@ -568,7 +569,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "pay.failed": { fr: "Échec de la simulation de paiement", ar: "فشل محاكاة الدفع" },
 
   // ----- Contact -----
-  "contact.sent": { fr: "✅ Message envoyé ! Nous vous répondrons dans les 24h.", ar: "✅ تم إرسال الرسالة! سنرد عليك خلال 24 ساعة." },
+  "contact.sent": { fr: "Message envoyé ! Nous vous répondrons dans les 24h.", ar: "تم إرسال الرسالة! سنرد عليك خلال 24 ساعة." },
   "contact.failed": { fr: "❌ Échec de l'envoi. Veuillez réessayer.", ar: "❌ فشل الإرسال. يرجى المحاولة مرة أخرى." },
 
   // ----- Psychologues page -----
@@ -583,27 +584,27 @@ const translations: Record<string, Record<Lang, string>> = {
   "prof.toast.selfMessage": { fr: "Vous ne pouvez pas vous envoyer un message à vous-même.", ar: "لا يمكنك إرسال رسالة إلى نفسك." },
   "prof.toast.reviewRestricted": { fr: "Les avis ne sont disponibles que pour les profils vérifiés.", ar: "التقييمات متاحة فقط للملفات الشخصية الموثقة." },
   "prof.toast.reviewError": { fr: "Erreur lors de l'envoi de l'avis.", ar: "خطأ أثناء إرسال التقييم." },
-  "prof.toast.reviewSuccess": { fr: "✅ Avis publié avec succès !", ar: "✅ تم نشر التقييم بنجاح!" },
+  "prof.toast.reviewSuccess": { fr: "Avis publié avec succès !", ar: "تم نشر التقييم بنجاح!" },
 
   // ----- MonEspace toasts -----
-  "space.toast.cancelled": { fr: "✅ Séance annulée.", ar: "✅ تم إلغاء الجلسة." },
+  "space.toast.cancelled": { fr: "Séance annulée.", ar: "تم إلغاء الجلسة." },
   "space.toast.cancelError": { fr: "Erreur de connexion lors de l'annulation.", ar: "خطأ في الاتصال أثناء الإلغاء." },
-  "space.toast.rescheduled": { fr: "✅ Séance reportée avec succès !", ar: "✅ تم تأجيل الجلسة بنجاح!" },
+  "space.toast.rescheduled": { fr: "Séance reportée avec succès !", ar: "تم تأجيل الجلسة بنجاح!" },
   "space.toast.rescheduleError": { fr: "Erreur de connexion lors du report.", ar: "خطأ في الاتصال أثناء التأجيل." },
-  "space.toast.photoUpdated": { fr: "✅ Photo de profil mise à jour !", ar: "✅ تم تحديث صورة الملف الشخصي!" },
-  "space.toast.profileSaved": { fr: "✅ Profil mis à jour !", ar: "✅ تم تحديث الملف الشخصي!" },
-  "space.toast.passwordUpdated": { fr: "✅ Mot de passe mis à jour avec succès !", ar: "✅ تم تحديث كلمة المرور بنجاح!" },
+  "space.toast.photoUpdated": { fr: "Photo de profil mise à jour !", ar: "تم تحديث صورة الملف الشخصي!" },
+  "space.toast.profileSaved": { fr: "Profil mis à jour !", ar: "تم تحديث الملف الشخصي!" },
+  "space.toast.passwordUpdated": { fr: "Mot de passe mis à jour avec succès !", ar: "تم تحديث كلمة المرور بنجاح!" },
   "space.toast.notifError": { fr: "Impossible d'activer les notifications...", ar: "تعذر تفعيل الإشعارات..." },
 
   // ----- Forum / Journal / Goals -----
   "space.forum.toast.createError": { fr: "Erreur lors de la création du sujet.", ar: "خطأ أثناء إنشاء الموضوع." },
-  "space.forum.toast.createSuccess": { fr: "✅ Sujet de discussion publié anonymement !", ar: "✅ تم نشر موضوع النقاش بشكل مجهول!" },
+  "space.forum.toast.createSuccess": { fr: "Sujet de discussion publié anonymement !", ar: "تم نشر موضوع النقاش بشكل مجهول!" },
   "space.forum.toast.replyError": { fr: "Erreur lors de la publication de la réponse.", ar: "خطأ أثناء نشر الرد." },
-  "space.forum.toast.replySuccess": { fr: "✅ Votre réponse a été publiée !", ar: "✅ تم نشر ردك!" },
+  "space.forum.toast.replySuccess": { fr: "Votre réponse a été publiée !", ar: "تم نشر ردك!" },
   "space.journal.toast.empty": { fr: "Veuillez écrire quelque chose avant d'enregistrer.", ar: "يرجى كتابة شيء قبل الحفظ." },
-  "space.journal.toast.saved": { fr: "✅ Entrée de journal enregistrée avec succès !", ar: "✅ تم حفظ مدخل اليوميات بنجاح!" },
-  "space.journal.toast.deleted": { fr: "✅ Entrée supprimée.", ar: "✅ تم حذف المدخل." },
-  "space.goals.toast.added": { fr: "✅ Nouvel objectif ajouté !", ar: "✅ تمت إضافة هدف جديد!" },
+  "space.journal.toast.saved": { fr: "Entrée de journal enregistrée avec succès !", ar: "تم حفظ مدخل اليوميات بنجاح!" },
+  "space.journal.toast.deleted": { fr: "Entrée supprimée.", ar: "تم حذف المدخل." },
+  "space.goals.toast.added": { fr: "Nouvel objectif ajouté !", ar: "تمت إضافة هدف جديد!" },
 
   // ----- Patient dashboard / Psy dashboard / patients -----
   "space.dashboard.toast.roomNotStarted": { fr: "Le salon vidéo n'a pas encore été lancé par votre thérapeute.", ar: "لم يطلق معالجك صالون الفيديو بعد." },

@@ -114,7 +114,7 @@ export default function GoalsWidget() {
     setGoals(updated);
     localStorage.setItem(`majal_goals_${user.id}`, JSON.stringify(updated));
     setNewGoalText("");
-    toast.success("✅ Nouvel objectif ajouté !");
+    toast.success("Nouvel objectif ajouté !");
 
     supabase
       .from("goals")

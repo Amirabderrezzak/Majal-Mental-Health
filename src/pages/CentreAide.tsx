@@ -18,7 +18,7 @@ const categories = [
   {
     icon: <Calendar className="w-6 h-6" />,
     title: "Réservations",
-    color: "text-blue-700 bg-blue-50",
+    color: "text-primary bg-teal-pale",
     articles: [
       "Comment réserver une séance ?",
       "Modifier ou annuler une réservation",
@@ -29,7 +29,7 @@ const categories = [
   {
     icon: <CreditCard className="w-6 h-6" />,
     title: "Paiements",
-    color: "text-emerald-700 bg-emerald-50",
+    color: "text-primary bg-teal-pale",
     articles: [
       "Quels modes de paiement sont acceptés ?",
       "Obtenir un remboursement",

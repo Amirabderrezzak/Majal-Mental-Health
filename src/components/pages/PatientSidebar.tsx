@@ -1,4 +1,5 @@
 import { LayoutDashboard, Calendar, Search, User, Bell, LogOut, Menu, X, MessageSquare, Compass, Users, BookOpen, Wind } from "lucide-react";
+
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -46,15 +47,14 @@ export default function PatientSidebar({
   const { unreadCount } = useNotifications();
 
   return (
-    <aside className={`fixed inset-y-0 ${dir === "rtl" ? "right-0 border-l" : "left-0 border-r"} z-50 w-64 bg-white border-border flex flex-col transform transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : (dir === "rtl" ? "translate-x-full" : "-translate-x-full")} lg:translate-x-0`}>
-      <div className="px-6 py-5 border-b border-border/60 flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 border-2 border-primary rounded-lg flex items-center justify-center font-serif text-[13px] text-primary bg-teal-pale/30">MJ</div>
-            <span className="text-base font-serif text-foreground font-semibold">Majal</span>
+      <aside className={`fixed inset-y-0 ${dir === "rtl" ? "right-0 border-l" : "left-0 border-r"} z-50 w-64 bg-card border-border flex flex-col transform transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : (dir === "rtl" ? "translate-x-full" : "-translate-x-full")} lg:translate-x-0`}>
+      <div className="px-6 py-5 border-b border-border/50 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg border border-primary/30 text-primary font-semibold text-sm">MJ</div>
+            </div>
+            <span className="text-[10px] text-primary font-semibold tracking-wider mt-1 block">{t("space.title").toUpperCase()}</span>
           </div>
-          <span className="text-[10px] text-primary font-semibold tracking-wider mt-1 block">{t("space.title").toUpperCase()}</span>
-        </div>
         <button onClick={() => setSidebarOpen(false)} className="lg:hidden bg-transparent border-none cursor-pointer text-muted-foreground hover:text-foreground">
           <X className="w-5 h-5" />
         </button>
@@ -66,7 +66,7 @@ export default function PatientSidebar({
             <li key={item.id}>
               <button
                 onClick={() => { setActivePage(item.id); setSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all bg-transparent border-none cursor-pointer glass-nav-item ${activePage === item.id ? "active bg-teal-pale text-primary font-semibold shadow-sm" : "text-muted-foreground hover:bg-accent/40 hover:text-foreground"}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 bg-transparent border-none cursor-pointer glass-nav-item ${activePage === item.id ? "active bg-teal-pale text-primary font-semibold shadow-rest" : "text-muted-foreground hover:bg-accent/40 hover:text-foreground"}`}
               >
                 <span className={`transition-transform duration-200 ${activePage === item.id ? "scale-110" : ""}`}>{item.icon}</span>
                 <span className="flex-1 text-start">{t(item.labelKey)}</span>
@@ -90,7 +90,7 @@ export default function PatientSidebar({
         </ul>
       </nav>
 
-      <div className="px-5 py-4 border-t border-border/60 bg-teal-hero/30">
+      <div className="px-5 py-4 border-t border-border/50 bg-teal-hero/30">
         <div className="flex items-center gap-3 mb-3">
           {profile.avatar_url ? (
             <img src={profile.avatar_url} alt="Avatar" className="w-9 h-9 rounded-full object-cover border border-primary/20 shrink-0 shadow-sm" />

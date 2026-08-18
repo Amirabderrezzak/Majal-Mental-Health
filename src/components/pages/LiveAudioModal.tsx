@@ -12,20 +12,20 @@ export default function LiveAudioModal({ roomUrl, title, onClose }: LiveAudioMod
   if (!roomUrl) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-foreground/60 backdrop-blur-sm">
-      <div className="flex items-center justify-between px-4 sm:px-6 py-3 bg-white/95 border-b border-solid border-border/40 shadow-sm">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/70 animate-in fade-in duration-200">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 bg-card border-b border-border shadow-rest">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="flex h-2.5 w-2.5 relative shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
-          </span>
+          <span className="chip chip-danger shrink-0"><span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-danger opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-danger"></span>
+          </span> LIVE</span>
           <h3 className="font-serif text-sm sm:text-base font-semibold text-foreground truncate">
             {title || t("space.explore.liveRooms")}
           </h3>
         </div>
         <button
           onClick={onClose}
-          className="p-2 rounded-lg hover:bg-accent/40 text-muted-foreground hover:text-foreground transition-all border-none bg-transparent cursor-pointer shrink-0"
+          className="btn-ghost p-2 shrink-0"
           aria-label={t("space.explore.leaveRoom")}
         >
           <X className="w-5 h-5" />

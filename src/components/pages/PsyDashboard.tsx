@@ -117,7 +117,7 @@ function NotesPopover({ patientId, patientName, onClose }: { patientId: string; 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-xs" />
+      <div className="absolute inset-0 bg-black/20" />
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-5 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border/40">
           <div className="w-8 h-8 rounded-lg bg-teal-pale flex items-center justify-center">
@@ -184,8 +184,8 @@ export default function PsyDashboard({
   }, [updateBookingStatus]);
 
   const timeStateBorder = (state: "upcoming" | "active" | "ended") => {
-    if (state === "active") return "border-l-4 border-l-emerald-400 bg-gradient-to-r from-emerald-50/40 to-transparent";
-    if (state === "upcoming") return "border-l-4 border-l-blue-300";
+    if (state === "active") return "border-l-4 border-l-primary bg-gradient-to-r from-teal-pale to-transparent";
+    if (state === "upcoming") return "border-l-4 border-l-primary/30";
     return "";
   };
 
@@ -217,8 +217,8 @@ export default function PsyDashboard({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           { label: "Patients actifs",   value: totalUniquePatients, icon: <Users className="w-5 h-5" />,     color: "text-primary bg-teal-pale border-primary/10" },
-          { label: "Séances ce mois",   value: sessionsThisMonth,   icon: <Calendar className="w-5 h-5" />,  color: "text-blue-700 bg-blue-50 border-blue-100" },
-          { label: "Revenus",           value: earningsThisMonth > 0 ? `${(earningsThisMonth / 1000).toFixed(0)}k DA` : "0 DA", icon: <TrendingUp className="w-5 h-5" />, color: "text-emerald-700 bg-emerald-50 border-emerald-100" },
+          { label: "Séances ce mois",   value: sessionsThisMonth,   icon: <Calendar className="w-5 h-5" />,  color: "text-primary bg-teal-pale border-border" },
+          { label: "Revenus",           value: earningsThisMonth > 0 ? `${(earningsThisMonth / 1000).toFixed(0)}k DA` : "0 DA", icon: <TrendingUp className="w-5 h-5" />, color: "text-primary bg-teal-pale border-border" },
           { label: "Annulations",       value: `${cancelRate}%`,    icon: <Ban className="w-5 h-5" />,      color: "text-rose-600 bg-rose-50 border-rose-100" },
         ].map((stat) => (
           <div key={stat.label} className="dashboard-card p-6 flex items-center gap-5 hover:shadow-md transition-all duration-300 group">
@@ -255,25 +255,25 @@ export default function PsyDashboard({
               const isNow = timeState === "active";
 
               return (
-                <div key={s.id} className={`flex items-center gap-4 px-5 py-3.5 transition-colors ${isNow ? "bg-emerald-50/60" : "hover:bg-teal-hero/20"}`}>
+                <div key={s.id} className={`flex items-center gap-4 px-5 py-3.5 transition-colors ${isNow ? "bg-teal-pale" : "hover:bg-teal-hero/20"}`}>
                   <div className="flex flex-col items-center w-12 shrink-0">
-                    <span className={`text-xs font-bold ${isNow ? "text-emerald-700" : "text-foreground"}`}>{timeLabel}</span>
-                    {isNow && <span className="text-[8px] text-emerald-600 font-semibold uppercase tracking-wider mt-0.5">Maintenant</span>}
+                    <span className={`text-xs font-bold ${isNow ? "text-primary" : "text-foreground"}`}>{timeLabel}</span>
+                    {isNow && <span className="text-[8px] text-primary font-semibold uppercase tracking-wider mt-0.5">Maintenant</span>}
                   </div>
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${isNow ? "bg-emerald-500 animate-pulse" : i < todaySessions.length - 1 ? "bg-primary/30" : "bg-gray-200"}`} />
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${isNow ? "bg-teal-pale0 animate-pulse" : i < todaySessions.length - 1 ? "bg-primary/30" : "bg-gray-200"}`} />
                   <div className="flex-1 min-w-0 flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isNow ? "bg-emerald-100 text-emerald-700" : "bg-teal-pale text-primary"}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isNow ? "bg-teal-pale text-primary" : "bg-teal-pale text-primary"}`}>
                       {getInitials(s.patient_name)}
                     </div>
                     <div className="min-w-0">
-                      <div className={`text-sm font-semibold truncate ${isNow ? "text-emerald-800" : "text-foreground"}`}>{s.patient_name}</div>
+                      <div className={`text-sm font-semibold truncate ${isNow ? "text-primary" : "text-foreground"}`}>{s.patient_name}</div>
                       <div className="text-[11px] text-muted-foreground">{s.duration_minutes} min · {s.status === "pending" ? "En attente" : "Confirmé"}</div>
                     </div>
                   </div>
                   <div className="flex gap-1.5 shrink-0">
                     {isNow && (
                       <button onClick={() => handleStartCall(s.id)} disabled={startingCall === s.id}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-semibold border-none cursor-pointer hover:bg-emerald-700 active:scale-95 transition-all flex items-center gap-1">
+                        className="px-3 py-1.5 rounded-lg bg-primary text-white text-[10px] font-semibold border-none cursor-pointer hover:bg-primary/90 active:scale-95 transition-all flex items-center gap-1">
                         {startingCall === s.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Video className="w-3 h-3" />}
                         Rejoindre
                       </button>
@@ -292,23 +292,23 @@ export default function PsyDashboard({
       )}
 
       {immediateRequests.length > 0 && (
-        <div className="dashboard-card p-5 border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-50/30 to-transparent">
+        <div className="dashboard-card p-5 border-l-4 border-l-primary bg-gradient-to-r from-teal-pale/30 to-transparent">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <Phone className="w-4 h-4 text-emerald-700" />
+            <div className="w-9 h-9 rounded-xl bg-teal-pale flex items-center justify-center">
+              <Phone className="w-4 h-4 text-primary" />
             </div>
             <div className="flex-1">
               <h3 className="font-serif text-base font-semibold text-foreground">Demandes de session immédiate</h3>
               <p className="text-xs text-muted-foreground">{immediateRequests.length} en attente</p>
             </div>
-            <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold animate-pulse">{immediateRequests.length}</span>
+            <span className="px-2.5 py-1 rounded-full bg-teal-pale text-primary text-xs font-bold animate-pulse">{immediateRequests.length}</span>
           </div>
           <div className="space-y-2.5">
             {immediateRequests.map((req) => (
-              <div key={req.id} className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-emerald-100 shadow-xs hover:shadow-sm transition-shadow">
+              <div key={req.id} className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-border shadow-xs hover:shadow-sm transition-shadow">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
-                    <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                  <div className="w-8 h-8 rounded-full bg-teal-pale flex items-center justify-center">
+                    <Phone className="w-3.5 h-3.5 text-primary" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">Nouvelle demande</p>
@@ -317,7 +317,7 @@ export default function PsyDashboard({
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => handleRequestResponse(req.id, true)} disabled={respondingToRequest === req.id}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-xs">
+                    className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 active:scale-95 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-xs">
                     {respondingToRequest === req.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                     Accepter
                   </button>
@@ -373,7 +373,7 @@ export default function PsyDashboard({
                       effectiveStatus !== "pending" && effectiveStatus !== "confirmed"
                         ? "border-gray-100 bg-gray-50/50 opacity-60"
                         : isActive
-                        ? "border-emerald-200 bg-emerald-50/40 shadow-sm"
+                        ? "border-primary/15 bg-teal-pale shadow-sm"
                         : "border-border/50 bg-card hover:border-primary/30 hover:bg-teal-hero/20"
                     } ${timeStateBorder(timeState)}`}>
                     <div className="flex items-center gap-3.5 min-w-0 flex-1">
@@ -387,7 +387,7 @@ export default function PsyDashboard({
                       <div className="min-w-0">
                         <div className="font-semibold text-sm text-foreground truncate">{s.patient_name}</div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-[11px] ${isActive ? "text-emerald-700 font-semibold" : "text-muted-foreground"} flex items-center gap-1`}>
+                          <span className={`text-[11px] ${isActive ? "text-primary font-semibold" : "text-muted-foreground"} flex items-center gap-1`}>
                             <Clock className="w-3 h-3" />
                             {isActive ? "En direct" : timeState === "upcoming" ? formatRelativeTime(s.booked_at, now) : new Date(s.booked_at).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}
                           </span>
@@ -419,7 +419,7 @@ export default function PsyDashboard({
                           </span>
                           {isActive && (
                             <button onClick={() => handleStartCall(s.id)} disabled={startingCall === s.id}
-                              className="bg-emerald-600 text-white border-none rounded-xl px-3.5 py-2 text-xs font-semibold cursor-pointer hover:bg-emerald-700 active:scale-95 transition-all flex items-center gap-1.5 shadow-xs">
+                              className="bg-primary text-white border-none rounded-xl px-3.5 py-2 text-xs font-semibold cursor-pointer hover:bg-primary/90 active:scale-95 transition-all flex items-center gap-1.5 shadow-xs">
                               {startingCall === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Video className="w-3.5 h-3.5" />}
                               Rejoindre
                             </button>

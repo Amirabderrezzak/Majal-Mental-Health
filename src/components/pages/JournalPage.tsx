@@ -84,7 +84,7 @@ export default function JournalPage() {
           console.error(error);
           toast.error(MIGRATION_ERROR);
         } else {
-          toast.success("✅ Entrée de journal enregistrée avec succès !");
+          toast.success("Entrée de journal enregistrée avec succès !");
         }
       });
   };
@@ -93,7 +93,7 @@ export default function JournalPage() {
     const updated = journalEntries.filter(e => e.id !== id);
     setJournalEntries(updated);
     localStorage.setItem(`majal_journal_entries_${user.id}`, JSON.stringify(updated));
-    toast.success("✅ Entrée supprimée.");
+    toast.success("Entrée supprimée.");
 
     supabase
       .from("journal_entries")
@@ -110,9 +110,9 @@ export default function JournalPage() {
 
   const moods = [
     { id: "happy", emoji: "🌟", color: "from-amber-400/25 to-yellow-500/25 text-amber-700 border-amber-300/40" },
-    { id: "calm", emoji: "🧘", color: "from-teal-400/25 to-emerald-500/25 text-teal-800 border-teal-300/40" },
+    { id: "calm", emoji: "🧘", color: "from-teal-400/25 to-primary/25 text-teal-800 border-teal-300/40" },
     { id: "neutral", emoji: "☁️", color: "from-gray-300/25 to-slate-400/25 text-slate-700 border-slate-300/40" },
-    { id: "sad", emoji: "🌧️", color: "from-blue-400/25 to-indigo-500/25 text-blue-800 border-blue-300/40" },
+    { id: "sad", emoji: "🌧️", color: "from-blue-400/25 to-indigo-500/25 text-primary border-primary/25/40" },
     { id: "anxious", emoji: "⚡", color: "from-purple-400/25 to-fuchsia-500/25 text-purple-800 border-purple-300/40" },
     { id: "angry", emoji: "🌋", color: "from-red-400/25 to-rose-500/25 text-red-800 border-rose-300/40" },
   ];

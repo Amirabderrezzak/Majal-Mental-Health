@@ -260,7 +260,7 @@ export default function AdminDashboard() {
       <h1 className="text-2xl font-bold text-gray-900 mb-6">{t("admin.dashboard.title")}</h1>
       {loading ? <Loader /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          <StatCard label={t("admin.stat.totalPatients")}     value={stats?.totalPatients ?? 0}     icon={<Users className="w-6 h-6 text-blue-600" />}     color="bg-blue-50" />
+          <StatCard label={t("admin.stat.totalPatients")}     value={stats?.totalPatients ?? 0}     icon={<Users className="w-6 h-6 text-primary" />}     color="bg-teal-pale" />
           <StatCard label={t("admin.stat.therapists")}       value={stats?.totalTherapists ?? 0}   icon={<UserCheck className="w-6 h-6 text-teal-600" />}  color="bg-teal-50" />
           <StatCard label={t("admin.stat.pending")}         value={stats?.pendingTherapists ?? 0} icon={<AlertCircle className="w-6 h-6 text-amber-600" />} color="bg-amber-50" />
           <StatCard label={t("admin.stat.totalBookings")} value={stats?.totalBookings ?? 0}     icon={<Calendar className="w-6 h-6 text-purple-600" />} color="bg-purple-50" />

@@ -75,7 +75,7 @@ export default function PatientNotifications({ setActivePage }: PatientNotificat
               system: <Bell className="w-4 h-4" />
             };
             const colorMap = {
-              booking: "bg-blue-50 text-blue-600 border-blue-100",
+              booking: "bg-teal-pale text-primary border-border",
               message: "bg-teal-50 text-teal-600 border-teal-100",
               system: "bg-amber-50 text-amber-600 border-amber-100"
             };

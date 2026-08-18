@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { PenTool, Volume2, Users, Trash2, MessageSquare } from "lucide-react";
+import { PenTool, Volume2, Users, Trash2, MessageSquare, Lightbulb } from "lucide-react";
 import LiveAudioModal from "./LiveAudioModal";
 
 interface ContentCreatorProps {
@@ -31,10 +31,10 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
 
   const bgPresets = [
     { name: "Teal Calme", bg: "from-teal-mid to-teal-dark" },
-    { name: "Aurore Éveillée", bg: "from-rose-400 to-indigo-600" },
-    { name: "Chaleur Réconfortante", bg: "from-amber-400 to-orange-600" },
-    { name: "Forêt de Soin", bg: "from-emerald-400 to-teal-700" },
-    { name: "Crépuscule Apaisant", bg: "from-purple-600 to-pink-500" },
+    { name: "Aurore Éveillée", bg: "bg-teal" },
+    { name: "Chaleur Réconfortante", bg: "bg-teal-cta" },
+    { name: "Forêt de Soin", bg: "from-primary to-teal-700" },
+    { name: "Crépuscule Apaisant", bg: "bg-teal-mid" },
   ];
 
   const fetchForumThreads = async () => {
@@ -136,7 +136,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
         bg: data.bg_gradient
       }, ...prev]);
       setStoryText("");
-      toast.success("✅ Réflexion publiée avec succès ! Elle est désormais visible pour vos patients.");
+      toast.success("Réflexion publiée avec succès ! Elle est désormais visible pour vos patients.");
     }
   };
 
@@ -153,7 +153,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
       toast.error("Erreur lors de la suppression de la réflexion.");
     } else {
       setPublishedStories(prev => prev.filter((_, i) => i !== idx));
-      toast.success("✅ Réflexion supprimée.");
+      toast.success("Réflexion supprimée.");
     }
   };
 
@@ -192,7 +192,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
 
       setLiveRoom({ id: data.id, url: data.url, title: audioTitle.trim() });
       setAudioTitle("");
-      toast.success("🎙️ Le salon audio en direct est lancé ! Vos patients peuvent maintenant le rejoindre.");
+      toast.success("Le salon audio en direct est lancé ! Vos patients peuvent maintenant le rejoindre.");
     } catch (err) {
       console.error("Audio room start error:", err);
       toast.error(err instanceof Error ? err.message : "Impossible de lancer le salon audio. Vérifiez la configuration du service.");
@@ -213,7 +213,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
       if (error) {
         toast.error("Erreur lors de la fermeture du salon.");
       } else {
-        toast.success("🛑 Le salon audio a été fermé.");
+        toast.success("Le salon audio a été fermé.");
       }
     } catch (err) {
       console.error("Audio room stop error:", err);
@@ -239,7 +239,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
     if (error) {
       toast.error("Erreur lors de la publication de la réponse.");
     } else if (data) {
-      toast.success("✅ Votre réponse de clinicien a été publiée !");
+      toast.success("Votre réponse de clinicien a été publiée !");
       setReplyText("");
       const newReply = {
         author: data.profiles?.full_name || profileData.full_name || "Thérapeute",
@@ -296,7 +296,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
                 onChange={(e) => setStoryText(e.target.value)}
                 rows={4}
                 placeholder="Ex: Prenez conscience de votre respiration pendant 3 minutes... Vous êtes plus fort que votre anxiété."
-                className="w-full px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card transition-all resize-none leading-relaxed"
+                className="input-field resize-none leading-relaxed"
               />
             </div>
 
@@ -320,7 +320,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
 
             <button
               onClick={handlePublishStory}
-              className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid hover:shadow-sm transition-all"
+              className="btn btn-primary w-full"
             >
               Publier la Réflexion
             </button>
@@ -382,8 +382,9 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
                 <h3 className="font-serif text-lg font-semibold text-foreground border-b border-border/30 pb-3">
                   Lancer un Salon Audio en Direct
                 </h3>
-                <div className="p-4 rounded-xl bg-teal-pale/20 border border-solid border-primary/10 text-xs text-primary leading-relaxed">
-                  🎙️ Les salons audio permettent à vos patients de vous rejoindre de façon anonyme pour vous écouter parler d'un thème bien-être spécifique. Vous pouvez leur accorder le droit de parole s'ils le demandent.
+                <div className="p-4 rounded-xl bg-teal-pale/20 border border-solid border-primary/10 text-xs text-primary leading-relaxed flex gap-2.5">
+                  <Volume2 className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>Les salons audio permettent à vos patients de vous rejoindre de façon anonyme pour vous écouter parler d'un thème bien-être spécifique. Vous pouvez leur accorder le droit de parole s'ils le demandent.</span>
                 </div>
 
                 <div className="space-y-2">
@@ -395,14 +396,14 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
                     value={audioTitle}
                     onChange={(e) => setAudioTitle(e.target.value)}
                     placeholder={t("psy.content.topicPlaceholder")}
-                    className="w-full px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card transition-all font-sans"
+                    className="input-field"
                   />
                 </div>
 
                 <button
                   onClick={handleStartAudioRoom}
                   disabled={startingRoom}
-                  className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid hover:shadow-sm transition-all disabled:opacity-60"
+                  className="btn btn-primary w-full disabled:opacity-60"
                 >
                   {startingRoom ? "Création en cours..." : t("psy.content.startAudio")}
                 </button>
@@ -411,16 +412,18 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
               <div className="space-y-6">
                 <div className="flex items-center justify-between border-b border-solid border-border/30 pb-3">
                   <div>
-                    <span className="flex h-2.5 w-2.5 relative inline-block me-2 align-middle">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
+                    <span className="chip chip-danger me-2 align-middle">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-danger opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-danger"></span>
+                      </span>
+                      Cercle en Direct
                     </span>
-                    <span className="text-[10px] uppercase font-bold text-red-600 tracking-wider">Cercle en Direct</span>
                     <h3 className="font-serif text-lg font-semibold text-foreground mt-1">{liveRoom.title}</h3>
                   </div>
                   <button
                     onClick={handleStopAudioRoom}
-                    className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-xs font-semibold border-none cursor-pointer transition-all"
+                    className="btn bg-red-50 text-red-600 hover:bg-red-100"
                   >
                     Terminer le salon
                   </button>
@@ -441,7 +444,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
                   </p>
                   <button
                     onClick={() => setLiveRoom(liveRoom)}
-                    className="px-5 py-2 mt-4 rounded-xl text-xs font-semibold border-none cursor-pointer transition-all shadow-sm bg-primary text-primary-foreground hover:bg-teal-mid"
+                    className="btn btn-primary mt-4"
                   >
                     Ouvrir la salle audio
                   </button>
@@ -454,16 +457,16 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
             <div className="dashboard-card p-6 space-y-4">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vos salons</h4>
               {liveRoom ? (
-                <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                 <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
                   <div className="flex items-center justify-between p-2 rounded-xl border border-solid border-primary/20 bg-teal-hero/5 font-sans">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-2 w-2 relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-danger opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-danger"></span>
                       </span>
                       <span className="text-xs font-semibold text-foreground">{liveRoom.title}</span>
                     </div>
-                    <span className="text-[9px] uppercase font-bold text-red-600">En direct</span>
+                    <span className="chip chip-danger">En direct</span>
                   </div>
                 </div>
               ) : (
@@ -531,7 +534,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
                 </div>
 
                 <form onSubmit={handlePostForumReply} className="pt-4 border-t border-solid border-border/40 flex flex-col gap-2 mt-4 font-sans text-xs">
-                  <label className="font-semibold text-muted-foreground uppercase tracking-wider">Votre conseil clinique professionnel (Label Verified ✓)</label>
+                  <label className="font-semibold text-muted-foreground uppercase tracking-wider">Votre conseil clinique professionnel (Label Verified)</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -543,7 +546,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
                     />
                     <button
                       type="submit"
-                      className="px-5 py-3 bg-primary text-primary-foreground hover:bg-teal-mid rounded-xl text-xs font-semibold border-none cursor-pointer transition-all shadow-sm font-sans"
+                      className="btn btn-primary shrink-0"
                     >
                       {t("space.forum.reply") || "Répondre"}
                     </button>
@@ -552,14 +555,15 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
               </div>
             ) : (
               <div className="space-y-3.5">
-                <div className="p-4 rounded-xl bg-teal-pale/25 border border-solid border-primary/10 text-xs text-primary leading-relaxed">
-                  💡 En tant que psychologue certifié Majal, vos réponses aux questions anonymes portent automatiquement le badge **Psychologue Vérifié**. Cela renforce la confiance des patients et la visibilité de votre expertise clinique.
+                <div className="p-4 rounded-xl bg-teal-pale/25 border border-solid border-primary/10 text-xs text-primary leading-relaxed flex gap-2.5">
+                  <Lightbulb className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>En tant que psychologue certifié Majal, vos réponses aux questions anonymes portent automatiquement le badge <span className="font-semibold text-foreground">Psychologue Vérifié</span>. Cela renforce la confiance des patients et la visibilité de votre expertise clinique.</span>
                 </div>
                 {forumThreads.map((thread) => (
                   <div
                     key={thread.id}
                     onClick={() => setSelectedThread(thread)}
-                    className="dashboard-card p-6 flex flex-col justify-between hover:border-primary/20 hover:shadow transition-all duration-300 cursor-pointer border border-solid border-border/40 bg-white"
+                    className="surface p-6 flex flex-col justify-between card-hover cursor-pointer"
                   >
                     <div>
                       <div className="flex items-center gap-2 mb-2">
@@ -595,9 +599,9 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
             <div className="dashboard-card p-6 space-y-4 font-sans">
               <h4 className="font-serif text-sm font-semibold text-primary">Charte du Praticien</h4>
               <ul className="space-y-3.5 text-xs text-muted-foreground leading-relaxed font-sans">
-                <li>• **Conseils Généraux** : Fournissez des explications théoriques et des pistes thérapeutiques. Évitez les prescriptions formelles en ligne.</li>
-                <li>• **Anonymat du patient** : Respectez le cadre sécurisé et confidentiel des échanges.</li>
-                <li>• **Renvoi** : Encouragez la prise de rendez-vous en cabinet ou sur Majal pour un suivi approfondi.</li>
+                <li><span className="font-semibold text-foreground">Conseils Généraux</span> : Fournissez des explications théoriques et des pistes thérapeutiques. Évitez les prescriptions formelles en ligne.</li>
+                <li><span className="font-semibold text-foreground">Anonymat du patient</span> : Respectez le cadre sécurisé et confidentiel des échanges.</li>
+                <li><span className="font-semibold text-foreground">Renvoi</span> : Encouragez la prise de rendez-vous en cabinet ou sur Majal pour un suivi approfondi.</li>
               </ul>
             </div>
           </div>

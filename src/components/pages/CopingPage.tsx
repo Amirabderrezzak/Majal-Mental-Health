@@ -36,7 +36,7 @@ export default function CopingPage() {
   const getBreathInstructions = () => {
     if (breathPhase === "inhale") return { text: t("space.coping.breath.inhale"), scale: 1.6, color: "bg-teal-pale text-teal-800 border-teal-300" };
     if (breathPhase === "hold1") return { text: t("space.coping.breath.hold"), scale: 1.6, color: "bg-amber-100 text-amber-800 border-amber-300" };
-    if (breathPhase === "exhale") return { text: t("space.coping.breath.exhale"), scale: 1.0, color: "bg-blue-100 text-blue-800 border-blue-300" };
+    if (breathPhase === "exhale") return { text: t("space.coping.breath.exhale"), scale: 1.0, color: "bg-teal-pale text-primary border-primary/25" };
     return { text: t("space.coping.breath.hold"), scale: 1.0, color: "bg-amber-100 text-amber-800 border-amber-300" };
   };
 
@@ -138,7 +138,7 @@ export default function CopingPage() {
 
             {groundingStep === 6 && (
               <div className="text-center space-y-4 animate-in zoom-in duration-300">
-                <div className="w-16 h-16 rounded-full bg-emerald-50 border border-solid border-emerald-100 flex items-center justify-center mx-auto text-emerald-600 shadow-md">
+                <div className="w-16 h-16 rounded-full bg-teal-pale border border-solid border-border flex items-center justify-center mx-auto text-primary shadow-md">
                   <Check className="w-8 h-8" />
                 </div>
                 <p className="text-sm font-semibold text-foreground">Exercice terminé !</p>

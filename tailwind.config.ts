@@ -60,6 +60,9 @@ export default {
           cta: "hsl(var(--teal-cta))",
           footer: "hsl(var(--teal-footer))",
         },
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        danger: "hsl(var(--danger))",
         "text-dark": "hsl(var(--text-dark))",
         "text-muted": "hsl(var(--text-muted))",
         sidebar: {
@@ -74,13 +77,16 @@ export default {
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        xl: "var(--radius-xl)",
+        lg: "var(--radius-lg)",
+        md: "var(--radius-md)",
+        sm: "var(--radius-sm)",
       },
       boxShadow: {
+        rest: "var(--shadow-rest)",
         card: "var(--shadow-card)",
-        "card-hover": "var(--shadow-hover)",
+        hover: "var(--shadow-hover)",
+        overlay: "var(--shadow-overlay)",
       },
       keyframes: {
         "accordion-down": {

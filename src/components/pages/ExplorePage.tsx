@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Heart, Wind, HandHeart, Radio, Send, Sparkles, Quote, Users } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,7 @@ export default function ExplorePage() {
   const [selectedStoryTherapist, setSelectedStoryTherapist] = useState<{ name: string; avatar?: string; stories: { text: string; bg: string }[] } | null>(null);
   const [currentStorySlide, setCurrentStorySlide] = useState(0);
   const [selectedRoom, setSelectedRoom] = useState<{ url: string; title: string } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let timeout: any;
@@ -62,7 +63,7 @@ export default function ExplorePage() {
       const defGrats = [
         { id: "1", text: "Reconnaissant d'avoir un espace sécurisé pour m'exprimer.", color: "bg-teal-pale/50", rotation: -2 },
         { id: "2", text: "Ma séance d'aujourd'hui m'a fait énormément de bien !", color: "bg-amber-100/50", rotation: 3 },
-        { id: "3", text: "Le chant des oiseaux ce matin m'a calmé l'esprit.", color: "bg-blue-100/50", rotation: -1 },
+        { id: "3", text: "Le chant des oiseaux ce matin m'a calmé l'esprit.", color: "bg-teal-pale/50", rotation: -1 },
         { id: "4", text: "J'ai réussi à affronter ma phobie aujourd'hui.", color: "bg-rose-100/50", rotation: 1.5 },
       ];
       setGratitudes(defGrats);
@@ -76,21 +77,21 @@ export default function ExplorePage() {
         avatar: undefined,
         stories: [
           { text: "« N'oubliez pas : Prendre soin de soi n'est pas égoïste, c'est indispensable. »", bg: "from-teal-mid to-teal-dark" },
-          { text: "« Respirez profondément. Le stress de cette journée ne définit pas votre avenir. »", bg: "from-rose-400 to-indigo-600" }
+          { text: "« Respirez profondément. Le stress de cette journée ne définit pas votre avenir. »", bg: "bg-teal" }
         ]
       },
       {
         name: "Dr. Yacine K.",
         avatar: undefined,
         stories: [
-          { text: "« Vos sentiments actuels sont valides. Ne les refoulez pas, écoutez-les. »", bg: "from-amber-400 to-orange-600" }
+          { text: "« Vos sentiments actuels sont valides. Ne les refoulez pas, écoutez-les. »", bg: "bg-teal-cta" }
         ]
       },
       {
         name: "Dr. Amina R.",
         avatar: undefined,
         stories: [
-          { text: "« La guérison est un chemin non linéaire. Soyez patient avec vous-même. »", bg: "from-emerald-400 to-teal-700" }
+          { text: "« La guérison est un chemin non linéaire. Soyez patient avec vous-même. »", bg: "from-primary to-teal-700" }
         ]
       }
     ];
@@ -129,10 +130,10 @@ export default function ExplorePage() {
   };
 
   useEffect(() => {
-    if (!user) return;
-    fetchGratitudes();
-    fetchDbStories();
-
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     const fetchAudioRooms = async () => {
       const { data } = await (supabase as any)
         .from("audio_rooms_public")
@@ -142,7 +143,9 @@ export default function ExplorePage() {
         setAudioRooms(data as AudioRoom[]);
       }
     };
-    fetchAudioRooms();
+    Promise.allSettled([fetchGratitudes(), fetchDbStories(), fetchAudioRooms()]).then(() =>
+      setLoading(false)
+    );
 
     const audioChannel = supabase
       .channel("public:audio_rooms")
@@ -177,7 +180,7 @@ export default function ExplorePage() {
     if (!newGratText.trim()) return;
     setPostingGrat(true);
 
-    const colors = ["bg-teal-pale/50", "bg-amber-100/50", "bg-blue-100/50", "bg-rose-100/50", "bg-purple-100/50"];
+    const colors = ["bg-teal-pale/50", "bg-amber-100/50", "bg-teal-pale/50", "bg-rose-100/50", "bg-teal-pale"];
     const randColor = colors[Math.floor(Math.random() * colors.length)];
     const randRot = (Math.random() * 6 - 3);
 
@@ -197,7 +200,7 @@ export default function ExplorePage() {
       toast.error("Erreur lors de l'enregistrement de la gratitude");
     } else if (data) {
       setNewGratText("");
-      toast.success("✅ Épinglé sur le mur des gratitudes !");
+      toast.success("Épinglé sur le mur des gratitudes !");
       fetchGratitudes();
     }
   };
@@ -205,98 +208,136 @@ export default function ExplorePage() {
   return (
     <div className="p-4 sm:p-6 space-y-8 max-w-5xl animate-in fade-in duration-500 font-sans">
       
-      <div className="space-y-3">
+      {/* Stories */}
+      <section className="space-y-3">
         <h3 className="font-serif text-lg font-semibold text-foreground">{t("space.explore.stories")}</h3>
-        <div className="flex gap-4 overflow-x-auto py-2 pr-1 select-none no-scrollbar snap-x snap-mandatory">
-          {mockStories.map((s, i) => (
-            <button
-              key={i}
-              onClick={() => {
-                setSelectedStoryTherapist(s);
-                setCurrentStorySlide(0);
-              }}
-              className="flex flex-col items-center gap-1.5 snap-start shrink-0 cursor-pointer border-none bg-transparent"
-            >
-              <div className="p-0.5 rounded-full bg-gradient-to-tr from-primary to-teal-mid border border-solid border-transparent shadow hover:scale-105 transition-all duration-300">
-                <div className="p-0.5 bg-white rounded-full">
-                  {s.avatar ? (
-                    <img src={s.avatar} alt={s.name} className="w-14 h-14 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-14 h-14 rounded-full bg-teal-pale text-primary font-bold text-sm flex items-center justify-center">
-                      {getInitials(s.name)}
-                    </div>
-                  )}
-                </div>
+        <div className="flex gap-4 overflow-x-auto py-2 pe-1 select-none no-scrollbar snap-x snap-mandatory">
+          {loading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-1.5 snap-start shrink-0">
+                <div className="skeleton-shimmer w-16 h-16 rounded-full" />
+                <div className="skeleton-shimmer w-12 h-2.5 rounded-full" />
               </div>
-              <span className="text-[10px] font-semibold text-foreground max-w-[70px] truncate">{s.name}</span>
-            </button>
-          ))}
+            ))
+          ) : (
+            mockStories.map((s, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setSelectedStoryTherapist(s);
+                  setCurrentStorySlide(0);
+                }}
+                className="flex flex-col items-center gap-1.5 snap-start shrink-0 cursor-pointer border-none bg-transparent group"
+              >
+                <div className="p-0.5 rounded-full ring-2 ring-primary/30 transition-transform duration-150 group-hover:scale-105">
+                  <div className="p-0.5 bg-white rounded-full">
+                    {s.avatar ? (
+                      <img src={s.avatar} alt={s.name} className="w-14 h-14 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-full bg-teal-pale text-primary font-bold text-sm flex items-center justify-center">
+                        {getInitials(s.name)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <span className="text-[10px] font-semibold text-foreground max-w-[70px] truncate">{s.name}</span>
+              </button>
+            ))
+          )}
         </div>
-      </div>
+      </section>
 
       <div className="grid grid-cols-1 md:grid-cols-[1fr_340px] gap-8">
         
         <div className="space-y-8">
-          <div className="dashboard-card p-6 space-y-4">
-            <h3 className="font-serif text-lg font-semibold text-foreground flex items-center gap-2">
-              <span className="flex h-2.5 w-2.5 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
-              </span>
-              {t("space.explore.liveRooms")}
-            </h3>
+          {/* Live audio rooms */}
+          <section className="surface-elevated p-6 space-y-4 card-hover">
+            <div className="flex items-center justify-between">
+              <h3 className="font-serif text-lg font-semibold text-foreground flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-danger opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-danger"></span>
+                </span>
+                {t("space.explore.liveRooms")}
+              </h3>
+              <span className="chip chip-danger"><Radio className="w-3 h-3" /> LIVE</span>
+            </div>
             
             <div className="space-y-3.5">
-              {audioRooms.map((room) => (
-                <div key={room.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border border-solid border-border/50 rounded-2xl bg-teal-hero/10 hover:bg-teal-hero/25 hover:border-primary/20 transition-all duration-300">
-                  <div>
-                    <div className="font-semibold text-sm text-foreground leading-snug">{room.title}</div>
-                    <div className="text-[11px] text-muted-foreground mt-1 font-sans">
-                      {room.host_name ? `Animé par ${room.host_name} · ` : ""}Salon audio en direct · Rejoignez la discussion
-                    </div>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      if (!user) return;
-                      const { data: url, error } = await (supabase as any)
-                        .rpc("get_audio_room_url", { room_id: room.id });
-                      if (error || !url) {
-                        toast.error("Impossible de rejoindre le salon pour le moment.");
-                        return;
-                      }
-                      setSelectedRoom({ url, title: room.title });
-                    }}
-                    className="px-4 py-2.5 bg-primary text-primary-foreground hover:bg-teal-mid rounded-xl text-xs font-semibold border-none cursor-pointer transition-all shadow-sm shrink-0 self-end sm:self-auto"
-                  >
-                    {t("space.explore.joinRoom")}
-                  </button>
+              {loading ? (
+                Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="skeleton-shimmer h-[78px] rounded-2xl" />
+                ))
+              ) : audioRooms.length === 0 ? (
+                <div className="text-center py-8 px-4 rounded-2xl border border-dashed border-border bg-teal-hero/20">
+                  <Radio className="w-8 h-8 mx-auto mb-2 text-primary/40" />
+                  <p className="text-xs text-muted-foreground font-sans">
+                    Aucun salon audio en direct pour le moment. Revenez bientôt !
+                  </p>
                 </div>
-              ))}
-              {audioRooms.length === 0 && (
-                <p className="text-xs text-muted-foreground italic text-center py-4 font-sans">
-                  Aucun salon audio en direct pour le moment. Revenez bientôt !
-                </p>
+              ) : (
+                audioRooms.map((room) => (
+                  <div key={room.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border border-border bg-teal-hero/10 hover:border-primary/25 hover:bg-teal-hero/25 transition-all duration-150">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
+                        <Radio className="w-4 h-4" />
+                      </span>
+                      <div>
+                        <div className="font-semibold text-sm text-foreground leading-snug">{room.title}</div>
+                        <div className="text-[11px] text-muted-foreground mt-1 font-sans">
+                          {room.host_name ? `Animé par ${room.host_name} · ` : ""}{room.participant_count ? `${room.participant_count} en écoute · ` : ""}Rejoignez la discussion
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!user) return;
+                        const { data: url, error } = await (supabase as any)
+                          .rpc("get_audio_room_url", { room_id: room.id });
+                        if (error || !url) {
+                          toast.error("Impossible de rejoindre le salon pour le moment.");
+                          return;
+                        }
+                        setSelectedRoom({ url, title: room.title });
+                      }}
+                      className="btn btn-primary shrink-0 self-end sm:self-auto"
+                    >
+                      {t("space.explore.joinRoom")}
+                    </button>
+                  </div>
+                ))
               )}
             </div>
-          </div>
+          </section>
 
-          <div className="dashboard-card p-6 md:p-8 space-y-6">
+          {/* Gratitude wall */}
+          <section className="surface-elevated p-6 md:p-8 space-y-6">
             <div>
               <h3 className="font-serif text-lg font-semibold text-foreground">{t("space.explore.gratitude")}</h3>
               <p className="text-xs text-muted-foreground mt-1">{t("space.explore.gratitudeDesc")}</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
-              {gratitudes.map((g) => (
-                <div
-                  key={g.id}
-                  className={`p-4 rounded-xl border border-solid border-border/30 ${g.color} font-serif text-xs text-foreground leading-relaxed shadow-sm hover:shadow transition-all`}
-                  style={{ transform: `rotate(${g.rotation}deg)` }}
-                >
-                  <p className="italic">"{g.text}"</p>
-                  <span className="text-[9px] uppercase font-sans font-bold tracking-wider text-primary/70 mt-3 block">Anonyme</span>
+              {gratitudes.length === 0 && !loading ? (
+                <div className="col-span-full text-center py-8 px-4 rounded-2xl border border-dashed border-border text-muted-foreground">
+                  <Quote className="w-8 h-8 mx-auto mb-2 text-primary/40" />
+                  <p className="text-xs font-sans">Soyez le premier à épingler une gratitude anonyme.</p>
                 </div>
-              ))}
+              ) : loading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="skeleton-shimmer h-24 rounded-xl" />
+                ))
+              ) : (
+                gratitudes.map((g) => (
+                  <article
+                    key={g.id}
+                    className={`p-4 rounded-xl border border-border ${g.color} font-serif text-xs text-foreground leading-relaxed shadow-rest hover:shadow-card transition-all duration-150`}
+                  >
+                    <p className="italic">"{g.text}"</p>
+                    <span className="text-[9px] uppercase font-sans font-bold tracking-wider text-primary/70 mt-3 block">Anonyme</span>
+                  </article>
+                ))
+              )}
             </div>
 
             <form onSubmit={postGratitude} className="flex gap-2">
@@ -306,54 +347,65 @@ export default function ExplorePage() {
                 value={newGratText}
                 onChange={(e) => setNewGratText(e.target.value)}
                 placeholder={t("space.explore.gratitudePlaceholder")}
-                className="flex-1 px-4 py-3 border border-border/70 rounded-xl text-xs bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card transition-all font-sans"
+                className="input-field"
               />
               <button
                 type="submit"
                 disabled={postingGrat}
-                className="px-4 py-3 bg-primary text-primary-foreground hover:bg-teal-mid rounded-xl text-xs font-semibold border-none cursor-pointer transition-all shadow-sm shrink-0 font-sans"
+                className="btn btn-primary shrink-0"
               >
+                <Send className="w-3.5 h-3.5" />
                 {t("space.explore.postGratitude")}
               </button>
             </form>
-          </div>
+          </section>
         </div>
 
-        <div className="space-y-6">
-          <div className="dashboard-card p-6 space-y-4">
-            <h3 className="font-serif text-base font-semibold text-primary">Le Conseil du Jour</h3>
-            <div className="p-4 rounded-2xl border border-solid border-primary/10 bg-teal-hero/10 space-y-3 font-sans">
+        <aside className="space-y-6">
+          <section className="surface p-6 space-y-4">
+            <h3 className="section-head text-base text-primary flex items-center gap-2">
+              <Sparkles className="w-4 h-4" /> Le Conseil du Jour
+            </h3>
+            <div className="p-4 rounded-2xl border border-primary/10 bg-teal-hero/10 space-y-3 font-sans">
               <p className="text-xs text-foreground leading-relaxed font-sans">
                 « Prenez 3 minutes à midi pour fermer les yeux, écouter les bruits ambiants et relâcher vos épaules. Une pause de pleine conscience réinitialise l'organisme. »
               </p>
-              <div className="flex items-center justify-between pt-2 border-t border-solid border-border/30">
+              <div className="flex items-center justify-between pt-2 border-t border-border/30">
                 <span className="text-[9px] font-semibold text-primary uppercase">Dr. Sofia Ben</span>
-                <div className="flex gap-2 text-[10px] text-muted-foreground">
-                  <button className="flex items-center gap-1 bg-transparent border-none cursor-pointer text-muted-foreground hover:text-primary transition-all">❤️ 12</button>
-                  <button className="flex items-center gap-1 bg-transparent border-none cursor-pointer text-muted-foreground hover:text-primary transition-all">🧘 9</button>
+                <div className="flex gap-1">
+                  <button aria-label="J'aime" className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] text-muted-foreground hover:text-danger hover:bg-danger/5 transition-colors duration-150 bg-transparent border-none cursor-pointer">
+                    <Heart className="w-3.5 h-3.5" /> 12
+                  </button>
+                  <button aria-label="Respirer" className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors duration-150 bg-transparent border-none cursor-pointer">
+                    <Wind className="w-3.5 h-3.5" /> 9
+                  </button>
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
-          <div className="dashboard-card p-6 space-y-4">
-            <h3 className="font-serif text-base font-semibold text-primary">Affirmation positive</h3>
-            <div className="p-4 rounded-2xl border border-solid border-rose-100 bg-rose-50/10 space-y-3 font-sans">
+          <section className="surface p-6 space-y-4">
+            <h3 className="section-head text-base text-primary flex items-center gap-2">
+              <Quote className="w-4 h-4" /> Affirmation positive
+            </h3>
+            <div className="p-4 rounded-2xl border border-rose-100 bg-rose-50/10 space-y-3 font-sans">
               <p className="text-xs text-foreground italic leading-relaxed font-sans">
                 « J'ai le droit de me tromper. Mes erreurs font partie de mon apprentissage et ne définissent pas ma valeur humaine. »
               </p>
-              <div className="flex items-center justify-between pt-2 border-t border-solid border-border/30">
+              <div className="flex items-center justify-between pt-2 border-t border-border/30">
                 <span className="text-[9px] font-semibold text-rose-800 uppercase">Majal Support</span>
-                <button className="flex items-center gap-1 bg-transparent border-none cursor-pointer text-muted-foreground hover:text-rose-600 transition-all text-[10px]">🤝 34</button>
+                <button aria-label="Soutenir" className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] text-muted-foreground hover:text-danger hover:bg-danger/5 transition-colors duration-150 bg-transparent border-none cursor-pointer">
+                  <HandHeart className="w-3.5 h-3.5" /> 34
+                </button>
               </div>
             </div>
-          </div>
-        </div>
+          </section>
+        </aside>
       </div>
 
       {selectedStoryTherapist && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
-          <div className="relative w-full max-w-sm h-[70vh] bg-white rounded-3xl overflow-hidden flex flex-col justify-between shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-sm h-[70vh] bg-white rounded-3xl overflow-hidden flex flex-col justify-between shadow-overlay">
             
             <div className="absolute top-3 inset-x-4 flex gap-1.5 z-30">
               {selectedStoryTherapist.stories.map((_, idx) => (
@@ -368,10 +420,10 @@ export default function ExplorePage() {
 
             <div className="absolute top-6 inset-x-4 flex items-center justify-between z-30 text-white font-sans">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-white/20 border border-solid border-white/20 flex items-center justify-center font-bold text-xs">
+                <div className="w-8 h-8 rounded-full bg-white/20 border border-white/20 flex items-center justify-center font-bold text-xs">
                   {getInitials(selectedStoryTherapist.name)}
                 </div>
-                <span className="text-xs font-semibold shadow-sm">{selectedStoryTherapist.name}</span>
+                <span className="text-xs font-semibold drop-shadow">{selectedStoryTherapist.name}</span>
               </div>
               <button 
                 onClick={() => {
@@ -390,7 +442,7 @@ export default function ExplorePage() {
               </p>
               
               <div 
-                className="absolute inset-y-0 left-0 w-1/3 cursor-pointer"
+                className="absolute inset-y-0 start-0 w-1/3 cursor-pointer"
                 onClick={() => {
                   if (currentStorySlide > 0) {
                     setCurrentStorySlide(prev => prev - 1);
@@ -398,7 +450,7 @@ export default function ExplorePage() {
                 }}
               />
               <div 
-                className="absolute inset-y-0 right-0 w-1/3 cursor-pointer"
+                className="absolute inset-y-0 end-0 w-1/3 cursor-pointer"
                 onClick={() => {
                   if (currentStorySlide < selectedStoryTherapist.stories.length - 1) {
                     setCurrentStorySlide(prev => prev + 1);

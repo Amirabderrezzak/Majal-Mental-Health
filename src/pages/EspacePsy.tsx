@@ -16,6 +16,7 @@ import PsyEarnings from "@/components/pages/PsyEarnings";
 import PsyProfileEditor from "@/components/pages/PsyProfileEditor";
 import PsySettingsPage from "@/components/pages/PsySettingsPage";
 import ContentCreatorPage from "@/components/pages/ContentCreatorPage";
+import PsyMobileNav from "@/components/pages/PsyMobileNav";
 
 interface Booking {
   id: string;
@@ -119,7 +120,7 @@ export default function EspacePsy() {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("✅ Mot de passe mis à jour avec succès !");
+      toast.success("Mot de passe mis à jour avec succès !");
       setNewPassword("");
     }
   };
@@ -244,7 +245,7 @@ export default function EspacePsy() {
 
       setVideoUrl(publicUrl);
       setVideoPreviewUrl(publicUrl);
-      toast.success("✅ Vidéo enregistrée !");
+      toast.success("Vidéo enregistrée !");
     } catch (err: any) {
       toast.error(err.message || "Erreur lors de l'upload.");
     } finally {
@@ -271,7 +272,7 @@ export default function EspacePsy() {
     } else {
       setVideoUrl("");
       setVideoPreviewUrl(null);
-      toast.success("✅ Vidéo supprimée.");
+      toast.success("Vidéo supprimée.");
     }
   };
 
@@ -555,7 +556,7 @@ export default function EspacePsy() {
       if (updateError) throw updateError;
 
       setProfileData((p) => ({ ...p, avatar_url: publicUrl }));
-      toast.success("✅ Photo de profil mise à jour !");
+      toast.success("Photo de profil mise à jour !");
     } catch (err: any) {
       console.error("Avatar upload error:", err);
       toast.error(err.message || "Erreur lors de l'upload de l'avatar");
@@ -712,7 +713,7 @@ export default function EspacePsy() {
     if (error) {
       toast.error("Erreur lors de la sauvegarde.");
     } else {
-      toast.success("✅ Profil mis à jour !");
+      toast.success("Profil mis à jour !");
     }
   };
 
@@ -736,7 +737,7 @@ export default function EspacePsy() {
       if (!response.ok || data.error) {
         toast.error(data.error || "Erreur lors de la mise à jour.");
       } else {
-        toast.success("✅ Statut mis à jour !");
+        toast.success("Statut mis à jour !");
         setBookings((prev) =>
           prev.map((b) => (b.id === id ? { ...b, status: newStatus } : b))
         );
@@ -880,7 +881,7 @@ export default function EspacePsy() {
   };
 
   return (
-    <div className="flex min-h-screen bg-accent/30">
+    <div className="flex min-h-screen bg-background">
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-foreground/30 z-40 lg:hidden"
@@ -912,7 +913,7 @@ export default function EspacePsy() {
         />
 
         {clinicSettings.vacationMode && (
-          <div className="mx-6 mt-6 p-4 rounded-xl border border-solid border-amber-200/50 bg-amber-50/60 backdrop-blur-md shadow-sm flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="mx-6 mt-6 p-4 rounded-xl border border-solid border-amber-200/50 bg-amber-50/40 shadow-sm flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="p-2 rounded-lg bg-amber-100/80 text-amber-700 shrink-0">
               <AlertTriangle className="w-5 h-5 animate-pulse" />
             </div>
@@ -926,7 +927,7 @@ export default function EspacePsy() {
         )}
 
         {approvalStatus === "pending" && (
-          <div className="mx-6 mt-6 p-4 rounded-xl border border-amber-200/50 bg-amber-50/60 backdrop-blur-md shadow-sm flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="mx-6 mt-6 p-4 rounded-xl border border-amber-200/50 bg-amber-50/40 shadow-sm flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="p-2 rounded-lg bg-amber-100/80 text-amber-700 shrink-0">
               <Clock className="w-5 h-5 animate-pulse" />
             </div>
@@ -939,7 +940,7 @@ export default function EspacePsy() {
           </div>
         )}
         {approvalStatus === "rejected" && (
-          <div className="mx-6 mt-6 p-4 rounded-xl border border-red-200/50 bg-red-50/60 backdrop-blur-md shadow-sm flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="mx-6 mt-6 p-4 rounded-xl border border-red-200/50 bg-red-50/40 shadow-sm flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="p-2 rounded-lg bg-red-100/80 text-red-700 shrink-0">
               <X className="w-5 h-5" />
             </div>
@@ -952,10 +953,16 @@ export default function EspacePsy() {
           </div>
         )}
 
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto pb-24 lg:pb-0">
           {renderPage()}
         </div>
       </main>
+
+      <PsyMobileNav
+        activePage={activePage}
+        setActivePage={setActivePage}
+        setSidebarOpen={setSidebarOpen}
+      />
     </div>
   );
 }

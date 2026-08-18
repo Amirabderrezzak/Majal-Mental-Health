@@ -5,7 +5,7 @@ export default function CrisisHelpline() {
   const { t } = useLanguage();
 
   return (
-    <div className="dashboard-card p-6 border-red-200/50 bg-red-50/20 backdrop-blur-md space-y-4">
+    <div className="dashboard-card p-6 border-red-200/50 bg-red-50/40 space-y-4">
       <div className="flex items-start gap-3">
         <div className="p-2 rounded-xl bg-red-100/70 text-red-600 shrink-0">
           <PhoneCall className="w-5 h-5" />

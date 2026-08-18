@@ -29,11 +29,11 @@ export default function PsyTopBar({
   const { t, dir } = useLanguage();
 
   return (
-    <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-border/60 px-4 sm:px-6 py-4 flex items-center justify-between shadow-sm">
+    <div className="sticky top-0 z-40 bg-card border-b border-border/60 px-4 sm:px-6 py-4 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-4">
         <button
           onClick={() => setSidebarOpen(true)}
-          className="lg:hidden bg-transparent border-none cursor-pointer text-foreground hover:text-primary transition-colors"
+          className="lg:hidden bg-transparent border-none cursor-pointer text-foreground hover:text-primary transition-colors duration-150"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -54,7 +54,7 @@ export default function PsyTopBar({
           </button>
 
           {notifDropdownOpen && (
-            <div className={`absolute ${dir === "rtl" ? "left-0" : "right-0"} mt-2 w-80 bg-white border border-border/50 rounded-2xl shadow-xl z-50 overflow-hidden font-sans`}>
+            <div className={`absolute ${dir === "rtl" ? "left-0" : "right-0"} mt-2 w-[calc(100vw-2rem)] max-w-sm bg-white border border-border/50 rounded-2xl shadow-xl z-50 overflow-hidden font-sans`}>
               <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 bg-accent/20">
                 <span className="text-xs font-semibold text-foreground">{t("space.notifications")}</span>
                 {unreadCount > 0 && (
@@ -94,7 +94,7 @@ export default function PsyTopBar({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                          notif.type === 'booking' ? 'bg-blue-50 text-blue-700' :
+                          notif.type === 'booking' ? 'bg-teal-pale text-primary' :
                           notif.type === 'message' ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-700'
                         }`}>
                           {t(`space.notif.${notif.type}`) || notif.type}

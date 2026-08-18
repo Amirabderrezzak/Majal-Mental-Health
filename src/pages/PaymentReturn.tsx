@@ -71,8 +71,8 @@ export default function PaymentReturn() {
 
         {status === "success" && (
           <>
-            <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-6 border border-emerald-100">
-              <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+            <div className="w-16 h-16 rounded-2xl bg-teal-pale flex items-center justify-center mx-auto mb-6 border border-border">
+              <CheckCircle2 className="w-8 h-8 text-primary" />
             </div>
             <h1 className="font-serif text-2xl text-foreground mb-2">Paiement réussi !</h1>
             <p className="text-sm text-muted-foreground mb-8 leading-relaxed">

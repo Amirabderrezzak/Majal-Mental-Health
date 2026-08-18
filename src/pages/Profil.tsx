@@ -275,8 +275,8 @@ const Profil = () => {
                 <div>
                   <div className="text-xs text-muted-foreground">{t("prof.availability")}</div>
                   {psyProfile?.is_available_now ? (
-                    <div className="text-sm font-medium text-emerald-600 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <div className="text-sm font-medium text-primary flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-teal-pale0 animate-pulse" />
                       {t("psy.availableNow")}
                     </div>
                   ) : (

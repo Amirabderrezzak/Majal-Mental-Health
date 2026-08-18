@@ -321,7 +321,7 @@ export default function MonEspace() {
   };
 
   return (
-    <div className="flex min-h-screen bg-accent/30">
+    <div className="flex min-h-screen bg-background">
       {sidebarOpen && <div className="fixed inset-0 bg-foreground/30 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
       <PatientSidebar
         sidebarOpen={sidebarOpen}

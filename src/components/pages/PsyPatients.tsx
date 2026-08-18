@@ -77,7 +77,7 @@ function PatientDetailsDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-foreground/30 backdrop-blur-xs transition-opacity" onClick={() => setSelectedPatientId(null)} />
+      <div className="absolute inset-0 bg-foreground/30 transition-opacity" onClick={() => setSelectedPatientId(null)} />
       <div className={`relative w-full max-w-lg bg-white h-full shadow-2xl flex flex-col justify-between p-6 md:p-8 animate-in ${isRtl ? "slide-in-from-left duration-300" : "slide-in-from-right duration-300"}`}>
         <div className="space-y-6 flex-1 overflow-y-auto pr-1">
           <div className="flex items-start justify-between pb-4 border-b border-border/40">

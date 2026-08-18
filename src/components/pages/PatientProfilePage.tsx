@@ -61,7 +61,7 @@ export default function PatientProfilePage({
       if (updateError) throw updateError;
 
       setProfile((p: any) => ({ ...p, avatar_url: publicUrl }));
-      toast.success("✅ Photo de profil mise à jour !");
+      toast.success("Photo de profil mise à jour !");
     } catch (err: any) {
       console.error("Avatar upload error:", err);
       toast.error(err.message || "Erreur lors de l'upload de l'avatar");
@@ -76,7 +76,7 @@ export default function PatientProfilePage({
     const { error } = await supabase.from("profiles").upsert({ user_id: user.id, ...profile });
     setSaving(false);
     if (error) toast.error("Erreur lors de la sauvegarde.");
-    else toast.success("✅ Profil mis à jour !");
+    else toast.success("Profil mis à jour !");
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -91,7 +91,7 @@ export default function PatientProfilePage({
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("✅ Mot de passe mis à jour avec succès !");
+      toast.success("Mot de passe mis à jour avec succès !");
       setNewPassword("");
     }
   };
