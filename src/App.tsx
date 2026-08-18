@@ -73,7 +73,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <ScrollToTop />
-          <Analytics />
+          <Analytics mode="auto" />
           <AuthProvider>
             <Suspense fallback={<RouteFallback />}>
               <Routes>
