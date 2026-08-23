@@ -22,7 +22,14 @@ export default function AdminLogin() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error || !data.user) {
-        toast.error(t("admin.toast.badCreds"));
+        console.error("[AdminLogin] sign-in failed:", error?.code, error?.message);
+        const msg =
+          error?.code === "email_not_confirmed"
+            ? "Email non confirmé — confirmez le compte dans Supabase → Authentication → Users."
+            : error?.code === "over_request_rate_limit"
+              ? "Trop de tentatives — réessayez dans une minute."
+              : t("admin.toast.badCreds");
+        toast.error(msg);
         setLoading(false);
         return;
       }

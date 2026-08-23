@@ -64,15 +64,6 @@ const statusBadge: Record<string, string> = {
   "no-show": "bg-amber-50 text-amber-700 border border-amber-200",
 };
 
-  const navItems: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: "dashboard",     label: t("admin.nav.dashboard"),     icon: <LayoutDashboard className="w-4 h-4" /> },
-  { id: "users",         label: t("admin.nav.users"),         icon: <Users className="w-4 h-4" /> },
-  { id: "bookings",      label: t("admin.nav.bookings"),      icon: <Calendar className="w-4 h-4" /> },
-  { id: "cancellations", label: t("admin.nav.cancellations"), icon: <Ban className="w-4 h-4" /> },
-  { id: "reviews",       label: t("admin.nav.reviews"),       icon: <Star className="w-4 h-4" /> },
-  { id: "admins",        label: t("admin.nav.admins"),        icon: <Shield className="w-4 h-4" /> },
-];
-
 // Enrich a list with patient_name / psychologist_name from profiles
 async function enrichWithNames(items: any[], patientField: string, psyField: string) {
   const ids = [...new Set(items.flatMap(i => [i[patientField], i[psyField]]).filter(Boolean))];
@@ -108,6 +99,15 @@ export default function AdminDashboard() {
   const [reviews, setReviews]   = useState<Review[]>([]);
   const [loading, setLoading]   = useState(false);
   const [userFilter, setUserFilter] = useState<"all" | "patient" | "psychologue" | "pending">("all");
+
+  const navItems: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: "dashboard",     label: t("admin.nav.dashboard"),     icon: <LayoutDashboard className="w-4 h-4" /> },
+    { id: "users",         label: t("admin.nav.users"),         icon: <Users className="w-4 h-4" /> },
+    { id: "bookings",      label: t("admin.nav.bookings"),      icon: <Calendar className="w-4 h-4" /> },
+    { id: "cancellations", label: t("admin.nav.cancellations"), icon: <Ban className="w-4 h-4" /> },
+    { id: "reviews",       label: t("admin.nav.reviews"),       icon: <Star className="w-4 h-4" /> },
+    { id: "admins",        label: t("admin.nav.admins"),        icon: <Shield className="w-4 h-4" /> },
+  ];
 
   useEffect(() => {
     setLoading(true);
