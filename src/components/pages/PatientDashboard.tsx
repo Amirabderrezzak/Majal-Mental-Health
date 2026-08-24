@@ -55,7 +55,7 @@ interface PatientDashboardProps {
   profile: { full_name: string };
   upcoming: Booking[];
   past: Booking[];
-  cancellling: string | null;
+  cancelling: string | null;
   bookingsLoading: boolean;
   wellnessStreak: number;
   unlockedBadges: { id: string; name: string; emoji: string; desc: string }[];
@@ -69,7 +69,7 @@ interface PatientDashboardProps {
 }
 
 export default function PatientDashboard({
-  profile, upcoming, past, cancellling, bookingsLoading, wellnessStreak,
+  profile, upcoming, past, cancelling, bookingsLoading, wellnessStreak,
   unlockedBadges, handleCancelBooking, setActivePage, fmt, fmtT,
   getSessionTimeState: getSessionTimeStateFromProps, formatTimeUntil, getInitials,
 }: PatientDashboardProps) {

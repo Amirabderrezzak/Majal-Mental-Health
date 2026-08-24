@@ -22,7 +22,7 @@ interface Booking {
 interface PatientSessionsProps {
   upcoming: Booking[];
   past: Booking[];
-  cancellling: string | null;
+  cancelling: string | null;
   bookingsLoading: boolean;
   handleCancelBooking: (id: string) => void;
   handleReschedule: (booking: Booking, date: string, time: string) => Promise<void>;
@@ -35,7 +35,7 @@ interface PatientSessionsProps {
 export default function PatientSessions({
   upcoming,
   past,
-  cancellling,
+  cancelling,
   bookingsLoading,
   handleCancelBooking,
   handleReschedule,

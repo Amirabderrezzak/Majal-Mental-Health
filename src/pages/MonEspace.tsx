@@ -262,7 +262,7 @@ export default function MonEspace() {
           profile={profile}
           upcoming={upcoming}
           past={past}
-          cancellling={cancelling}
+                cancelling={cancelling}
           bookingsLoading={bookingsLoading}
           wellnessStreak={wellnessStreak}
           unlockedBadges={unlockedBadges}
@@ -279,7 +279,7 @@ export default function MonEspace() {
         <PatientSessions
           upcoming={upcoming}
           past={past}
-          cancellling={cancelling}
+                cancelling={cancelling}
           bookingsLoading={bookingsLoading}
           handleCancelBooking={handleCancelBooking}
           handleReschedule={handleReschedule}
