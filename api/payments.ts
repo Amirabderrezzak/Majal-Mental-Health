@@ -161,6 +161,7 @@ export const checkoutHandler = async (req: any, res: any) => {
         booked_at,
         duration_minutes: duration_minutes || 60,
         price,
+        session_type: type,
         status: "initiated",
       })
       .select()

@@ -15,6 +15,7 @@ interface PaymentRow {
   duration_minutes: number;
   price: number;
   status: string;
+  session_type?: string | null;
   sofizpay_transaction_id?: string | null;
 }
 
@@ -125,6 +126,7 @@ export async function confirmPaymentBooking(
         status: "confirmed",
         price: payment.price,
         duration_minutes: payment.duration_minutes,
+        session_type: payment.session_type,
         updated_at: new Date().toISOString(),
       })
       .eq("id", existingBooking.id)
@@ -147,6 +149,7 @@ export async function confirmPaymentBooking(
         duration_minutes: payment.duration_minutes,
         status: "confirmed",
         price: payment.price,
+        session_type: payment.session_type ?? "individual",
       })
       .select()
       .single();
