@@ -133,7 +133,7 @@ const Profil = () => {
   const bio        = psyProfile?.bio ?? null;
   const approach    = psyProfile?.approach ?? null;
   const formations  = psyProfile?.formations ?? null;
-  const price      = psyProfile?.price_per_session ?? 3500;
+  const price      = psyProfile?.price_per_session ?? 3000;
   const exp        = psyProfile?.years_experience ?? 0;
   const langs      = psyProfile?.language ? [psyProfile.language] : ["Français"];
   const avatarUrl  = psyProfile?.avatar_url ?? null;

@@ -30,6 +30,7 @@ const Reservation = () => {
   const [docIndividual, setDocIndividual] = useState<number | null>(null);
   const [docCouples, setDocCouples] = useState<number | null>(null);
   const [docAdolescents, setDocAdolescents] = useState<number | null>(null);
+  const [docPricePerSession, setDocPricePerSession] = useState<number | null>(null);
   const [sessionType, setSessionType] = useState<"individual" | "couples" | "adolescents">("individual");
   const [docEmoji, setDocEmoji] = useState("🧑‍⚕️");
   const [docAvatarUrl, setDocAvatarUrl] = useState<string | null>(null);
@@ -40,7 +41,7 @@ const Reservation = () => {
       setLoading(true);
       supabase
         .from("psychologist_directory")
-        .select("user_id, full_name, specialty, price_individual, price_couples, price_adolescents, avatar_url, approval_status")
+        .select("user_id, full_name, specialty, price_per_session, price_individual, price_couples, price_adolescents, avatar_url, approval_status")
         .eq("user_id", id)
         .single()
         .then(({ data, error }) => {
@@ -61,6 +62,7 @@ const Reservation = () => {
             setDocIndividual(individual);
             setDocCouples(couples);
             setDocAdolescents(adolescents);
+            setDocPricePerSession(data.price_per_session ?? null);
             // Default the session type to the first offered type.
             const firstOffered = individual != null ? "individual"
               : couples != null ? "couples"
@@ -79,9 +81,9 @@ const Reservation = () => {
   }, [id, isUUID, navigate]);
 
   const priceForType = (type: "individual" | "couples" | "adolescents") =>
-    type === "individual" ? docIndividual
+    (type === "individual" ? docIndividual
       : type === "couples" ? docCouples
-      : docAdolescents;
+      : docAdolescents) ?? docPricePerSession;
 
   const sessionOptions = [
     { type: "individual" as const,   label: t("res.session.individual")   || "Individuel",   price: docIndividual },
@@ -362,7 +364,7 @@ const Reservation = () => {
                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("res.sessionType") || "Type de séance"}</div>
                  <div className="flex flex-wrap gap-2">
                    {sessionOptions.map((opt) => {
-                     const offered = opt.price != null;
+                      const offered = priceForType(opt.type) != null;
                      const active = sessionType === opt.type;
                      return (
                        <button

@@ -697,13 +697,19 @@ export default function EspacePsy() {
     // Always filter by user_id (the unique column) so the existing profile row
     // is updated in place. An upsert without onConflict would generate a new
     // primary key and violate the user_id UNIQUE constraint, silently failing.
-    const { bio, approach, formations, price_individual, ...rest } = profileData;
+    const { bio, approach, formations, ...rest } = profileData;
     const { error } = await supabase
       .from("profiles")
       .update({
         ...rest,
-        // Keep price_per_session in sync as the headline "individual" price.
-        price_per_session: price_individual,
+        // Keep price_per_session in sync as the headline price shown to clients.
+        // All bands (individual/couples/adolescents) are preserved via `rest`,
+        // and the headline falls back across the bands, then the existing value.
+        price_per_session:
+          profileData.price_individual ??
+          profileData.price_couples ??
+          profileData.price_adolescents ??
+          profileData.price_per_session,
         bio: (bio ?? "").trim().slice(0, BIO_MAX_LENGTH),
         approach: (approach ?? "").trim().slice(0, BIO_MAX_LENGTH),
         formations: (formations ?? "").trim().slice(0, BIO_MAX_LENGTH),
