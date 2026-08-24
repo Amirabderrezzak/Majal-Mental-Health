@@ -3,7 +3,7 @@ import { useSearchParams, Link } from "react-router-dom";
 import { CheckCircle2, XCircle, Loader2, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-type Status = "processing" | "success" | "cancelled" | "error";
+type Status = "processing" | "success" | "pending" | "cancelled" | "error";
 
 export default function PaymentReturn() {
   const [params] = useSearchParams();
@@ -49,6 +49,13 @@ export default function PaymentReturn() {
         return;
       }
 
+      // 202 = payment not yet captured by the bank; the booking stays pending
+      // and will be confirmed once the gateway reports success.
+      if (res.status === 202) {
+        setStatus("pending");
+        return;
+      }
+
       setStatus("success");
     } catch (err) {
       setStatus("error");
@@ -83,6 +90,24 @@ export default function PaymentReturn() {
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold no-underline hover:bg-teal-mid transition-all active:scale-95"
             >
               Voir mes réservations <ArrowRight className="w-4 h-4" />
+            </Link>
+          </>
+        )}
+
+        {status === "pending" && (
+          <>
+            <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-6 border border-amber-100">
+              <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
+            </div>
+            <h1 className="font-serif text-2xl text-foreground mb-2">Paiement en cours de vérification</h1>
+            <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+              Votre paiement a été initié et la capture bancaire est en cours. Votre séance sera confirmée dès que le paiement sera validé. Aucun montant n'est prélevé tant que la confirmation n'est pas effectuée.
+            </p>
+            <Link
+              to="/mon-espace"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold no-underline hover:bg-teal-mid transition-all active:scale-95"
+            >
+              Retour à mon espace <ArrowRight className="w-4 h-4" />
             </Link>
           </>
         )}

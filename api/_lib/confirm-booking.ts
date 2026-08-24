@@ -72,30 +72,48 @@ export async function confirmPaymentBooking(
   }
 
   let paymentVerified = false;
+  let paymentFailed = false;
 
   if (payment.sofizpay_transaction_id) {
     const gateway = getPaymentGateway();
     const statusResult = await gateway.checkStatus(payment.sofizpay_transaction_id);
     paymentVerified = statusResult.success;
+    paymentFailed = statusResult.failed;
     console.log(`Payment ${paymentId} status check: ${statusResult.status}`);
+  } else {
+    // No transaction id means the payment was never sent to the gateway.
+    paymentFailed = true;
   }
 
   if (!paymentVerified) {
-    await db
-      .from("payments")
-      .update({ status: "failed", updated_at: new Date().toISOString() })
-      .eq("id", paymentId);
+    // Only release the reserved slot on a *definitive* failure (gateway reports
+    // the transaction failed/cancelled/expired). A "pending" status means the
+    // bank capture is still in flight — keep the booking pending so it isn't
+    // freed for someone else and can be re-checked later.
+    if (paymentFailed) {
+      await db
+        .from("payments")
+        .update({ status: "failed", updated_at: new Date().toISOString() })
+        .eq("id", paymentId);
 
-    // Release the reserved slot so it becomes bookable again.
-    await db
-      .from("bookings")
-      .update({ status: "cancelled", updated_at: new Date().toISOString() })
-      .eq("patient_id", payment.patient_id)
-      .eq("psychologist_id", payment.psychologist_id)
-      .eq("booked_at", payment.booked_at)
-      .eq("status", "pending");
+      await db
+        .from("bookings")
+        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .eq("patient_id", payment.patient_id)
+        .eq("psychologist_id", payment.psychologist_id)
+        .eq("booked_at", payment.booked_at)
+        .eq("status", "pending");
+    } else {
+      await db
+        .from("payments")
+        .update({ status: "pending", updated_at: new Date().toISOString() })
+        .eq("id", paymentId);
+    }
 
-    return { status: 400, body: { error: "Payment not confirmed" } };
+    return {
+      status: paymentFailed ? 400 : 202,
+      body: { error: paymentFailed ? "Payment not confirmed" : "Payment pending" },
+    };
   }
 
   // Find the reservation created at checkout (status "pending") or any existing

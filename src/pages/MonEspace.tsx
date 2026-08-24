@@ -133,9 +133,12 @@ export default function MonEspace() {
 
       const now = new Date();
       setUpcoming(all.filter(b => {
-        const isUpcomingOrActiveStatus = b.status === "pending" || b.status === "confirmed";
+        // Only show confirmed bookings to the patient. A "pending" row is a
+        // reservation awaiting payment confirmation and must not appear as a
+        // real booking until the gateway verifies payment.
+        const isActiveStatus = b.status === "confirmed";
         const sessionEndTime = new Date(new Date(b.booked_at).getTime() + b.duration_minutes * 60 * 1000);
-        return isUpcomingOrActiveStatus && sessionEndTime >= now;
+        return isActiveStatus && sessionEndTime >= now;
       }));
       setPast(all.filter(b => {
         const isPastOrCancelledStatus = b.status === "done" || b.status === "cancelled" || b.status === "no-show";

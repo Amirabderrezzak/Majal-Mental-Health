@@ -17,7 +17,7 @@ export interface CheckoutResult {
 
 export interface PaymentGateway {
   createCheckout(params: CheckoutParams, returnUrl: string): Promise<CheckoutResult>;
-  checkStatus(cibTransactionId: string): Promise<{ status: string; success: boolean }>;
+  checkStatus(cibTransactionId: string): Promise<{ status: string; success: boolean; failed: boolean }>;
 }
 
 const SANDBOX_BASE = "https://sofizpay.com/sandbox";
@@ -72,7 +72,7 @@ class SofizPayGateway implements PaymentGateway {
     };
   }
 
-  async checkStatus(cibTransactionId: string): Promise<{ status: string; success: boolean }> {
+  async checkStatus(cibTransactionId: string): Promise<{ status: string; success: boolean; failed: boolean }> {
     const base = this.isSandbox ? SANDBOX_BASE : PROD_BASE;
     const url = new URL(`${base}/cib-transaction-check/`);
     url.searchParams.set("order_number", cibTransactionId);
@@ -84,12 +84,26 @@ class SofizPayGateway implements PaymentGateway {
     const data = await response.json();
 
     if (!response.ok) {
-      return { status: "error", success: false };
+      return { status: "error", success: false, failed: false };
     }
 
+    // SofizPay returns a numeric orderStatus (2 = paid) and errorCode (0 = ok).
+    // CIB capture is asynchronous: "pending" must NOT be treated as paid.
+    const orderStatus = Number(data.orderStatus ?? data.order_status ?? data.status);
+    const errorCode = Number(data.errorCode ?? data.error_code ?? 0);
+
+    const isPaid = orderStatus === 2 && errorCode === 0;
+    const isFailed =
+      orderStatus === 0 ||
+      errorCode !== 0 ||
+      data.status === "failed" ||
+      data.status === "cancelled" ||
+      data.status === "expired";
+
     return {
-      status: data.status || "unknown",
-      success: data.status === "success" || data.status === "confirmed",
+      status: isPaid ? "success" : isFailed ? "failed" : "pending",
+      success: isPaid,
+      failed: isFailed,
     };
   }
 }
@@ -105,8 +119,8 @@ class MockGateway implements PaymentGateway {
     };
   }
 
-  async checkStatus(_cibTransactionId: string): Promise<{ status: string; success: boolean }> {
-    return { status: "success", success: true };
+  async checkStatus(_cibTransactionId: string): Promise<{ status: string; success: boolean; failed: boolean }> {
+    return { status: "success", success: true, failed: false };
   }
 }
 

@@ -615,14 +615,18 @@ export default function EspacePsy() {
           .select("user_id, full_name, avatar_url")
           .in("user_id", patientIds);
           
-        const mapped = bData.map((b) => {
-          const profile = profiles?.find((p) => p.user_id === b.patient_id);
-          return {
-            ...b,
-            patient_name: profile?.full_name || "Patient",
-            patient_avatar: profile?.avatar_url || undefined,
-          } as Booking;
-        });
+        // Hide pending reservations: a booking awaiting payment confirmation
+        // must not appear on the psychologist's dashboard until actually paid.
+        const mapped = bData
+          .filter((b: any) => b.status !== "pending")
+          .map((b) => {
+            const profile = profiles?.find((p) => p.user_id === b.patient_id);
+            return {
+              ...b,
+              patient_name: profile?.full_name || "Patient",
+              patient_avatar: profile?.avatar_url || undefined,
+            } as Booking;
+          });
         setBookings(mapped);
       }
       setBookingsLoading(false);
@@ -702,13 +706,10 @@ export default function EspacePsy() {
       .from("profiles")
       .update({
         ...rest,
-        // Keep price_per_session in sync as the headline price shown to clients.
-        // All bands (individual/couples/adolescents) are preserved via `rest`,
-        // and the headline falls back across the bands, then the existing value.
+        // Headline price shown to clients is the individual rate. Per-type bands
+        // (couples/adolescents) are stored separately and preserved via `rest`.
         price_per_session:
           profileData.price_individual ??
-          profileData.price_couples ??
-          profileData.price_adolescents ??
           profileData.price_per_session,
         bio: (bio ?? "").trim().slice(0, BIO_MAX_LENGTH),
         approach: (approach ?? "").trim().slice(0, BIO_MAX_LENGTH),

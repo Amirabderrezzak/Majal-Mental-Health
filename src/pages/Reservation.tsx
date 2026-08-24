@@ -63,11 +63,13 @@ const Reservation = () => {
             setDocCouples(couples);
             setDocAdolescents(adolescents);
             setDocPricePerSession(data.price_per_session ?? null);
-            // Default the session type to the first offered type.
-            const firstOffered = individual != null ? "individual"
-              : couples != null ? "couples"
-              : adolescents != null ? "adolescents"
-              : "individual";
+            // Default the session type to the first offered type. The individual
+            // rate is offered if its own band is set OR a headline price exists.
+            const firstOffered =
+              individual != null || data.price_per_session != null ? "individual"
+                : couples != null ? "couples"
+                : adolescents != null ? "adolescents"
+                : "individual";
             setSessionType(firstOffered);
             setDocAvatarUrl(data.avatar_url);
             setDocEmoji("🧑‍⚕️");
@@ -80,15 +82,18 @@ const Reservation = () => {
     }
   }, [id, isUUID, navigate]);
 
+  // Each type shows its own band. Only the individual rate falls back to the
+  // headline price_per_session; couples/adolescents are offered solely when the
+  // psychologist has set their specific band.
   const priceForType = (type: "individual" | "couples" | "adolescents") =>
-    (type === "individual" ? docIndividual
+    type === "individual" ? docIndividual ?? docPricePerSession
       : type === "couples" ? docCouples
-      : docAdolescents) ?? docPricePerSession;
+      : docAdolescents;
 
   const sessionOptions = [
-    { type: "individual" as const,   label: t("res.session.individual")   || "Individuel",   price: docIndividual },
-    { type: "couples" as const,      label: t("res.session.couples")      || "Couple",       price: docCouples },
-    { type: "adolescents" as const,  label: t("res.session.adolescents")  || "Adolescent",   price: docAdolescents },
+    { type: "individual" as const,   label: t("res.session.individual")   || "Individuel",   price: priceForType("individual") },
+    { type: "couples" as const,      label: t("res.session.couples")      || "Couple",       price: priceForType("couples") },
+    { type: "adolescents" as const,  label: t("res.session.adolescents")  || "Adolescent",   price: priceForType("adolescents") },
   ];
 
   // Keep the displayed price in sync with the selected session type.
