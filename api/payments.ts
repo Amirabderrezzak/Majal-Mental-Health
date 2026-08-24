@@ -80,13 +80,16 @@ export const checkoutHandler = async (req: any, res: any) => {
 
     const { data: existing } = await checkoutSupabase
       .from("payments")
-      .select("id, status")
+      .select("id, status, patient_id")
       .eq("psychologist_id", psychologist_id)
       .eq("booked_at", booked_at)
       .in("status", ["initiated", "pending"])
       .maybeSingle();
 
-    if (existing) {
+    // Only reuse a pending payment owned by the SAME user. A pending payment
+    // from another patient means they already hold the reserved slot, so we must
+    // not hand their session to someone else (the booking check below 409s them).
+    if (existing && existing.patient_id === user.id) {
       if (existing.status === "pending") {
         const { data: stalePayment } = await checkoutSupabase
           .from("payments")
@@ -108,16 +111,46 @@ export const checkoutHandler = async (req: any, res: any) => {
         .eq("id", existing.id);
     }
 
+    // Reserve the slot so the calendar shows it as taken immediately and two
+    // patients can never end up with the same time.
+    // 1) Free abandoned reservations (pending > 30 min old) for this slot.
+    await checkoutSupabase
+      .from("bookings")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("psychologist_id", psychologist_id)
+      .eq("booked_at", booked_at)
+      .eq("status", "pending")
+      .lt("created_at", new Date(Date.now() - 30 * 60 * 1000).toISOString());
+
+    // 2) Reuse an existing reservation owned by this patient, otherwise block
+    //    if the slot is already taken by someone else.
     const { data: existingBooking } = await checkoutSupabase
       .from("bookings")
-      .select("id")
+      .select("id, patient_id, status")
       .eq("psychologist_id", psychologist_id)
       .eq("booked_at", booked_at)
       .neq("status", "cancelled")
       .maybeSingle();
 
     if (existingBooking) {
-      return res.status(409).json({ error: "Ce créneau est déjà réservé." });
+      if (existingBooking.patient_id !== user.id) {
+        return res.status(409).json({ error: "Ce créneau est déjà réservé." });
+      }
+    } else {
+      const { error: bookingInsertErr } = await checkoutSupabase
+        .from("bookings")
+        .insert({
+          patient_id: user.id,
+          psychologist_id,
+          booked_at,
+          duration_minutes: duration_minutes || 60,
+          status: "pending",
+          price,
+        });
+      if (bookingInsertErr) {
+        console.error("Reservation insert error:", bookingInsertErr);
+        return res.status(500).json({ error: "Failed to reserve the slot" });
+      }
     }
 
     const { data: payment, error: insertError } = await checkoutSupabase

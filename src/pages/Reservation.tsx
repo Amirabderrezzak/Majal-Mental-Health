@@ -105,11 +105,13 @@ const Reservation = () => {
     const startOfDay = new Date(viewYear, viewMonth, selectedDay, 0, 0, 0).toISOString();
     const endOfDay = new Date(viewYear, viewMonth, selectedDay, 23, 59, 59).toISOString();
 
+    // Read from the public availability view (bypasses RLS) so slots booked by
+    // ANY patient are shown as taken — querying the base table only returns the
+    // current user's own bookings due to RLS.
     supabase
-      .from("bookings")
+      .from("psychologist_availability")
       .select("booked_at")
       .eq("psychologist_id", id)
-      .neq("status", "cancelled")
       .gte("booked_at", startOfDay)
       .lte("booked_at", endOfDay)
       .then(({ data, error }) => {

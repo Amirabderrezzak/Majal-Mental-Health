@@ -85,41 +85,76 @@ export async function confirmPaymentBooking(
       .update({ status: "failed", updated_at: new Date().toISOString() })
       .eq("id", paymentId);
 
+    // Release the reserved slot so it becomes bookable again.
+    await db
+      .from("bookings")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("patient_id", payment.patient_id)
+      .eq("psychologist_id", payment.psychologist_id)
+      .eq("booked_at", payment.booked_at)
+      .eq("status", "pending");
+
     return { status: 400, body: { error: "Payment not confirmed" } };
   }
 
+  // Find the reservation created at checkout (status "pending") or any existing
+  // booking for this exact slot. Scope by psychologist so a different patient
+  // can never hijack or duplicate the slot.
   const { data: existingBooking } = await db
     .from("bookings")
-    .select("id")
-    .eq("patient_id", payment.patient_id)
+    .select("id, patient_id, status")
+    .eq("psychologist_id", payment.psychologist_id)
     .eq("booked_at", payment.booked_at)
     .neq("status", "cancelled")
     .maybeSingle();
 
+  let bookingId = "";
+
   if (existingBooking) {
-    await db
-      .from("payments")
-      .update({ status: "confirmed", updated_at: new Date().toISOString() })
-      .eq("id", paymentId);
-    return { status: 200, body: { success: true, booking_id: existingBooking.id, already_confirmed: true } };
-  }
-
-  const { data: booking, error: bookingError } = await db
-    .from("bookings")
-    .insert({
-      patient_id: payment.patient_id,
-      psychologist_id: payment.psychologist_id,
-      booked_at: payment.booked_at,
-      duration_minutes: payment.duration_minutes,
-      status: "confirmed",
-      price: payment.price,
-    })
-    .select()
-    .single();
-
-  if (bookingError || !booking) {
-    console.error("Booking creation error:", bookingError);
-    return { status: 500, body: { error: "Failed to create booking after payment" } };
+    if (existingBooking.patient_id !== payment.patient_id) {
+      await db
+        .from("payments")
+        .update({ status: "failed", updated_at: new Date().toISOString() })
+        .eq("id", paymentId);
+      return { status: 409, body: { error: "Ce créneau est déjà réservé par un autre patient." } };
+    }
+    // Our reservation — promote pending → confirmed (idempotent on retries).
+    const { data: updated, error: updErr } = await db
+      .from("bookings")
+      .update({
+        status: "confirmed",
+        price: payment.price,
+        duration_minutes: payment.duration_minutes,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existingBooking.id)
+      .select()
+      .single();
+    if (updErr || !updated) {
+      console.error("Booking confirm error:", updErr);
+      return { status: 500, body: { error: "Failed to confirm booking" } };
+    }
+    bookingId = updated.id;
+  } else {
+    // Fallback: no reservation row (payment created before reservations were
+    // reserved at checkout). Create the confirmed booking now.
+    const { data: booking, error: bookingError } = await db
+      .from("bookings")
+      .insert({
+        patient_id: payment.patient_id,
+        psychologist_id: payment.psychologist_id,
+        booked_at: payment.booked_at,
+        duration_minutes: payment.duration_minutes,
+        status: "confirmed",
+        price: payment.price,
+      })
+      .select()
+      .single();
+    if (bookingError || !booking) {
+      console.error("Booking creation error:", bookingError);
+      return { status: 500, body: { error: "Failed to create booking after payment" } };
+    }
+    bookingId = booking.id;
   }
 
   await db
@@ -156,7 +191,7 @@ export async function confirmPaymentBooking(
       date: dateStr,
       duration: payment.duration_minutes,
       price: payment.price,
-      bookingId: booking.id,
+      bookingId,
     }).catch(console.error);
   }
 
@@ -170,5 +205,5 @@ export async function confirmPaymentBooking(
     }).catch(console.error);
   }
 
-  return { status: 200, body: { success: true, booking_id: booking.id } };
+  return { status: 200, body: { success: true, booking_id: bookingId } };
 }
