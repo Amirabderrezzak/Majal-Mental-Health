@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { getPaymentGateway, CheckoutParams } from "./_lib/payment-gateway.js";
 import { rateLimit } from "./_lib/rate-limit.js";
 import { confirmPaymentBooking } from "./_lib/confirm-booking.js";
@@ -262,49 +262,17 @@ export const confirmHandler = async (req: any, res: any) => {
   }
 };
 
-// ── webhook ─────────────────────────────────────────────────────────────────────
-const webhookSupabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const webhookSupabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const webhookSupabase: SupabaseClient | null = (() => {
-  if (!webhookSupabaseUrl || !webhookSupabaseKey) return null;
-  try {
-    return createClient(webhookSupabaseUrl, webhookSupabaseKey);
-  } catch (e) {
-    console.error("Failed to create Supabase client in payments/webhook:", e);
-    return null;
-  }
-})();
-
-export const webhookHandler = async (req: VercelRequest, res: VercelResponse) => {
-  cors(res);
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-
-  if (!webhookSupabase) {
-    return res.status(500).json({ error: "Database not configured" });
-  }
-
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Missing authorization header" });
-  }
-
-  const token = authHeader.split(" ")[1];
-  const { data: { user }, error: authError } = await webhookSupabase.auth.getUser(token);
-  if (authError || !user) {
-    return res.status(401).json({ error: "Invalid or expired token" });
-  }
-
-  const paymentId = req.body?.payment_id || req.body?.booking_id;
-
-  try {
-    const result = await confirmPaymentBooking(webhookSupabase, paymentId, user.id);
-    return res.status(result.status).json(result.body);
-  } catch (err) {
-    console.error("Webhook error:", err);
-    return res.status(500).json({ error: err instanceof Error ? err.message : "Internal server error" });
-  }
-};
+// NOTE: there used to be a `webhook` action here, mirroring `confirm` but
+// intended for SofizPay to call back directly. It's removed: SofizPay's
+// createCheckout request (api/_lib/payment-gateway.ts) never registers a
+// notify/webhook URL with the gateway — it only redirects the user's browser
+// to `return_url` — and the handler required a user Bearer JWT, which no
+// real gateway callback could ever supply. It was unreachable dead code.
+// `confirm` (called from PaymentReturn.tsx after the redirect back) is the
+// actual completion path; both ultimately call the same confirmPaymentBooking
+// gateway re-verification. If SofizPay is later confirmed to support async
+// server-to-server callbacks, reintroduce this action secured by the
+// (currently unused) WEBHOOK_SECRET env var instead of a user JWT.
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = req.query.action as string;
@@ -314,8 +282,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return checkoutHandler(req, res);
     case "confirm":
       return confirmHandler(req, res);
-    case "webhook":
-      return webhookHandler(req, res);
     default:
       return res.status(400).json({ error: "Unknown or missing action" });
   }

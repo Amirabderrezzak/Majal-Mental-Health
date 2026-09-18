@@ -7,6 +7,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ClinicSettings, DEFAULT_CLINIC_SETTINGS, ExistingBooking, getAvailableSlots, groupSlotsByPeriod } from "@/lib/availability";
 
 const Reservation = () => {
   const { id } = useParams();
@@ -21,7 +22,6 @@ const Reservation = () => {
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
   const [booking, setBooking] = useState(false);
 
   // Dynamic doctor details state
@@ -35,13 +35,14 @@ const Reservation = () => {
   const [docEmoji, setDocEmoji] = useState("🧑‍⚕️");
   const [docAvatarUrl, setDocAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(isUUID);
+  const [clinicSettings, setClinicSettings] = useState<ClinicSettings>(DEFAULT_CLINIC_SETTINGS);
 
   useEffect(() => {
     if (isUUID) {
       setLoading(true);
       supabase
         .from("psychologist_directory")
-        .select("user_id, full_name, specialty, price_per_session, price_individual, price_couples, price_adolescents, avatar_url, approval_status")
+        .select("user_id, full_name, specialty, price_per_session, price_individual, price_couples, price_adolescents, avatar_url, approval_status, clinic_settings")
         .eq("user_id", id)
         .single()
         .then(({ data, error }) => {
@@ -73,6 +74,10 @@ const Reservation = () => {
             setSessionType(firstOffered);
             setDocAvatarUrl(data.avatar_url);
             setDocEmoji("🧑‍⚕️");
+            const cs = (data as any).clinic_settings;
+            if (cs && typeof cs === "object") {
+              setClinicSettings({ ...DEFAULT_CLINIC_SETTINGS, ...cs });
+            }
           }
           setLoading(false);
         });
@@ -101,11 +106,11 @@ const Reservation = () => {
   const docPriceComputed = selectedPrice ?? 0;
 
   // Live slot availability query from Supabase bookings table
-  const [bookedTimes, setBookedTimes] = useState<string[]>([]);
+  const [dayBookings, setDayBookings] = useState<ExistingBooking[]>([]);
 
   useEffect(() => {
     if (!id || !selectedDay || !isUUID) {
-      setBookedTimes([]);
+      setDayBookings([]);
       return;
     }
 
@@ -117,7 +122,7 @@ const Reservation = () => {
     // current user's own bookings due to RLS.
     supabase
       .from("psychologist_availability")
-      .select("booked_at")
+      .select("booked_at, duration_minutes")
       .eq("psychologist_id", id)
       .gte("booked_at", startOfDay)
       .lte("booked_at", endOfDay)
@@ -125,16 +130,20 @@ const Reservation = () => {
         if (error) {
           console.error("Error fetching booked slots:", error);
         } else if (data) {
-          const times = data.map((b) => {
-            const d = new Date(b.booked_at);
-            const hrs = String(d.getHours()).padStart(2, "0");
-            const mins = String(d.getMinutes()).padStart(2, "0");
-            return `${hrs}:${mins}`;
-          });
-          setBookedTimes(times);
+          setDayBookings(data as ExistingBooking[]);
         }
       });
   }, [id, selectedDay, viewMonth, viewYear, isUUID]);
+
+  const availableSlots = selectedDay
+    ? getAvailableSlots(new Date(viewYear, viewMonth, selectedDay), clinicSettings, dayBookings)
+    : [];
+  const { morning, afternoon, evening } = groupSlotsByPeriod(availableSlots);
+  const slotGroupsComputed = [
+    { label: t("res.morning"), slots: morning },
+    { label: t("res.afternoon"), slots: afternoon },
+    { label: t("res.evening"), slots: evening },
+  ];
 
   const months = t("cal.months").split(",");
   const dayLabels = t("cal.days").split(",");
@@ -159,12 +168,6 @@ const Reservation = () => {
 
   const isPast = (d: number) => new Date(viewYear, viewMonth, d) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const isToday = (d: number) => d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
-
-  const slotGroups = [
-    { label: t("res.morning"), slots: ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30"], taken: [1, 3] },
-    { label: t("res.afternoon"), slots: ["14:00", "14:30", "15:00", "15:30", "16:00", "16:30"], taken: [2] },
-    { label: t("res.evening"), slots: ["18:00", "18:30", "19:00", "19:30"], taken: [] as number[] },
-  ];
 
   const locale = lang === "ar" ? "ar-SA" : "fr-FR";
   const selectedDateStr = selectedDay
@@ -296,30 +299,31 @@ const Reservation = () => {
             {/* Time Slots */}
             <div className="bg-card rounded-lg shadow-card p-4 sm:p-8 mt-6">
               <div className="text-[17px] font-semibold text-foreground mb-6 font-sans">{t("res.selectTime")}</div>
-              {slotGroups.map((g) => (
-                <div key={g.label}>
-                  <div className="text-sm font-medium text-muted-foreground mb-3 mt-5 first:mt-0">{g.label}</div>
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
-                    {g.slots.map((s, i) => {
-                      const isTaken = isUUID ? bookedTimes.includes(s) : g.taken.includes(i);
-                      return (
+              {!selectedDay ? (
+                <p className="text-sm text-muted-foreground">{t("res.pickDayFirst") || "Choisissez d'abord une date."}</p>
+              ) : availableSlots.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t("res.noSlotsThisDay") || "Aucun créneau disponible ce jour-là."}</p>
+              ) : (
+                slotGroupsComputed.filter((g) => g.slots.length > 0).map((g) => (
+                  <div key={g.label}>
+                    <div className="text-sm font-medium text-muted-foreground mb-3 mt-5 first:mt-0">{g.label}</div>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
+                      {g.slots.map((s) => (
                         <button
                           key={s}
-                          onClick={() => !isTaken && selectedDay && setSelectedTime(s)}
-                          disabled={isTaken}
+                          onClick={() => setSelectedTime(s)}
                           className={`py-2.5 text-center rounded-[10px] border text-sm cursor-pointer transition-all font-sans ${
-                            isTaken ? "opacity-40 cursor-default line-through border-border bg-teal-hero" :
                             s === selectedTime ? "bg-primary text-primary-foreground border-primary font-medium" :
                             "border-border bg-teal-hero text-foreground hover:border-teal-light hover:bg-teal-pale"
                           }`}
                         >
                           {s}
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
@@ -421,22 +425,6 @@ const Reservation = () => {
       </div>
 
       <Footer />
-
-      {/* Success Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-foreground/45 z-[200] flex items-center justify-center" onClick={() => setShowModal(false)}>
-          <div className="bg-card rounded-3xl px-10 py-12 max-w-[440px] w-[90%] text-center" onClick={(e) => e.stopPropagation()}>
-            <div className="text-[56px] mb-4">✅</div>
-            <h2 className="font-serif text-[26px] text-primary mb-2.5">{t("res.confirmed")}</h2>
-            <p className="text-[15px] text-muted-foreground leading-relaxed mb-7">
-              {t("res.confirmMsg")} {docName} {t("res.confirmMsg2")} {selectedDateStr} {t("res.confirmMsg3")} {selectedTime}. {t("res.confirmMsg4")}
-            </p>
-            <Link to="/mon-espace" className="inline-block px-9 py-3 rounded-[32px] bg-primary text-primary-foreground text-[15px] font-medium no-underline hover:bg-teal-mid transition-colors">
-              Voir mes réservations
-            </Link>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

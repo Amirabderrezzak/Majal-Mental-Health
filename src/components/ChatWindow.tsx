@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Send, Paperclip, Mic, Square, Loader2, FileText, Image as ImageIcon, MessageSquare } from "lucide-react";
-import { Message, fetchMessages, sendMessage, subscribeToMessages, uploadAttachment } from "@/services/chatService";
+import { Message, fetchMessages, sendMessage, subscribeToMessages, uploadAttachment, resolveAttachmentUrl } from "@/services/chatService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
@@ -28,9 +28,13 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Attachment URLs are signed and expire — resolved fresh per message id
+  // rather than trusted from the DB (see chatService.resolveAttachmentUrl).
+  const [attachmentUrls, setAttachmentUrls] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (!user) return;
-    
+
     const loadData = async () => {
       setLoading(true);
       const data = await fetchMessages(user.id, otherUserId);
@@ -65,6 +69,27 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 100);
   };
+
+  useEffect(() => {
+    const toResolve = messages.filter((m) => m.file_url && !attachmentUrls[m.id]);
+    if (toResolve.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        toResolve.map(async (m) => [m.id, await resolveAttachmentUrl(m.file_url!)] as const)
+      );
+      if (cancelled) return;
+      setAttachmentUrls((prev) => {
+        const next = { ...prev };
+        for (const [id, url] of entries) if (url) next[id] = url;
+        return next;
+      });
+    })();
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
 
   const handleSendText = async () => {
     if (!inputText.trim() || !user) return;
@@ -151,24 +176,33 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
   // ---------------- Renderers ----------------
   const renderAttachment = (msg: Message) => {
     if (!msg.file_url) return null;
-    
+
+    const resolvedUrl = attachmentUrls[msg.id];
+    if (!resolvedUrl) {
+      return (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" /> {t("chat.loadingAttachment")}
+        </div>
+      );
+    }
+
     if (msg.file_type?.startsWith("image/")) {
       return (
-        <a href={msg.file_url} target="_blank" rel="noreferrer" className="block mt-1">
-          <img src={msg.file_url} alt="attachment" className="max-w-[200px] rounded-lg border border-border mt-1" />
+        <a href={resolvedUrl} target="_blank" rel="noreferrer" className="block mt-1">
+          <img src={resolvedUrl} alt="attachment" className="max-w-[200px] rounded-lg border border-border mt-1" />
         </a>
       );
     }
-    
+
     if (msg.file_type?.startsWith("audio/")) {
       return (
-        <audio controls src={msg.file_url} className="mt-2 w-[220px] h-10" />
+        <audio controls src={resolvedUrl} className="mt-2 w-[220px] h-10" />
       );
     }
 
     // Generic file
     return (
-      <a href={msg.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black/5 p-2 rounded-lg mt-1 decoration-transparent text-foreground hover:bg-black/10 transition-colors">
+      <a href={resolvedUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black/5 p-2 rounded-lg mt-1 decoration-transparent text-foreground hover:bg-black/10 transition-colors">
         <FileText className="w-5 h-5 text-primary" />
         <span className="text-sm truncate max-w-[150px]">{msg.file_name}</span>
       </a>

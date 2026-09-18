@@ -172,6 +172,19 @@ export async function confirmPaymentBooking(
       .select()
       .single();
     if (bookingError || !booking) {
+      // 23505 = unique_violation. idx_unique_active_booking(psychologist_id,
+      // booked_at) is the DB-level backstop for the TOCTOU window between the
+      // existingBooking SELECT above and this INSERT: two concurrent confirms
+      // for the same slot (different patients, no prior reservation row) can
+      // both pass that SELECT before either writes. The loser hits this
+      // constraint instead of silently double-booking the slot.
+      if (bookingError?.code === "23505") {
+        await db
+          .from("payments")
+          .update({ status: "failed", updated_at: new Date().toISOString() })
+          .eq("id", paymentId);
+        return { status: 409, body: { error: "Ce créneau est déjà réservé par un autre patient." } };
+      }
       console.error("Booking creation error:", bookingError);
       return { status: 500, body: { error: "Failed to create booking after payment" } };
     }

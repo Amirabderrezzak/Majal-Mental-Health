@@ -9,3 +9,7 @@ skills-lock.json
 *.log
 .vercel/
 .supabase/
+
+# Supabase CLI local cache (machine-specific; project-ref is intentionally tracked)
+supabase/.temp/*
+!supabase/.temp/project-ref

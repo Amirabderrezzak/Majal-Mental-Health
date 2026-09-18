@@ -140,6 +140,13 @@ export const instantRoomHandler = async (req: any, res: any) => {
     return res.status(403).json({ error: "You can only accept requests assigned to you" });
   }
 
+  // Abuse protection: each call bills the Daily.co API (mirrors audio-room's limit).
+  const limit = rateLimit(req, { key: "instant-room", windowMs: 10 * 60 * 1000, max: 30 });
+  if (!limit.ok) {
+    res.setHeader("Retry-After", String(limit.retryAfter ?? 60));
+    return res.status(429).json({ error: "Too many requests, please try again later." });
+  }
+
   try {
     // Clean up any expired requests first
     await supabase.rpc("expire_immediate_requests").catch(() => {});
@@ -250,6 +257,16 @@ export const roomHandler = async (req: any, res: any) => {
   const { booking_id } = req.body;
   if (!booking_id) {
     return res.status(400).json({ error: "booking_id is required" });
+  }
+
+  // Abuse protection: each call bills the Daily.co API (mirrors audio-room's
+  // limit). Repeat clicks on an already-created room don't re-hit Daily.co
+  // (see the video_room_url short-circuit below), so this only bounds the
+  // room-creation path itself.
+  const limit = rateLimit(req, { key: "call-room", windowMs: 10 * 60 * 1000, max: 30 });
+  if (!limit.ok) {
+    res.setHeader("Retry-After", String(limit.retryAfter ?? 60));
+    return res.status(429).json({ error: "Too many requests, please try again later." });
   }
 
   try {

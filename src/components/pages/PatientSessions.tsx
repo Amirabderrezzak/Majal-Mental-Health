@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar, Clock, Check, X, Loader2, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SessionCalendar } from "@/components/SessionCalendar";
 import { SessionsListSkeleton, SessionHistorySkeleton } from "@/components/LoadingSkeletons";
 import { isSameDay } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { ClinicSettings, DEFAULT_CLINIC_SETTINGS, ExistingBooking, getAvailableSlots } from "@/lib/availability";
 
 interface Booking {
   id: string;
@@ -55,15 +57,52 @@ export default function PatientSessions({
   const [rescheduling, setRescheduling] = useState(false);
   const allBookings = [...upcoming, ...past];
 
-  const getAvailableSlots = () => {
-    if (!rescheduleDate) return [];
-    const slots = [];
-    for (let h = 8; h < 20; h++) {
-      slots.push(`${String(h).padStart(2, "0")}:00`);
-      slots.push(`${String(h).padStart(2, "0")}:30`);
+  // Real availability for the reschedule wizard: the psychologist's clinic
+  // settings (working hours/days/buffer/vacation mode) plus their existing
+  // bookings that day, rather than a generic 08:00–20:00 hardcoded list.
+  const [rescheduleClinicSettings, setRescheduleClinicSettings] = useState<ClinicSettings>(DEFAULT_CLINIC_SETTINGS);
+  const [rescheduleDayBookings, setRescheduleDayBookings] = useState<ExistingBooking[]>([]);
+
+  useEffect(() => {
+    if (!rescheduleBooking) return;
+    supabase
+      .from("psychologist_directory")
+      .select("clinic_settings")
+      .eq("user_id", rescheduleBooking.psychologist_id)
+      .single()
+      .then(({ data }) => {
+        const cs = (data as any)?.clinic_settings;
+        setRescheduleClinicSettings(cs && typeof cs === "object" ? { ...DEFAULT_CLINIC_SETTINGS, ...cs } : DEFAULT_CLINIC_SETTINGS);
+      });
+  }, [rescheduleBooking?.psychologist_id]);
+
+  useEffect(() => {
+    if (!rescheduleBooking || !rescheduleDate) {
+      setRescheduleDayBookings([]);
+      return;
     }
-    return slots;
-  };
+    const startOfDay = new Date(`${rescheduleDate}T00:00:00`).toISOString();
+    const endOfDay = new Date(`${rescheduleDate}T23:59:59`).toISOString();
+    supabase
+      .from("psychologist_availability")
+      .select("booked_at, duration_minutes")
+      .eq("psychologist_id", rescheduleBooking.psychologist_id)
+      .gte("booked_at", startOfDay)
+      .lte("booked_at", endOfDay)
+      .then(({ data, error }) => {
+        if (error) { console.error("Error fetching booked slots for reschedule:", error); return; }
+        // Exclude the booking being rescheduled itself — otherwise its
+        // current slot would show as taken when the patient just wants to
+        // pick a different time on the same day.
+        setRescheduleDayBookings(
+          (data || []).filter((b: any) => new Date(b.booked_at).toISOString() !== new Date(rescheduleBooking.booked_at).toISOString())
+        );
+      });
+  }, [rescheduleBooking, rescheduleDate]);
+
+  const availableRescheduleSlots = rescheduleDate
+    ? getAvailableSlots(new Date(`${rescheduleDate}T00:00:00`), rescheduleClinicSettings, rescheduleDayBookings, rescheduleBooking?.duration_minutes)
+    : [];
 
   const handleConfirmReschedule = async () => {
     if (!rescheduleBooking || !rescheduleDate || !rescheduleTime) return;
@@ -148,21 +187,25 @@ export default function PatientSessions({
             <div className="space-y-4">
               <h3 className="font-serif text-lg font-semibold text-foreground">Choisir un horaire</h3>
               <p className="text-xs text-muted-foreground">{new Date(rescheduleDate).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</p>
-              <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
-                {getAvailableSlots().map(slot => (
-                  <button
-                    key={slot}
-                    onClick={() => setRescheduleTime(slot)}
-                    className={`px-3 py-2.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                      rescheduleTime === slot
-                        ? "bg-primary border-primary text-primary-foreground shadow-sm"
-                        : "bg-white border-border/50 hover:bg-accent/40 text-foreground"
-                    }`}
-                  >
-                    {slot}
-                  </button>
-                ))}
-              </div>
+              {availableRescheduleSlots.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">{t("res.noSlotsThisDay") || "Aucun créneau disponible ce jour-là."}</p>
+              ) : (
+                <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
+                  {availableRescheduleSlots.map(slot => (
+                    <button
+                      key={slot}
+                      onClick={() => setRescheduleTime(slot)}
+                      className={`px-3 py-2.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                        rescheduleTime === slot
+                          ? "bg-primary border-primary text-primary-foreground shadow-sm"
+                          : "bg-white border-border/50 hover:bg-accent/40 text-foreground"
+                      }`}
+                    >
+                      {slot}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex gap-3">
                 <button onClick={() => setRescheduleStep(2)} className="px-4 py-3 border border-border/50 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer hover:bg-accent/40 transition-all">Retour</button>
                 <button

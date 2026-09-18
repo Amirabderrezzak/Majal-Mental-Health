@@ -266,12 +266,15 @@ export const pushCronHandler = async (req: any, res: any) => {
     let reminderSent = 0;
     let reminderFailed = 0;
 
-    // Session reminder: find confirmed sessions happening tomorrow
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    const dayAfter = new Date(tomorrow);
-    dayAfter.setDate(dayAfter.getDate() + 1);
+    // Session reminder: find confirmed sessions happening tomorrow, in
+    // Algeria local time (UTC+1, no DST) — NOT the server's own timezone.
+    // Vercel functions run in UTC, so naive Date.setHours(0,0,0,0) would use
+    // UTC midnight (= 1am Algeria time), shifting the day boundary by an hour.
+    const ALGERIA_OFFSET_MS = 60 * 60 * 1000;
+    const algeriaNow = new Date(Date.now() + ALGERIA_OFFSET_MS);
+    const startOfTodayAlgeria = Date.UTC(algeriaNow.getUTCFullYear(), algeriaNow.getUTCMonth(), algeriaNow.getUTCDate()) - ALGERIA_OFFSET_MS;
+    const tomorrow = new Date(startOfTodayAlgeria + 24 * 60 * 60 * 1000);
+    const dayAfter = new Date(startOfTodayAlgeria + 2 * 24 * 60 * 60 * 1000);
 
     const { data: sessions } = await supabase
       .from("bookings")
@@ -409,7 +412,14 @@ export const pushCronHandler = async (req: any, res: any) => {
       if (!staleErr) staleCleaned = stalePayments.length;
     }
 
-    res.json({ success: true, processed, failed, total: notifications.length, reminderSent, reminderFailed, noShowDetected, noShowFailed, stalePaymentsCleaned: staleCleaned });
+    // Immediate ("Parler maintenant") requests are otherwise only swept when a
+    // therapist happens to open api/calls?action=instant-room — an abandoned
+    // patient tab leaves them "pending" forever. Sweep them here too.
+    let expiredRequests = 0;
+    const { error: expireErr } = await supabase.rpc("expire_immediate_requests");
+    if (!expireErr) expiredRequests = 1;
+
+    res.json({ success: true, processed, failed, total: notifications.length, reminderSent, reminderFailed, noShowDetected, noShowFailed, stalePaymentsCleaned: staleCleaned, expiredRequestsSwept: expiredRequests });
   } catch (err: any) {
     console.error("Push cron error:", err);
     res.status(500).json({ error: err.message });
@@ -417,9 +427,12 @@ export const pushCronHandler = async (req: any, res: any) => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Vercel Cron authenticates via `Authorization: Bearer <CRON_SECRET>`, not the
+  // `x-cron-secret` header — recognize both so a cron trigger with no `?action=`
+  // still resolves to push-cron instead of 400ing before isCronAuthorized runs.
   const action =
     (req.query.action as string) ||
-    (req.headers["x-cron-secret"] ? "push-cron" : null);
+    (isCronAuthorized(req) ? "push-cron" : null);
 
   switch (action) {
     case "preferences":

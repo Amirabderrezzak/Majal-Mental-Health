@@ -193,6 +193,8 @@ const translations: Record<string, Record<Lang, string>> = {
   "res.morning": { fr: "Matin", ar: "صباحاً" },
   "res.afternoon": { fr: "Après-midi", ar: "بعد الظهر" },
   "res.evening": { fr: "Soir", ar: "مساءً" },
+  "res.pickDayFirst": { fr: "Choisissez d'abord une date.", ar: "اختر تاريخاً أولاً." },
+  "res.noSlotsThisDay": { fr: "Aucun créneau disponible ce jour-là.", ar: "لا توجد مواعيد متاحة في هذا اليوم." },
   "res.recap": { fr: "Récapitulatif", ar: "ملخص" },
   "res.date": { fr: "Date", ar: "التاريخ" },
   "res.time": { fr: "Horaire", ar: "الوقت" },
@@ -290,7 +292,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "space.status.done": { fr: "Terminée", ar: "منتهية" },
   "space.status.cancelled": { fr: "Annulée", ar: "ملغاة" },
   "space.discussionsTitle": { fr: "Discussions", ar: "المحادثات" },
-  "space.noTherapistsMessage": { fr: "Vous n'avez pas encore de conversation active. Réservez une séance pour commencer à échanger.", ar: "les conversations actives s'affichent ici. Réservez une séance." },
+  "space.noTherapistsMessage": { fr: "Vous n'avez pas encore de conversation active. Réservez une séance pour commencer à échanger.", ar: "ليس لديك محادثة نشطة بعد. احجز جلسة لبدء التواصل." },
   "space.defaultTherapistName": { fr: "Psychologue", ar: "أخصائي نفسي" },
   "space.selectPsyMessage": { fr: "Sélectionnez un psychologue dans la liste pour démarrer la discussion.", ar: "اختر أخصائياً نفسياً من القائمة لبدء المحادثة." },
   "space.yourName": { fr: "Votre nom", ar: "اسمك" },
@@ -323,6 +325,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "auth.welcome": { fr: "Bon retour", ar: "مرحباً بعودتك" },
   "auth.loginSubtitle": { fr: "Connectez-vous à votre espace Majal", ar: "سجل الدخول إلى مساحتك في مجال" },
   "auth.google": { fr: "Continuer avec Google", ar: "المتابعة مع جوجل" },
+  "auth.googlePsyUnavailable": { fr: "L'inscription Google n'est pas disponible pour les psychologues : nous devons vérifier votre numéro d'ordre, votre spécialité et votre ville. Merci d'utiliser le formulaire ci-dessous.", ar: "التسجيل عبر جوجل غير متاح للأخصائيين النفسيين: نحتاج للتحقق من رقم ترخيصك وتخصصك ومدينتك. يرجى استخدام النموذج أدناه." },
   "auth.or": { fr: "ou", ar: "أو" },
   "auth.email": { fr: "Email", ar: "البريد الإلكتروني" },
   "auth.password": { fr: "Mot de passe", ar: "كلمة المرور" },
@@ -542,6 +545,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "chat.attachFile": { fr: "Joindre un fichier", ar: "إرفاق ملف" },
   "chat.recording": { fr: "Enregistrement en cours...", ar: "جارٍ التسجيل..." },
   "chat.placeholder": { fr: "Écrivez un message...", ar: "اكتب رسالة..." },
+  "chat.loadingAttachment": { fr: "Chargement de la pièce jointe...", ar: "جارٍ تحميل المرفق..." },
   "chat.holdToRecord": { fr: "Maintenir pour enregistrer", ar: "اضغط مع الاستمرار للتسجيل" },
 
   // ----- Auth toasts -----

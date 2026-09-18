@@ -67,7 +67,7 @@ export const uploadAttachment = async (file: File) => {
   const fileExt = file.name.split('.').pop();
   const filePath = `${userId}/${crypto.randomUUID()}.${fileExt}`;
 
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from('chat_attachments')
     .upload(filePath, file);
 
@@ -75,19 +75,46 @@ export const uploadAttachment = async (file: File) => {
     console.error("Error uploading attachment:", error);
     throw error;
   }
-  
-  // Get the signed URL that will work for download/viewing
-  // (Assuming 'chat_attachments' is not public, we use createSignedUrl, but for simplicity in chat we can do that or download logic)
-  const { data: urlData } = await supabase.storage
-    .from('chat_attachments')
-    .createSignedUrl(filePath, 60 * 15); // 15 minutes
-    
+
+  // Store the bare storage path, not a signed URL — signed URLs expire, but
+  // messages.file_url is permanent. A fresh signed URL is minted on read via
+  // resolveAttachmentUrl() instead (see below).
   return {
     filePath,
-    url: urlData?.signedUrl || "",
+    url: filePath,
     type: file.type,
     name: file.name
   };
+};
+
+// Extracts the chat_attachments storage path from either a bare path (new
+// messages) or a legacy full signed URL (messages sent before this fix, which
+// embedded a since-expired token) — both contain the path as a substring, so
+// storage RLS ("Users can view own chat attachments") matches on it the same
+// way. Returns null if no chat_attachments path can be found.
+function extractAttachmentPath(fileUrl: string): string | null {
+  if (!fileUrl) return null;
+  const marker = "chat_attachments/";
+  const idx = fileUrl.indexOf(marker);
+  if (idx === -1) return fileUrl; // already a bare path
+  return fileUrl.slice(idx + marker.length).split("?")[0];
+}
+
+// Mints a fresh signed URL for a message attachment at render time, rather
+// than trusting a URL stored (and possibly expired) in the database.
+export const resolveAttachmentUrl = async (fileUrl: string): Promise<string | null> => {
+  const path = extractAttachmentPath(fileUrl);
+  if (!path) return null;
+
+  const { data, error } = await supabase.storage
+    .from('chat_attachments')
+    .createSignedUrl(path, 60 * 60); // 1 hour — plenty for a single viewing session
+
+  if (error) {
+    console.error("Error resolving attachment URL:", error);
+    return null;
+  }
+  return data?.signedUrl || null;
 };
 
 export const subscribeToMessages = (userId: string, callback: (payload: any) => void) => {

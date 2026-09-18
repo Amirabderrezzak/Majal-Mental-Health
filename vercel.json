@@ -14,11 +14,11 @@
     }
   ],
   "rewrites": [
-    {       "source": "/((?!api/|_vercel/|firebase-messaging-sw.js|manifest.webmanifest|sw.js|registerSW.js).*)", "destination": "/index.html" }
+    {       "source": "/((?!api/|_vercel/|manifest.webmanifest|sw.js|registerSW.js).*)", "destination": "/index.html" }
   ],
   "crons": [
     {
-      "path": "/api/notifications",
+      "path": "/api/notifications?action=push-cron",
       "schedule": "0 9 * * *"
     }
   ]
