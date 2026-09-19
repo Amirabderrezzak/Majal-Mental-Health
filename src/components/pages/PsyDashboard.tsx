@@ -424,7 +424,7 @@ export default function PsyDashboard({
                           )}
                           {effectiveStatus === "confirmed" && !isActive && (
                             <>
-                              <button onClick={() => doUpdate(s.id, "done")} disabled={updating === s.id}
+                              <button onClick={() => doUpdate(s.id, "done")} disabled={updating === s.id || new Date(s.booked_at).getTime() > Date.now()}
                                 className="bg-muted text-muted-foreground border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-accent/40 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1">
                                 <Check className="w-3 h-3" /> Terminer
                               </button>

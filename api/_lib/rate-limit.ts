@@ -37,6 +37,8 @@ export interface RateLimitOptions {
   key: string;
   windowMs: number;
   max: number;
+  /** Bucket by this id (e.g. the authenticated user) instead of the client IP — many Algerian mobile users share one carrier-NAT IP. */
+  id?: string;
 }
 
 function getClientIp(req: any): string {
@@ -52,7 +54,7 @@ function getClientIp(req: any): string {
 export function rateLimit(req: any, opts: RateLimitOptions): RateLimitResult {
   scheduleCleanup();
   const now = Date.now();
-  const id = getClientIp(req);
+  const id = opts.id ?? getClientIp(req);
   const storeKey = `${opts.key}:${id}`;
   const existing = store.get(storeKey);
 

@@ -39,7 +39,7 @@ export const sendHandler = async (req: VercelRequest, res: VercelResponse) => {
   // Abuse protection: messaging has no relationship restriction (a patient can
   // legitimately message a psychologist before ever booking, to ask a
   // question — see Profil.tsx), so rate limiting is the main spam guard.
-  const limit = rateLimit(req, { key: "send-message", windowMs: 10 * 60 * 1000, max: 60 });
+  const limit = rateLimit(req, { key: "send-message", windowMs: 10 * 60 * 1000, max: 60, id: user.id });
   if (!limit.ok) {
     res.setHeader("Retry-After", String(limit.retryAfter ?? 60));
     return res.status(429).json({ error: "Too many messages, please slow down." });

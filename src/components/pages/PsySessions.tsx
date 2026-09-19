@@ -153,7 +153,7 @@ export default function PsySessions({
                           </button>
                         );
                       })()}
-                      <button onClick={() => updateBookingStatus(s.id, "done")} disabled={updating === s.id} className="bg-muted text-foreground border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-accent/40 transition-all disabled:opacity-50 shadow-sm">{t("psy.dashboard.markDone")}</button>
+                      <button onClick={() => updateBookingStatus(s.id, "done")} disabled={updating === s.id || new Date(s.booked_at).getTime() > Date.now()} title={new Date(s.booked_at).getTime() > Date.now() ? "Disponible une fois la séance commencée" : undefined} className="bg-muted text-foreground border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-accent/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">{t("psy.dashboard.markDone")}</button>
                       <button onClick={() => updateBookingStatus(s.id, "cancelled")} disabled={updating === s.id} className="bg-destructive/10 text-destructive border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-destructive/10 transition-all disabled:opacity-50 shadow-sm">{t("space.cancel")}</button>
                     </>
                   )}

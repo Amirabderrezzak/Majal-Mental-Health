@@ -47,7 +47,7 @@ export const checkoutHandler = async (req: any, res: any) => {
   // Abuse protection: 10 checkouts per 10 minutes per client IP (each creates a
   // payment + hits the gateway, so cap cost-abuse). Applied after auth, before
   // the heavy DB/gateway work.
-  const limit = rateLimit(req, { key: "checkout", windowMs: 10 * 60 * 1000, max: 10 });
+  const limit = rateLimit(req, { key: "checkout", windowMs: 10 * 60 * 1000, max: 10, id: user.id });
   if (!limit.ok) {
     res.setHeader("Retry-After", String(limit.retryAfter ?? 60));
     return res.status(429).json({ error: "Too many requests, please try again later." });

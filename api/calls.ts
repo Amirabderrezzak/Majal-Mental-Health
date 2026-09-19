@@ -38,7 +38,7 @@ export const audioRoomHandler = async (req: any, res: any) => {
 
   // Abuse protection: 20 audio-room creations per 10 minutes per client IP
   // (each bills the Daily.co API). Applied after auth, before the costly call.
-  const limit = rateLimit(req, { key: "create-audio-room", windowMs: 10 * 60 * 1000, max: 20 });
+  const limit = rateLimit(req, { key: "create-audio-room", windowMs: 10 * 60 * 1000, max: 20, id: user.id });
   if (!limit.ok) {
     res.setHeader("Retry-After", String(limit.retryAfter ?? 60));
     return res.status(429).json({ error: "Too many requests, please try again later." });
@@ -141,7 +141,7 @@ export const instantRoomHandler = async (req: any, res: any) => {
   }
 
   // Abuse protection: each call bills the Daily.co API (mirrors audio-room's limit).
-  const limit = rateLimit(req, { key: "instant-room", windowMs: 10 * 60 * 1000, max: 30 });
+  const limit = rateLimit(req, { key: "instant-room", windowMs: 10 * 60 * 1000, max: 30, id: user.id });
   if (!limit.ok) {
     res.setHeader("Retry-After", String(limit.retryAfter ?? 60));
     return res.status(429).json({ error: "Too many requests, please try again later." });
@@ -265,7 +265,7 @@ export const roomHandler = async (req: any, res: any) => {
   // limit). Repeat clicks on an already-created room don't re-hit Daily.co
   // (see the video_room_url short-circuit below), so this only bounds the
   // room-creation path itself.
-  const limit = rateLimit(req, { key: "call-room", windowMs: 10 * 60 * 1000, max: 30 });
+  const limit = rateLimit(req, { key: "call-room", windowMs: 10 * 60 * 1000, max: 30, id: user.id });
   if (!limit.ok) {
     res.setHeader("Retry-After", String(limit.retryAfter ?? 60));
     return res.status(429).json({ error: "Too many requests, please try again later." });
@@ -290,8 +290,13 @@ export const roomHandler = async (req: any, res: any) => {
       return res.status(400).json({ error: "Cannot start a video call for a cancelled session" });
     }
 
-    if (booking.status === "done") {
+    if (booking.status === "done" || booking.status === "no-show") {
       return res.status(400).json({ error: "This session has already ended" });
+    }
+
+    // Only a paid (confirmed) session gets a room — a pending reservation is unpaid.
+    if (booking.status !== "confirmed") {
+      return res.status(400).json({ error: "Cette séance n'est pas encore confirmée (paiement en attente)." });
     }
 
     if (booking.video_room_url) {
@@ -343,8 +348,18 @@ export const roomHandler = async (req: any, res: any) => {
       if (dailyResponse.ok && dailyData.url) {
         roomUrl = dailyData.url;
       } else {
-        console.error("Daily.co API error:", dailyData);
-        return res.status(500).json({ error: "Failed to create video room. Please try again." });
+        // A previous attempt may have created the room but failed to save it:
+        // reuse that room instead of leaving the session stuck.
+        const existing = await fetch(`https://api.daily.co/v1/rooms/booking-${booking_id}`, {
+          headers: { Authorization: `Bearer ${DAILY_API_KEY}` },
+        });
+        const existingData: any = existing.ok ? await existing.json() : null;
+        if (existingData?.url) {
+          roomUrl = existingData.url;
+        } else {
+          console.error("Daily.co API error:", dailyData);
+          return res.status(500).json({ error: "Failed to create video room. Please try again." });
+        }
       }
     } catch (err) {
       console.error("Failed to contact Daily.co API:", err);

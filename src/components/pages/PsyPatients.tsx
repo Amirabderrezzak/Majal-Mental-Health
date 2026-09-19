@@ -44,23 +44,32 @@ function PatientDetailsDrawer({
   useEscapeKey(!!selectedPatientId, () => setSelectedPatientId(null));
   const { user } = useAuth();
   const [clinicalNotes, setClinicalNotes] = useState("");
+  // Notes are only editable once the saved copy has loaded: otherwise a slow
+  // connection lets the late response overwrite what was just typed, and a quick
+  // Save would replace existing notes with an empty text.
+  const [notesLoaded, setNotesLoaded] = useState(false);
 
   useEffect(() => {
+    setNotesLoaded(false);
     if (!user || !selectedPatientId) { setClinicalNotes(""); return; }
-    const loadNotes = async () => {
-      const { data } = await supabase
-        .from("clinical_notes")
-        .select("notes")
-        .eq("psychologist_id", user.id)
-        .eq("patient_id", selectedPatientId)
-        .maybeSingle();
-      setClinicalNotes(data?.notes || "");
-    };
-    loadNotes();
+    let cancelled = false;
+    supabase
+      .from("clinical_notes")
+      .select("notes")
+      .eq("psychologist_id", user.id)
+      .eq("patient_id", selectedPatientId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) { toast.error("Impossible de charger les notes."); return; }
+        setClinicalNotes(data?.notes || "");
+        setNotesLoaded(true);
+      });
+    return () => { cancelled = true; };
   }, [user, selectedPatientId]);
 
   const saveClinicalNotes = async () => {
-    if (!user || !selectedPatientId) return;
+    if (!user || !selectedPatientId || !notesLoaded) return;
     const { error } = await supabase
       .from("clinical_notes")
       .upsert(
@@ -114,6 +123,8 @@ function PatientDetailsDrawer({
             </label>
             <textarea
               value={clinicalNotes}
+              disabled={!notesLoaded}
+              aria-busy={!notesLoaded}
               onChange={(e) => setClinicalNotes(e.target.value)}
               rows={12}
               placeholder={t("psy.patients.notes.placeholder")}
@@ -129,7 +140,7 @@ function PatientDetailsDrawer({
           <button onClick={() => setSelectedPatientId(null)} className="px-4 py-3 border border-solid border-border/50 hover:bg-accent/40 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer transition-all">
             {t("psy.common.close")}
           </button>
-          <button onClick={saveClinicalNotes} className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-semibold border-none cursor-pointer hover:bg-teal-mid hover:shadow-sm transition-all">
+          <button onClick={saveClinicalNotes} disabled={!notesLoaded} className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-semibold border-none cursor-pointer hover:bg-teal-mid hover:shadow-sm transition-all">
             {t("psy.patients.notes.save")}
           </button>
         </div>

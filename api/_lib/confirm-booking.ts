@@ -58,22 +58,20 @@ export async function confirmPaymentBooking(
     return { status: 403, body: { error: "You do not own this payment" } };
   }
 
-  // Idempotent: a payment that already produced a booking never creates another one,
-  // whatever that booking's status is now (confirmed, done, or cancelled afterwards).
+  // Idempotent: a payment that is already confirmed has already produced its booking,
+  // and never produces another. We must not look the booking up by slot: it may have
+  // been rescheduled since, and re-creating the original slot would hand out a free
+  // extra session for a single payment.
   if (payment.status === "confirmed") {
     const { data: existingBooking } = await db
       .from("bookings")
-      .select("id, status")
+      .select("id")
       .eq("patient_id", payment.patient_id)
       .eq("psychologist_id", payment.psychologist_id)
-      .eq("booked_at", payment.booked_at)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-
-    if (existingBooking) {
-      return { status: 200, body: { success: true, booking_id: existingBooking.id, already_confirmed: true } };
-    }
+    return { status: 200, body: { success: true, booking_id: existingBooking?.id ?? null, already_confirmed: true } };
   }
 
   let paymentVerified = false;
