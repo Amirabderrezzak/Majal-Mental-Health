@@ -7,7 +7,10 @@ import { SessionCalendar } from "@/components/SessionCalendar";
 import { SessionsListSkeleton, SessionHistorySkeleton } from "@/components/LoadingSkeletons";
 import { isSameDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { ClinicSettings, DEFAULT_CLINIC_SETTINGS, ExistingBooking, getAvailableSlots } from "@/lib/availability";
+import { ClinicSettings, DEFAULT_CLINIC_SETTINGS, ExistingBooking, getAvailableSlots, algiersDayRange, algiersParts } from "@/lib/availability";
+
+// "YYYY-MM-DD" (date input) -> calendar-day parts, read as an Algiers day.
+const ymd = (v: string) => { const [y, m, d] = v.split("-").map(Number); return { y, mo: m - 1, d }; };
 
 interface Booking {
   id: string;
@@ -82,14 +85,14 @@ export default function PatientSessions({
       setRescheduleDayBookings([]);
       return;
     }
-    const startOfDay = new Date(`${rescheduleDate}T00:00:00`).toISOString();
-    const endOfDay = new Date(`${rescheduleDate}T23:59:59`).toISOString();
+    const { y, mo, d } = ymd(rescheduleDate);
+    const { start: startOfDay, end: endOfDay } = algiersDayRange(y, mo, d);
     supabase
       .from("psychologist_availability")
       .select("booked_at, duration_minutes")
       .eq("psychologist_id", rescheduleBooking.psychologist_id)
       .gte("booked_at", startOfDay)
-      .lte("booked_at", endOfDay)
+      .lt("booked_at", endOfDay)
       .then(({ data, error }) => {
         if (error) { console.error("Error fetching booked slots for reschedule:", error); return; }
         // Exclude the booking being rescheduled itself — otherwise its
@@ -102,7 +105,7 @@ export default function PatientSessions({
   }, [rescheduleBooking, rescheduleDate]);
 
   const availableRescheduleSlots = rescheduleDate
-    ? getAvailableSlots(new Date(`${rescheduleDate}T00:00:00`), rescheduleClinicSettings, rescheduleDayBookings, rescheduleBooking?.duration_minutes)
+    ? getAvailableSlots(new Date(ymd(rescheduleDate).y, ymd(rescheduleDate).mo, ymd(rescheduleDate).d), rescheduleClinicSettings, rescheduleDayBookings, rescheduleBooking?.duration_minutes)
     : [];
 
   const handleConfirmReschedule = async () => {
@@ -170,7 +173,7 @@ export default function PatientSessions({
               <input
                 type="date"
                 value={rescheduleDate}
-                min={new Date().toISOString().split("T")[0]}
+                min={(() => { const a = algiersParts(new Date()); return `${a.y}-${String(a.mo + 1).padStart(2, "0")}-${String(a.d).padStart(2, "0")}`; })()}
                 onChange={e => setRescheduleDate(e.target.value)}
                 className="w-full px-4 py-3 border border-border/70 rounded-xl text-sm bg-teal-hero/30 outline-none focus:border-primary focus:bg-card transition-all font-sans"
               />

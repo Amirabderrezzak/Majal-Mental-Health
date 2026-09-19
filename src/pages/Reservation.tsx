@@ -7,7 +7,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ClinicSettings, DEFAULT_CLINIC_SETTINGS, ExistingBooking, getAvailableSlots, groupSlotsByPeriod } from "@/lib/availability";
+import { ClinicSettings, DEFAULT_CLINIC_SETTINGS, ExistingBooking, getAvailableSlots, groupSlotsByPeriod, algiersDayRange, algiersSlotToDate, algiersParts } from "@/lib/availability";
 
 const Reservation = () => {
   const { id } = useParams();
@@ -112,8 +112,7 @@ const Reservation = () => {
       return;
     }
 
-    const startOfDay = new Date(viewYear, viewMonth, selectedDay, 0, 0, 0).toISOString();
-    const endOfDay = new Date(viewYear, viewMonth, selectedDay, 23, 59, 59).toISOString();
+    const { start: startOfDay, end: endOfDay } = algiersDayRange(viewYear, viewMonth, selectedDay);
 
     // Read from the public availability view (bypasses RLS) so slots booked by
     // ANY patient are shown as taken — querying the base table only returns the
@@ -123,7 +122,7 @@ const Reservation = () => {
       .select("booked_at, duration_minutes")
       .eq("psychologist_id", id)
       .gte("booked_at", startOfDay)
-      .lte("booked_at", endOfDay)
+      .lt("booked_at", endOfDay)
       .then(({ data, error }) => {
         if (error) {
           console.error("Error fetching booked slots:", error);
@@ -164,8 +163,10 @@ const Reservation = () => {
   for (let i = 0; i < firstDay; i++) calDays.push(null);
   for (let d = 1; d <= lastDate; d++) calDays.push(d);
 
-  const isPast = (d: number) => new Date(viewYear, viewMonth, d) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const isToday = (d: number) => d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+  // "Today" is the Algiers calendar day, the same clock the working hours use.
+  const ap = algiersParts(new Date());
+  const isPast = (d: number) => Date.UTC(viewYear, viewMonth, d) < Date.UTC(ap.y, ap.mo, ap.d);
+  const isToday = (d: number) => d === ap.d && viewMonth === ap.mo && viewYear === ap.y;
 
   const locale = lang === "ar" ? "ar-SA" : "fr-FR";
   const selectedDateStr = selectedDay
@@ -181,8 +182,7 @@ const Reservation = () => {
       return;
     }
 
-    const [hours, minutes] = selectedTime.split(":").map(Number);
-    const bookedAt = new Date(viewYear, viewMonth, selectedDay, hours, minutes);
+    const bookedAt = algiersSlotToDate(viewYear, viewMonth, selectedDay, selectedTime);
 
     setBooking(true);
     const psychologistId = id!;

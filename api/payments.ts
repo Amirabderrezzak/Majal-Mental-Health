@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getPaymentGateway, CheckoutParams } from "./_lib/payment-gateway.js";
 import { rateLimit } from "./_lib/rate-limit.js";
 import { confirmPaymentBooking } from "./_lib/confirm-booking.js";
+import { validateBookingSlot, fetchConflictCandidates, SESSION_MINUTES } from "./_lib/slots.js";
 
 function cors(res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -53,17 +54,34 @@ export const checkoutHandler = async (req: any, res: any) => {
   }
 
   try {
-    const { psychologist_id, booked_at, duration_minutes, full_name, phone, session_type } = req.body;
+    const { psychologist_id, booked_at: rawBookedAt, duration_minutes, full_name, phone, session_type } = req.body || {};
 
-    if (!psychologist_id || !booked_at) {
+    if (!psychologist_id || !rawBookedAt) {
       return res.status(400).json({ error: "psychologist_id and booked_at are required" });
     }
 
     const { data: psyProfile } = await checkoutSupabase
       .from("profiles")
-      .select("price_individual, price_couples, price_adolescents")
+      .select("user_type, approval_status, clinic_settings, price_individual, price_couples, price_adolescents")
       .eq("user_id", psychologist_id)
-      .single();
+      .maybeSingle();
+
+    // Server-side validation of the requested slot (approval, vacation, working
+    // hours/days in Algeria time, buffer, overlaps, past dates, duration).
+    // The UI already filters these, but the API must not trust the browser.
+    const conflicts = await fetchConflictCandidates(checkoutSupabase, psychologist_id, new Date(String(rawBookedAt)));
+    const check = validateBookingSlot({
+      bookedAt: rawBookedAt,
+      duration: duration_minutes,
+      patientId: user.id,
+      psychologistId: psychologist_id,
+      psychologist: psyProfile,
+      existing: Number.isNaN(new Date(String(rawBookedAt)).getTime()) ? [] : conflicts,
+    });
+    if (!check.ok) {
+      return res.status(check.status).json({ error: check.error });
+    }
+    const booked_at = check.start.toISOString();
 
     // Server-side price selection — never trust a client-sent price.
     const type = session_type === "couples" || session_type === "adolescents"
@@ -78,6 +96,21 @@ export const checkoutHandler = async (req: any, res: any) => {
       return res.status(400).json({ error: "Ce type de séance n'est pas proposé" });
     }
 
+    // One patient may hold at most 2 unpaid reservations at a time, so a single
+    // account cannot lock a therapist's whole calendar by abandoning checkouts.
+    const { count: openReservations } = await checkoutSupabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("patient_id", user.id)
+      .eq("status", "pending")
+      .gt("created_at", new Date(Date.now() - 30 * 60 * 1000).toISOString())
+      .neq("booked_at", booked_at);
+    if ((openReservations ?? 0) >= 2) {
+      return res.status(429).json({ error: "Vous avez déjà des réservations en attente de paiement. Terminez-les ou attendez quelques minutes." });
+    }
+
+    // A previous unfinished payment by the same patient for this exact slot is
+    // superseded by the new one (the DB has no stored payment URL to resume).
     const { data: existing } = await checkoutSupabase
       .from("payments")
       .select("id, status, patient_id")
@@ -85,26 +118,7 @@ export const checkoutHandler = async (req: any, res: any) => {
       .eq("booked_at", booked_at)
       .in("status", ["initiated", "pending"])
       .maybeSingle();
-
-    // Only reuse a pending payment owned by the SAME user. A pending payment
-    // from another patient means they already hold the reserved slot, so we must
-    // not hand their session to someone else (the booking check below 409s them).
     if (existing && existing.patient_id === user.id) {
-      if (existing.status === "pending") {
-        const { data: stalePayment } = await checkoutSupabase
-          .from("payments")
-          .select("id, payment_url, cib_transaction_id")
-          .eq("id", existing.id)
-          .single();
-        if (stalePayment?.payment_url) {
-          return res.json({
-            url: stalePayment.payment_url,
-            payment_id: stalePayment.id,
-            cib_transaction_id: stalePayment.cib_transaction_id,
-            mock: !process.env.SOFIZPAY_PUBLIC_KEY,
-          });
-        }
-      }
       await checkoutSupabase
         .from("payments")
         .update({ status: "cancelled", updated_at: new Date().toISOString() })
@@ -143,7 +157,7 @@ export const checkoutHandler = async (req: any, res: any) => {
           patient_id: user.id,
           psychologist_id,
           booked_at,
-          duration_minutes: duration_minutes || 60,
+          duration_minutes: SESSION_MINUTES,
           status: "pending",
           price,
         });
@@ -159,7 +173,7 @@ export const checkoutHandler = async (req: any, res: any) => {
         patient_id: user.id,
         psychologist_id,
         booked_at,
-        duration_minutes: duration_minutes || 60,
+        duration_minutes: SESSION_MINUTES,
         price,
         session_type: type,
         status: "initiated",

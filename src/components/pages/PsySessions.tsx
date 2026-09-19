@@ -133,7 +133,6 @@ export default function PsySessions({
                 <div className="flex gap-2">
                   {s.status === "pending" && (
                     <>
-                      <button onClick={() => updateBookingStatus(s.id, "confirmed")} disabled={updating === s.id} className="bg-teal-pale text-primary border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-primary hover:text-white transition-all disabled:opacity-50 flex items-center gap-1 shadow-sm">{t("psy.dashboard.confirm")}</button>
                       <button onClick={() => updateBookingStatus(s.id, "cancelled")} disabled={updating === s.id} className="bg-destructive/10 text-destructive border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-destructive/10 transition-all disabled:opacity-50 flex items-center gap-1 shadow-sm">{t("psy.dashboard.reject")}</button>
                     </>
                   )}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Menu, X, Bell, AlertTriangle, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -43,6 +43,8 @@ export default function EspacePsy() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [startingCall, setStartingCall] = useState<string | null>(null);
   const [isAvailableNow, setIsAvailableNow] = useState(false);
+  // Last value known to be in the DB (null until the profile has loaded).
+  const savedAvailability = useRef<boolean | null>(null);
   const [videoUrl, setVideoUrl] = useState("");
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [savingVideo, setSavingVideo] = useState(false);
@@ -161,7 +163,8 @@ export default function EspacePsy() {
         .eq("user_id", user.id)
         .single();
       if (data) {
-        setIsAvailableNow(data.is_available_now ?? false);
+        savedAvailability.current = data.is_available_now ?? false;
+        setIsAvailableNow(savedAvailability.current);
         if (data.video_url) {
           setVideoUrl(data.video_url);
           setVideoPreviewUrl(data.video_url);
@@ -179,7 +182,9 @@ export default function EspacePsy() {
 
   // Persist availability toggle
   useEffect(() => {
-    if (!user) return;
+    // Only persist a real change: never before the profile loaded (the default
+    // state would overwrite the stored value) and never a no-op.
+    if (!user || savedAvailability.current === null || savedAvailability.current === isAvailableNow) return;
     const timeout = setTimeout(async () => {
       const { error } = await supabase
         .from("profiles")
@@ -187,7 +192,9 @@ export default function EspacePsy() {
         .eq("user_id", user.id);
       if (error) {
         console.error("Failed to update availability:", error);
-        toast.error("Erreur lors de la mise à jour. Veuillez exécuter la migration SQL d'abord.");
+        toast.error("Erreur lors de la mise à jour de votre disponibilité.");
+      } else {
+        savedAvailability.current = isAvailableNow;
       }
     }, 500);
     return () => clearTimeout(timeout);
@@ -635,7 +642,7 @@ export default function EspacePsy() {
 
     const bookingsChannel = supabase
       .channel(`public:bookings:psy:${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings", filter: `psychologist_id=eq.${user.id}` }, () => {
         fetchBookings();
       })
       .subscribe();

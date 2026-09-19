@@ -404,11 +404,6 @@ export default function PsyDashboard({
                           <span className={`text-[10px] px-2 py-1 rounded-full font-semibold flex items-center gap-1 ${statusCfg.className}`}>
                             {statusCfg.icon} {statusCfg.label}
                           </span>
-                          <button onClick={() => doUpdate(s.id, "confirmed")} disabled={updating === s.id}
-                            className="bg-primary text-primary-foreground border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-teal-mid active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1 shadow-xs">
-                            {updating === s.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                            Confirmer
-                          </button>
                           <button onClick={() => doUpdate(s.id, "cancelled")} disabled={updating === s.id}
                             className="bg-destructive/10 text-destructive border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-destructive/10 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1">
                             <X className="w-3.5 h-3.5" />

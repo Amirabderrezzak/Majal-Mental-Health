@@ -31,6 +31,32 @@ export interface ExistingBooking {
   duration_minutes?: number | null;
 }
 
+// Working hours are the psychologist's wall-clock time in Algeria (Africa/Algiers,
+// UTC+1, no DST) — not the viewer's browser time zone. The server validates against
+// the same rule (api/_lib/slots.ts); src/test/slotsParity.test.ts keeps them aligned.
+export const ALGIERS_OFFSET_MIN = 60;
+export const ALGIERS_TZ = "Africa/Algiers";
+
+/** Wall-clock parts of an instant in Algiers. */
+export function algiersParts(d: Date) {
+  const s = new Date(d.getTime() + ALGIERS_OFFSET_MIN * 60000);
+  return { y: s.getUTCFullYear(), mo: s.getUTCMonth(), d: s.getUTCDate(), dow: s.getUTCDay(), minutes: s.getUTCHours() * 60 + s.getUTCMinutes() };
+}
+
+/** The instant at which "HH:MM" on calendar day y-mo-d happens in Algiers. */
+export function algiersSlotToDate(y: number, mo: number, d: number, hhmm: string): Date {
+  const [h, m] = hhmm.split(":").map(Number);
+  return new Date(Date.UTC(y, mo, d, h || 0, m || 0) - ALGIERS_OFFSET_MIN * 60000);
+}
+
+/** ISO bounds [start, end) of an Algiers calendar day. */
+export function algiersDayRange(y: number, mo: number, d: number) {
+  return {
+    start: new Date(Date.UTC(y, mo, d) - ALGIERS_OFFSET_MIN * 60000).toISOString(),
+    end: new Date(Date.UTC(y, mo, d + 1) - ALGIERS_OFFSET_MIN * 60000).toISOString(),
+  };
+}
+
 const SLOT_INTERVAL_MINUTES = 30;
 const DEFAULT_SESSION_DURATION_MINUTES = 60;
 
@@ -57,7 +83,9 @@ export function getAvailableSlots(
   const settings = clinicSettings ?? DEFAULT_CLINIC_SETTINGS;
   if (settings.vacationMode) return [];
 
-  const dayKey = DAY_KEYS[date.getDay()];
+  // `date` is a calendar day (its local y/m/d components), read as an Algiers day.
+  const y = date.getFullYear(), mo = date.getMonth(), dd = date.getDate();
+  const dayKey = DAY_KEYS[new Date(Date.UTC(y, mo, dd)).getUTCDay()];
   if (!settings.workingDays?.includes(dayKey)) return [];
 
   const startMin = parseHourMinute(settings.startHour || DEFAULT_CLINIC_SETTINGS.startHour);
@@ -65,20 +93,16 @@ export function getAvailableSlots(
   const buffer = settings.bufferMinutes ?? 0;
   if (endMin <= startMin) return [];
 
-  // Busy windows, padded by the buffer on both sides, in minutes-of-day.
+  // Busy windows, padded by the buffer on both sides, in Algiers minutes-of-day.
   const busyRanges = existingBookings.filter((b) => b.booked_at).map((b) => {
-    const start = new Date(b.booked_at!);
-    const startOfDayMin = start.getHours() * 60 + start.getMinutes();
+    const p = algiersParts(new Date(b.booked_at!));
     const duration = b.duration_minutes ?? DEFAULT_SESSION_DURATION_MINUTES;
-    return {
-      start: startOfDayMin - buffer,
-      end: startOfDayMin + duration + buffer,
-      dateKey: start.toDateString(),
-    };
-  }).filter((r) => r.dateKey === date.toDateString());
+    return { start: p.minutes - buffer, end: p.minutes + duration + buffer, same: p.y === y && p.mo === mo && p.d === dd };
+  }).filter((r) => r.same);
 
-  const isToday = date.toDateString() === now.toDateString();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const np = algiersParts(now);
+  const isToday = np.y === y && np.mo === mo && np.d === dd;
+  const nowMin = np.minutes;
 
   const slots: string[] = [];
   for (let t = startMin; t + sessionDurationMinutes <= endMin; t += SLOT_INTERVAL_MINUTES) {

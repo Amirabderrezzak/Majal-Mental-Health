@@ -13,9 +13,12 @@ export default function AdminRoute({ children }: { children: React.ReactNode }) 
       .from("profiles")
       .select("is_admin")
       .eq("user_id", user.id)
-      .single()
-      .then(({ data }) => setIsAdmin(data?.is_admin ?? false));
+      .maybeSingle()
+      .then(({ data }) => setIsAdmin(data?.is_admin ?? false), () => setIsAdmin(false));
   }, [user]);
+
+  // No session: redirect right away instead of spinning forever waiting for a profile.
+  if (!loading && !user) return <Navigate to="/connexion" replace />;
 
   if (loading || isAdmin === null) {
     return (

@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 import { sendSessionReminder, sendNoShowNotification } from "./_lib/email.js";
 import { calculateRefund } from "./_lib/cancellation-policy.js";
+import { formatAlgiersLong } from "./_lib/slots.js";
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -196,6 +197,31 @@ export const sendPushHandler = async (req: any, res: any) => {
   }
 };
 
+// Did two participants actually meet in this booking's Daily room?
+async function getRoomAttendance(session: { booked_at: string; duration_minutes?: number | null; video_room_url?: string | null }): Promise<"held" | "absent" | "unknown"> {
+  if (!session.video_room_url) return "absent";
+  const key = process.env.DAILY_API_KEY;
+  if (!key) return "unknown";
+  const room = session.video_room_url.split("/").pop();
+  try {
+    const r = await fetch(`https://api.daily.co/v1/meetings?room=${encodeURIComponent(room || "")}&limit=20`, { headers: { Authorization: `Bearer ${key}` } });
+    if (r.status === 404) return "absent";
+    if (!r.ok) return "unknown";
+    const body: any = await r.json();
+    const meetings: any[] = body?.data ?? [];
+    const from = new Date(session.booked_at).getTime() - 30 * 60000;
+    const to = new Date(session.booked_at).getTime() + ((session.duration_minutes || 60) + 30) * 60000;
+    const held = meetings.some((m) => {
+      const t = Number(m.start_time) * 1000;
+      const people = new Set((m.participants ?? []).map((p: any) => p.user_id || p.participant_id)).size;
+      return t >= from && t <= to && Math.max(people, m.max_participants ?? 0) >= 2;
+    });
+    return held ? "held" : "absent";
+  } catch {
+    return "unknown";
+  }
+}
+
 // ── push-cron ──────────────────────────────────────────────────────────────────
 export const pushCronHandler = async (req: any, res: any) => {
   // Require the shared secret for every method (GET = Vercel cron, POST = manual).
@@ -217,7 +243,7 @@ export const pushCronHandler = async (req: any, res: any) => {
 
     const { data: notifications, error } = await supabase
       .from("notifications")
-      .select("id, user_id, title, message, link")
+      .select("id, user_id, title, content, link")
       .eq("push_sent", false)
       .gte("created_at", cutoff)
       .order("created_at", { ascending: true })
@@ -236,7 +262,7 @@ export const pushCronHandler = async (req: any, res: any) => {
     let failed = 0;
 
     for (const notif of notifications) {
-      if (!notif.user_id || !notif.title || !notif.message) {
+      if (!notif.user_id || !notif.title || !notif.content) {
         await supabase
           .from("notifications")
           .update({ push_sent: true })
@@ -246,7 +272,7 @@ export const pushCronHandler = async (req: any, res: any) => {
       }
 
       try {
-        await sendPushToUser(notif.user_id, notif.title, notif.message, notif.link || "/");
+        await sendPushToUser(notif.user_id, notif.title, notif.content, notif.link || "/");
         await supabase
           .from("notifications")
           .update({ push_sent: true })
@@ -299,9 +325,7 @@ export const pushCronHandler = async (req: any, res: any) => {
           const psyName = psyProf.data?.full_name || "Psychologue";
           const patientEmail = patAuth?.data?.user?.email;
           const psyEmail = psyAuth?.data?.user?.email;
-          const dateStr = new Date(session.booked_at).toLocaleDateString("fr-FR", {
-            weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"
-          });
+          const dateStr = formatAlgiersLong(session.booked_at);
 
           if (patientEmail) {
             await sendSessionReminder({
@@ -340,9 +364,11 @@ export const pushCronHandler = async (req: any, res: any) => {
 
     const { data: confirmedSessions, error: nsError } = await supabase
       .from("bookings")
-      .select("id, patient_id, psychologist_id, booked_at, duration_minutes")
+      .select("id, patient_id, psychologist_id, booked_at, duration_minutes, video_room_url")
       .eq("status", "confirmed")
-      .lte("booked_at", noShowCutoff);
+      .lte("booked_at", noShowCutoff)
+      .order("booked_at", { ascending: true })
+      .limit(50);
 
     if (!nsError && confirmedSessions && confirmedSessions.length > 0) {
       const now = Date.now();
@@ -353,10 +379,23 @@ export const pushCronHandler = async (req: any, res: any) => {
 
       for (const session of noShowSessions) {
         try {
-          await supabase
+          // Evidence first: if two people actually shared the Daily room, the session
+          // took place and is simply closed as "done". If Daily can't be queried we
+          // leave the booking alone rather than wrongly declaring a no-show.
+          const attendance = await getRoomAttendance(session);
+          if (attendance === "unknown") continue;
+          if (attendance === "held") {
+            await supabase.from("bookings").update({ status: "done", updated_at: new Date().toISOString() }).eq("id", session.id).eq("status", "confirmed");
+            continue;
+          }
+
+          const { data: flagged } = await supabase
             .from("bookings")
             .update({ status: "no-show", no_show_detected_at: new Date().toISOString() })
-            .eq("id", session.id);
+            .eq("id", session.id)
+            .eq("status", "confirmed")
+            .select("id");
+          if (!flagged || flagged.length === 0) continue;
 
           const [patProf, psyProf] = await Promise.all([
             supabase.from("profiles").select("full_name, user_id").eq("user_id", session.patient_id).single(),
@@ -371,15 +410,13 @@ export const pushCronHandler = async (req: any, res: any) => {
           const psyName = psyProf.data?.full_name || "Psychologue";
           const patientEmail = patAuth?.data?.user?.email;
           const psyEmail = psyAuth?.data?.user?.email;
-          const dateStr = new Date(session.booked_at).toLocaleDateString("fr-FR", {
-            weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
-          });
+          const dateStr = formatAlgiersLong(session.booked_at);
 
           const policy = calculateRefund(new Date(session.booked_at), new Date());
 
           await supabase.from("notifications").insert([
-            { user_id: session.patient_id, title: "Absence non justifiée", message: `Vous n'avez pas assisté à la séance du ${dateStr}. Aucun remboursement ne sera effectué.`, link: "/mon-espace?page=sessions", push_sent: false },
-            { user_id: session.psychologist_id, title: "Patient absent", message: `Le patient ${patientName} ne s'est pas présenté à la séance du ${dateStr}. Compensation de ${policy.compensationPercent}% appliquée.`, link: "/espace-psy?page=sessions", push_sent: false },
+            { user_id: session.patient_id, type: "booking", title: "Absence non justifiée", content: `Vous n'avez pas assisté à la séance du ${dateStr}. Aucun remboursement ne sera effectué.`, link: "/mon-espace?page=sessions", push_sent: false },
+            { user_id: session.psychologist_id, type: "booking", title: "Patient absent", content: `Le patient ${patientName} ne s'est pas présenté à la séance du ${dateStr}. Compensation de ${policy.compensationPercent}% appliquée.`, link: "/espace-psy?page=sessions", push_sent: false },
           ]);
 
           sendPushToUser(session.patient_id, "Absence non justifiée", `Vous n'avez pas assisté à votre séance du ${dateStr}.`, "/mon-espace?page=sessions").catch(() => {});
@@ -401,6 +438,13 @@ export const pushCronHandler = async (req: any, res: any) => {
       .from("payments")
       .select("id")
       .in("status", ["initiated", "pending"])
+      .lt("created_at", thirtyMinAgo);
+
+    // Abandoned checkouts: release the slot held by a pending reservation.
+    await supabase
+      .from("bookings")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("status", "pending")
       .lt("created_at", thirtyMinAgo);
 
     let staleCleaned = 0;

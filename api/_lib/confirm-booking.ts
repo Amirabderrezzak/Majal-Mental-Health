@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { formatAlgiersLong } from "./slots.js";
 import { getPaymentGateway } from "./payment-gateway.js";
 import { sendBookingConfirmation, sendTherapistNewBooking } from "./email.js";
 
@@ -57,13 +58,17 @@ export async function confirmPaymentBooking(
     return { status: 403, body: { error: "You do not own this payment" } };
   }
 
+  // Idempotent: a payment that already produced a booking never creates another one,
+  // whatever that booking's status is now (confirmed, done, or cancelled afterwards).
   if (payment.status === "confirmed") {
     const { data: existingBooking } = await db
       .from("bookings")
-      .select("id")
+      .select("id, status")
       .eq("patient_id", payment.patient_id)
+      .eq("psychologist_id", payment.psychologist_id)
       .eq("booked_at", payment.booked_at)
-      .eq("status", "confirmed")
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (existingBooking) {
@@ -137,7 +142,11 @@ export async function confirmPaymentBooking(
         .eq("id", paymentId);
       return { status: 409, body: { error: "Ce créneau est déjà réservé par un autre patient." } };
     }
-    // Our reservation — promote pending → confirmed (idempotent on retries).
+    if (existingBooking.status !== "pending") {
+      // Already confirmed/done (e.g. a concurrent confirm won the race): nothing to promote.
+      bookingId = existingBooking.id;
+    } else {
+    // Our reservation — promote pending → confirmed.
     const { data: updated, error: updErr } = await db
       .from("bookings")
       .update({
@@ -148,6 +157,7 @@ export async function confirmPaymentBooking(
         updated_at: new Date().toISOString(),
       })
       .eq("id", existingBooking.id)
+      .eq("status", "pending")
       .select()
       .single();
     if (updErr || !updated) {
@@ -155,6 +165,7 @@ export async function confirmPaymentBooking(
       return { status: 500, body: { error: "Failed to confirm booking" } };
     }
     bookingId = updated.id;
+    }
   } else {
     // Fallback: no reservation row (payment created before reservations were
     // reserved at checkout). Create the confirmed booking now.
@@ -212,10 +223,7 @@ export async function confirmPaymentBooking(
 
   const { data: therapistAuth } = await db.auth.admin.getUserById(payment.psychologist_id);
 
-  const dateStr = new Date(payment.booked_at).toLocaleDateString("fr-FR", {
-    weekday: "long", day: "numeric", month: "long", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  const dateStr = formatAlgiersLong(payment.booked_at);
 
   if (patientAuth?.user?.email && patientProfile) {
     await sendBookingConfirmation({

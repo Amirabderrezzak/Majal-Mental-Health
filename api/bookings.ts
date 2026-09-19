@@ -4,6 +4,9 @@ import { sendPushToUser } from "./notifications.js";
 import { sendRescheduleConfirmation } from "./_lib/email.js";
 import { sendBookingStatusUpdate, sendCancellationConfirmation } from "./_lib/email.js";
 import { calculateRefund } from "./_lib/cancellation-policy.js";
+import { validateBookingSlot, fetchConflictCandidates, formatAlgiers, formatAlgiersLong } from "./_lib/slots.js";
+
+const RESCHEDULE_MIN_NOTICE_MS = 2 * 3600 * 1000;
 
 function cors(res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -49,26 +52,47 @@ export const rescheduleHandler = async (req: VercelRequest, res: VercelResponse)
     return res.status(403).json({ error: "Not authorized" });
   }
 
-  if (booking.status === "cancelled" || booking.status === "done") {
-    return res.status(400).json({ error: "Cannot reschedule a cancelled or completed session" });
+  if (booking.status !== "confirmed") {
+    return res.status(400).json({ error: "Seules les séances confirmées peuvent être reportées." });
   }
 
-  // Validate new date is in the future
-  const newDate = new Date(new_booked_at);
-  if (newDate <= new Date()) {
-    return res.status(400).json({ error: "New date must be in the future" });
+  // The current slot must be at least 2h away, otherwise it can no longer be moved.
+  if (new Date(booking.booked_at).getTime() - Date.now() < RESCHEDULE_MIN_NOTICE_MS) {
+    return res.status(400).json({ error: "Une séance ne peut plus être reportée moins de 2 heures avant son début." });
   }
+
+  const { data: psy } = await rescheduleSupabase
+    .from("profiles")
+    .select("user_type, approval_status, clinic_settings")
+    .eq("user_id", booking.psychologist_id)
+    .maybeSingle();
+
+  const candidates = await fetchConflictCandidates(rescheduleSupabase, booking.psychologist_id, new Date(String(new_booked_at)));
+  const check = validateBookingSlot({
+    bookedAt: new_booked_at,
+    patientId: user.id,
+    psychologistId: booking.psychologist_id,
+    psychologist: psy as any,
+    existing: candidates,
+    ignoreBookingId: booking.id,
+  });
+  if (!check.ok) return res.status(check.status).json({ error: check.error });
+
+  const newBookedAt = check.start.toISOString();
 
   // Save old date for email notifications
   const oldBookedAt = booking.booked_at;
 
-  // Update the booking
+  // Update the booking (a new slot needs a fresh video room)
   const { error: updateError } = await rescheduleSupabase
     .from("bookings")
-    .update({ booked_at: new_booked_at, updated_at: new Date().toISOString() })
+    .update({ booked_at: newBookedAt, video_room_url: null, updated_at: new Date().toISOString() })
     .eq("id", booking_id);
 
   if (updateError) {
+    if ((updateError as any).code === "23505") {
+      return res.status(409).json({ error: "Ce créneau n'est plus disponible." });
+    }
     console.error("Reschedule update error:", updateError);
     return res.status(500).json({ error: "Failed to reschedule" });
   }
@@ -78,13 +102,13 @@ export const rescheduleHandler = async (req: VercelRequest, res: VercelResponse)
     user_id: booking.psychologist_id,
     type: "booking",
     title: "Séance reportée",
-    content: `Le patient a reporté la séance au ${new Date(new_booked_at).toLocaleDateString("fr-FR")} à ${new Date(new_booked_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}.`,
+    content: `Le patient a reporté la séance au ${formatAlgiersLong(newBookedAt)}.`,
     link: "/espace-psy?page=sessions"
   });
 
   // Send push notification
-  const newDateStr = new Date(new_booked_at).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
-  const oldDateStr = new Date(oldBookedAt).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const newDateStr = formatAlgiersLong(newBookedAt);
+  const oldDateStr = formatAlgiersLong(oldBookedAt);
   sendPushToUser(booking.psychologist_id, "Séance reportée", `Votre patient a reporté la séance au ${newDateStr}.`, "/espace-psy").catch(console.error);
 
   // Fetch profile info for emails
@@ -201,6 +225,22 @@ export const updateStatusHandler = async (req: any, res: any) => {
       return res.status(400).json({ error: "Patients are only allowed to cancel bookings" });
     }
 
+    // Transition rules. "confirmed" is only ever reached through a verified payment
+    // (payments.confirm), never by a client call: otherwise a therapist could confirm
+    // an unpaid reservation and a cancelled slot could be resurrected.
+    if (status === "confirmed") {
+      return res.status(400).json({ error: "Une réservation est confirmée automatiquement après paiement." });
+    }
+    if (booking.status === "cancelled") {
+      return res.status(400).json({ error: "Cette séance est déjà annulée." });
+    }
+    if (booking.status === "done") {
+      return res.status(400).json({ error: "Cette séance est déjà terminée." });
+    }
+    if (status === "done" && (booking.status !== "confirmed" || new Date(booking.booked_at).getTime() > Date.now())) {
+      return res.status(400).json({ error: "Une séance ne peut être terminée qu'après son début." });
+    }
+
     // Update booking in database
     const { error: updateError } = await updateStatusSupabase
       .from("bookings")
@@ -234,14 +274,14 @@ export const updateStatusHandler = async (req: any, res: any) => {
     const recipientName = recipientProfile?.full_name || "Utilisateur";
     const partnerName = senderProfile?.full_name || "Utilisateur";
 
-    const dateStr = new Date(booking.booked_at).toLocaleDateString("fr-FR", {
-      weekday: "long", day: "numeric", month: "long", year: "numeric",
-      hour: "2-digit", minute: "2-digit"
-    });
+    const dateStr = formatAlgiersLong(booking.booked_at);
 
     if (recipientEmail) {
       if (status === "cancelled") {
-        const policy = calculateRefund(new Date(booking.booked_at), new Date());
+        // A therapist-initiated cancellation always refunds the patient in full.
+        const policy = isTherapist
+          ? { refundPercent: 100, compensationPercent: 0 }
+          : calculateRefund(new Date(booking.booked_at), new Date());
         await sendCancellationConfirmation({
           recipientEmail,
           recipientName,

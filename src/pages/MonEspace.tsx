@@ -1,4 +1,5 @@
 import { useEscapeKey } from "@/lib/a11y";
+import { algiersSlotToDate } from "@/lib/availability";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -155,7 +156,7 @@ export default function MonEspace() {
 
     const bookingsChannel = supabase
       .channel(`public:bookings:${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings", filter: `patient_id=eq.${user.id}` }, () => {
         fetchB();
       })
       .subscribe();
@@ -208,7 +209,8 @@ export default function MonEspace() {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
 
-    const newDateTime = new Date(`${date}T${time}:00`).toISOString();
+    const [ry, rm, rd] = date.split("-").map(Number);
+    const newDateTime = algiersSlotToDate(ry, rm - 1, rd, time).toISOString();
 
     try {
       const response = await fetch("/api/bookings?action=reschedule", {

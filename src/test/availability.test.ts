@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getAvailableSlots, groupSlotsByPeriod, ClinicSettings } from "@/lib/availability";
+import { getAvailableSlots, groupSlotsByPeriod, ClinicSettings, algiersSlotToDate } from "@/lib/availability";
 
 const tightWindow: ClinicSettings = {
   vacationMode: false,
@@ -38,7 +38,7 @@ describe("getAvailableSlots", () => {
 
   it("excludes slots that overlap an existing booking plus buffer, keeps ones that don't", () => {
     // Booked 12:00-13:00, padded by a 15min buffer -> busy 11:45-13:15.
-    const existing = [{ booked_at: new Date(2027, 0, 6, 12, 0).toISOString(), duration_minutes: 60 }];
+    const existing = [{ booked_at: algiersSlotToDate(2027, 0, 6, "12:00").toISOString(), duration_minutes: 60 }];
     const slots = getAvailableSlots(WEDNESDAY, wideWindow, existing, 60);
 
     // A slot ending after 11:45 or starting before 13:15 overlaps the padded busy window.
@@ -53,13 +53,13 @@ describe("getAvailableSlots", () => {
   });
 
   it("ignores bookings on a different day", () => {
-    const existing = [{ booked_at: new Date(2027, 0, 7, 10, 0).toISOString(), duration_minutes: 60 }];
+    const existing = [{ booked_at: algiersSlotToDate(2027, 0, 7, "10:00").toISOString(), duration_minutes: 60 }];
     const slots = getAvailableSlots(WEDNESDAY, wideWindow, existing, 60);
     expect(slots).toContain("10:00");
   });
 
   it("excludes past times for today but keeps future ones", () => {
-    const now = new Date(2027, 0, 6, 10, 15); // Wednesday 10:15
+    const now = algiersSlotToDate(2027, 0, 6, "10:15"); // Wednesday 10:15
     const slots = getAvailableSlots(WEDNESDAY, wideWindow, [], 60, now);
     expect(slots).not.toContain("09:00");
     expect(slots).not.toContain("10:00");
