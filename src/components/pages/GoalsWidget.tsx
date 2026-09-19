@@ -175,7 +175,7 @@ export default function GoalsWidget() {
           <div className="bg-primary h-full rounded-full transition-all duration-500 ease-out" style={{ width: `${progressPct}%` }} />
         </div>
 
-        <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+        <div className="space-y-2.5 max-h-48 overflow-y-auto pe-1">
           {goals.map(g => (
             <div key={g.id} className="flex items-center justify-between gap-3 p-3 border border-border/40 rounded-xl bg-teal-hero/5 hover:bg-teal-hero/15 transition-all">
               <label className="flex items-center gap-3 cursor-pointer select-none min-w-0 flex-1">
@@ -188,8 +188,10 @@ export default function GoalsWidget() {
                 <span className={`text-sm text-foreground truncate ${g.completed ? "line-through text-muted-foreground" : ""}`}>{g.text}</span>
               </label>
               <button
+                type="button"
                 onClick={() => deleteGoal(g.id)}
-                className="p-1 rounded text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-all border-none bg-transparent cursor-pointer"
+                aria-label={t("common.delete")}
+                className="p-2.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all border-none bg-transparent cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -225,7 +227,7 @@ export default function GoalsWidget() {
           placeholder={t("space.goals.notepadPlaceholder")}
           className="w-full px-4 py-3 border border-border/70 rounded-xl text-xs text-foreground bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card font-sans transition-all resize-none leading-relaxed"
         />
-        <div className="text-[10px] text-muted-foreground text-right font-sans italic">Sauvegarde automatique (cloud)</div>
+        <div className="text-[10px] text-muted-foreground text-end font-sans italic">Sauvegarde automatique (cloud)</div>
       </div>
     </div>
   );

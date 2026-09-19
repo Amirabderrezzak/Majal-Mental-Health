@@ -34,7 +34,7 @@ const MotDePasseOublie = () => {
         <div className="bg-card rounded-2xl shadow-card p-8 sm:p-10 w-full max-w-[440px]">
           {sent ? (
             <div className="text-center">
-              <div className="text-5xl mb-4">📧</div>
+              <Mail className="w-12 h-12 text-primary mx-auto mb-4" aria-hidden="true" />
               <h1 className="font-serif text-2xl text-primary mb-3">{t("forgot.sentTitle")}</h1>
               <p className="text-sm text-muted-foreground mb-6">{t("forgot.sentMsg")}</p>
               <Link to="/connexion" className="text-primary text-sm font-medium no-underline hover:underline">
@@ -49,10 +49,10 @@ const MotDePasseOublie = () => {
               </div>
               <form onSubmit={handleReset} className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[13px] font-medium text-muted-foreground">{t("auth.email")}</label>
+                  <label htmlFor="motdepasseoublie-f1" className="text-[13px] font-medium text-muted-foreground">{t("auth.email")}</label>
                   <div className="flex items-center gap-2.5 border border-border rounded-xl px-4 py-3 bg-teal-hero focus-within:border-teal-light focus-within:bg-card transition-colors">
                     <Mail className="w-4 h-4 text-muted-foreground" />
-                    <input
+                    <input id="motdepasseoublie-f1"
                       type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
                       placeholder="votre@email.com"
                       className="border-none bg-transparent outline-none text-[15px] text-foreground w-full placeholder:text-muted-foreground font-sans"

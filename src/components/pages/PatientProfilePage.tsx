@@ -114,7 +114,7 @@ export default function PatientProfilePage({
             <input type="file" id="avatar-upload" accept="image/*" onChange={handleAvatarUpload} disabled={uploadingAvatar} className="hidden" />
           </div>
           
-          <div className="text-center sm:text-left">
+          <div className="text-center sm:text-start">
             <h4 className="font-semibold text-base text-foreground leading-snug">{profile.full_name || t("space.yourName")}</h4>
             <p className="text-sm text-muted-foreground mt-0.5 font-sans">{user?.email}</p>
             <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-teal-pale text-primary text-[10px] uppercase font-bold tracking-wider">{t("space.lang.french")}</span>
@@ -126,8 +126,8 @@ export default function PatientProfilePage({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("space.fullName")}</label>
-              <input 
+              <label htmlFor="patientprofilepage-f1" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("space.fullName")}</label>
+              <input id="patientprofilepage-f1" 
                 type="text" 
                 value={profile.full_name} 
                 onChange={e => setProfile((p: any) => ({ ...p, full_name: e.target.value }))}
@@ -135,8 +135,8 @@ export default function PatientProfilePage({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("auth.email")}</label>
-              <input 
+              <label htmlFor="patientprofilepage-f2" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("auth.email")}</label>
+              <input id="patientprofilepage-f2" 
                 type="email" 
                 value={user?.email ?? ""} 
                 readOnly
@@ -144,8 +144,8 @@ export default function PatientProfilePage({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("space.phone")}</label>
-              <input 
+              <label htmlFor="patientprofilepage-f3" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("space.phone")}</label>
+              <input id="patientprofilepage-f3" 
                 type="tel" 
                 value={profile.phone} 
                 onChange={e => setProfile((p: any) => ({ ...p, phone: e.target.value }))}
@@ -153,8 +153,8 @@ export default function PatientProfilePage({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("space.language")}</label>
-              <select 
+              <label htmlFor="patientprofilepage-f4" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("space.language")}</label>
+              <select id="patientprofilepage-f4" 
                 value={profile.language} 
                 onChange={e => setProfile((p: any) => ({ ...p, language: e.target.value }))}
                 className="px-4 py-3 border border-border/70 rounded-xl text-sm bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card transition-all font-sans cursor-pointer"
@@ -181,10 +181,10 @@ export default function PatientProfilePage({
         <h3 className="font-serif text-lg font-semibold text-foreground mb-6 pb-4 border-b border-border/40">{t("psy.settings.security") || "Sécurité"}</h3>
         <form onSubmit={handlePasswordChange} className="flex flex-col gap-4 max-w-md">
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("reset.newPassword") || "Nouveau mot de passe"}</label>
+            <label htmlFor="patientprofilepage-f5" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("reset.newPassword") || "Nouveau mot de passe"}</label>
             <div className="flex items-center gap-3 border border-border/70 rounded-xl px-4 py-3 bg-teal-hero/30 focus-within:border-primary focus-within:bg-card transition-all focus-within:ring-1 focus-within:ring-primary">
               <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
-              <input
+              <input id="patientprofilepage-f5"
                 type="password"
                 required
                 value={newPassword}
@@ -223,9 +223,9 @@ export default function PatientProfilePage({
                 if (ok) toast.success(was ? "Notifications push désactivées." : "Notifications push activées !");
                 else toast.error("Impossible d'activer les notifications...");
               }}
-              className={`relative w-12 h-[26px] rounded-full transition-colors duration-300 border-none cursor-pointer disabled:opacity-50 ${pushSubscribed ? "bg-primary" : "bg-gray-300"}`}
+              className={`relative w-12 h-[26px] rounded-full transition-colors duration-300 border-none cursor-pointer disabled:opacity-50 ${pushSubscribed ? "bg-primary" : "bg-muted"}`}
             >
-              <span className={`absolute top-[3px] left-[3px] w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${pushSubscribed ? "translate-x-[22px]" : ""}`} />
+              <span className={`absolute top-[3px] start-[3px] w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${pushSubscribed ? "translate-x-[22px] rtl:-translate-x-[22px]" : ""}`} />
             </button>
           </div>
         ) : (

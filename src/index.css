@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=Noto+Sans+Arabic:wght@300;400;500;600&family=Noto+Naskh+Arabic:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -91,10 +91,11 @@
   }
 
   /* Accessible, consistent focus ring (modern principle #8) */
+  /* Outline-based (not box-shadow): Tailwind shadow utilities on buttons would
+     otherwise replace a box-shadow ring via cascade order and hide focus. */
   :focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--primary) / 0.45);
-    border-radius: 8px;
+    outline: 2px solid hsl(var(--primary) / 0.65);
+    outline-offset: 2px;
   }
 
   /* Respect reduced-motion preference (modern principle #7) */
@@ -321,4 +322,28 @@ input:checked + .toggle-slider:before {
   color: hsl(var(--danger));
   border: 1px solid hsla(4, 55%, 50%, 0.3);
 }
+
+/* ── Arabic / RTL typography ────────────────────────────────────────────────
+   Per DESIGN_RESOURCES.md §3-4: Arabic needs an Arabic-capable font stack,
+   ~+10% size, >=1.8 line-height, and NO letter-spacing (tracking breaks the
+   cursive ligatures). Applies whenever <html lang="ar" dir="rtl"> is set by
+   LanguageContext. Kept after the Tailwind layers so it wins the cascade. */
+html[lang="ar"] body {
+  font-family: 'Noto Sans Arabic', 'DM Sans', sans-serif;
+  line-height: 1.8;
+}
+html[lang="ar"] h1, html[lang="ar"] h2, html[lang="ar"] h3, html[lang="ar"] h4,
+html[lang="ar"] .font-serif {
+  font-family: 'Noto Naskh Arabic', 'DM Serif Display', serif;
+  line-height: 1.5;
+}
+html[lang="ar"] [class*="tracking-"],
+html[lang="ar"] .section-label {
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+/* Arabic glyphs read smaller than Latin at the same size — scale rem-based type ~6% */
+html[lang="ar"] { font-size: 106%; }
+/* Numbers, prices, dates, phone numbers stay LTR inside Arabic text */
+.num-ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; }
 

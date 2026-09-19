@@ -62,9 +62,9 @@ export default function ExplorePage() {
     } else {
       const defGrats = [
         { id: "1", text: "Reconnaissant d'avoir un espace sécurisé pour m'exprimer.", color: "bg-teal-pale/50", rotation: -2 },
-        { id: "2", text: "Ma séance d'aujourd'hui m'a fait énormément de bien !", color: "bg-amber-100/50", rotation: 3 },
+        { id: "2", text: "Ma séance d'aujourd'hui m'a fait énormément de bien !", color: "bg-warning/10", rotation: 3 },
         { id: "3", text: "Le chant des oiseaux ce matin m'a calmé l'esprit.", color: "bg-teal-pale/50", rotation: -1 },
-        { id: "4", text: "J'ai réussi à affronter ma phobie aujourd'hui.", color: "bg-rose-100/50", rotation: 1.5 },
+        { id: "4", text: "J'ai réussi à affronter ma phobie aujourd'hui.", color: "bg-destructive/10", rotation: 1.5 },
       ];
       setGratitudes(defGrats);
     }
@@ -91,7 +91,7 @@ export default function ExplorePage() {
         name: "Dr. Amina R.",
         avatar: undefined,
         stories: [
-          { text: "« La guérison est un chemin non linéaire. Soyez patient avec vous-même. »", bg: "from-primary to-teal-700" }
+          { text: "« La guérison est un chemin non linéaire. Soyez patient avec vous-même. »", bg: "from-primary to-teal-dark" }
         ]
       }
     ];
@@ -180,7 +180,7 @@ export default function ExplorePage() {
     if (!newGratText.trim()) return;
     setPostingGrat(true);
 
-    const colors = ["bg-teal-pale/50", "bg-amber-100/50", "bg-teal-pale/50", "bg-rose-100/50", "bg-teal-pale"];
+    const colors = ["bg-teal-pale/50", "bg-warning/10", "bg-teal-pale/50", "bg-destructive/10", "bg-teal-pale"];
     const randColor = colors[Math.floor(Math.random() * colors.length)];
     const randRot = (Math.random() * 6 - 3);
 
@@ -388,12 +388,12 @@ export default function ExplorePage() {
             <h3 className="section-head text-base text-primary flex items-center gap-2">
               <Quote className="w-4 h-4" /> Affirmation positive
             </h3>
-            <div className="p-4 rounded-2xl border border-rose-100 bg-rose-50/10 space-y-3 font-sans">
+            <div className="p-4 rounded-2xl border border-destructive/30 bg-destructive/10 space-y-3 font-sans">
               <p className="text-xs text-foreground italic leading-relaxed font-sans">
                 « J'ai le droit de me tromper. Mes erreurs font partie de mon apprentissage et ne définissent pas ma valeur humaine. »
               </p>
               <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                <span className="text-[9px] font-semibold text-rose-800 uppercase">Majal Support</span>
+                <span className="text-[9px] font-semibold text-destructive uppercase">Majal Support</span>
                 <button aria-label="Soutenir" className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] text-muted-foreground hover:text-danger hover:bg-danger/5 transition-colors duration-150 bg-transparent border-none cursor-pointer">
                   <HandHeart className="w-3.5 h-3.5" /> 34
                 </button>
@@ -441,16 +441,20 @@ export default function ExplorePage() {
                 {selectedStoryTherapist.stories[currentStorySlide]?.text}
               </p>
               
-              <div 
-                className="absolute inset-y-0 start-0 w-1/3 cursor-pointer"
+              <button 
+                type="button"
+                aria-label={t("common.previous")}
+                className="absolute inset-y-0 start-0 w-1/3 cursor-pointer bg-transparent border-none focus-visible:ring-2 focus-visible:ring-white/70"
                 onClick={() => {
                   if (currentStorySlide > 0) {
                     setCurrentStorySlide(prev => prev - 1);
                   }
                 }}
-              />
-              <div 
-                className="absolute inset-y-0 end-0 w-1/3 cursor-pointer"
+              ></button>
+              <button 
+                type="button"
+                aria-label={t("common.next")}
+                className="absolute inset-y-0 end-0 w-1/3 cursor-pointer bg-transparent border-none focus-visible:ring-2 focus-visible:ring-white/70"
                 onClick={() => {
                   if (currentStorySlide < selectedStoryTherapist.stories.length - 1) {
                     setCurrentStorySlide(prev => prev + 1);
@@ -459,7 +463,7 @@ export default function ExplorePage() {
                     setCurrentStorySlide(0);
                   }
                 }}
-              />
+              ></button>
             </div>
 
           </div>

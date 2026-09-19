@@ -1,3 +1,4 @@
+import { useEscapeKey } from "@/lib/a11y";
 import { useState, useEffect } from "react";
 import { Calendar, Clock, Check, X, Loader2, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -115,11 +116,14 @@ export default function PatientSessions({
     setRescheduleTime("");
   };
 
+  const closeReschedule = () => { setRescheduleBooking(null); setRescheduleStep(1); setRescheduleDate(""); setRescheduleTime(""); };
+  useEscapeKey(rescheduleBooking !== null, closeReschedule);
+
   const RescheduleModal = () => {
     if (!rescheduleBooking) return null;
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={t("space.reschedule.title")}>
         <div className="absolute inset-0 bg-black/40" onClick={() => { setRescheduleBooking(null); setRescheduleStep(1); setRescheduleDate(""); setRescheduleTime(""); }} />
         <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl p-6 md:p-8 animate-in zoom-in-95 duration-200">
 
@@ -190,7 +194,7 @@ export default function PatientSessions({
               {availableRescheduleSlots.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">{t("res.noSlotsThisDay") || "Aucun créneau disponible ce jour-là."}</p>
               ) : (
-                <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
+                <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto pe-1">
                   {availableRescheduleSlots.map(slot => (
                     <button
                       key={slot}
@@ -260,8 +264,10 @@ export default function PatientSessions({
           )}
 
           <button
+            type="button"
+            aria-label={t("common.close")}
             onClick={() => { setRescheduleBooking(null); setRescheduleStep(1); setRescheduleDate(""); setRescheduleTime(""); }}
-            className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-accent/40 text-muted-foreground hover:text-foreground transition-all border-none bg-transparent cursor-pointer"
+            className="absolute top-4 end-4 p-1.5 rounded-lg hover:bg-accent/40 text-muted-foreground hover:text-foreground transition-all border-none bg-transparent cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -379,7 +385,7 @@ export default function PatientSessions({
                     <div className="font-semibold text-sm text-foreground">{b.psychologist_name}</div>
                     <div className="text-xs text-primary font-medium mt-0.5">{b.psychologist_specialty || "Psychologue"}</div>
                     <div className="text-xs text-muted-foreground mt-1">{fmt(b.booked_at)} · {fmtT(b.booked_at)} · {b.duration_minutes} {t("space.minutesLabel")}</div>
-                    {b.price && <div className="text-xs text-muted-foreground/80 mt-0.5">{b.price.toLocaleString()} {t("space.priceCurrency")}</div>}
+                    {b.price && <div className="text-xs text-muted-foreground/80 mt-0.5"><bdi>{b.price.toLocaleString()} {t("space.priceCurrency")}</bdi></div>}
                   </div>
                 </div>
                 <div className="flex sm:flex-col items-end gap-2.5 self-end sm:self-center">
@@ -389,7 +395,7 @@ export default function PatientSessions({
                   <button 
                     onClick={() => handleCancelBooking(b.id)}
                     disabled={cancelling === b.id}
-                    className="text-xs text-destructive bg-transparent border-none cursor-pointer hover:underline hover:text-red-700 font-semibold disabled:opacity-50 flex items-center gap-1"
+                    className="text-xs text-destructive bg-transparent border-none cursor-pointer hover:underline hover:text-destructive font-semibold disabled:opacity-50 flex items-center gap-1"
                   >
                     {cancelling === b.id ? <Loader2 className="w-3 h-3 animate-spin"/> : null} 
                     {t("space.cancelSessionBtn")}
@@ -431,14 +437,14 @@ export default function PatientSessions({
                 <div key={b.id} className="relative mb-6 last:mb-0">
                   <div className={`absolute ${rtl ? "-right-8" : "-left-8"} top-3 w-7 h-7 rounded-full flex items-center justify-center z-10 border-2 ${
                     done ? "bg-primary border-primary text-primary-foreground" :
-                    missed ? "bg-amber-100 border-amber-500 text-amber-600" :
+                    missed ? "bg-warning/10 border-warning/30 text-warning" :
                     "bg-destructive/10 border-destructive text-destructive"
                   }`}>
                     {done ? <Check className="w-3.5 h-3.5" /> : missed ? <X className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
                   </div>
                   <div className={`bg-card rounded-2xl p-5 flex items-center justify-between gap-4 ${rtl ? "me-3 border-e-4" : "ms-3 border-s-4"} shadow-sm border border-border/40 ${
                     done ? "border-primary" :
-                    missed ? "border-amber-400" :
+                    missed ? "border-warning/30" :
                     "border-destructive"
                   }`}>
                     <div className="flex items-center gap-4">

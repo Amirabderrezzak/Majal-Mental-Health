@@ -20,7 +20,7 @@ export default function PsyMobileNav({ activePage, setActivePage, setSidebarOpen
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border/50 bg-card shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+      className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border/50 bg-card shadow-overlay"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="flex items-center justify-around px-2 py-2">
@@ -30,7 +30,7 @@ export default function PsyMobileNav({ activePage, setActivePage, setSidebarOpen
             <button
               key={item.id}
               onClick={() => setActivePage(item.id)}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl border-none cursor-pointer transition-colors ${
+              className={`flex flex-col items-center justify-center gap-0.5 px-3 py-2 min-h-11 min-w-11 rounded-xl border-none cursor-pointer transition-colors ${
                 active ? "text-primary" : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -41,7 +41,7 @@ export default function PsyMobileNav({ activePage, setActivePage, setSidebarOpen
         })}
         <button
           onClick={() => setSidebarOpen(true)}
-          className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl border-none cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+          className="flex flex-col items-center justify-center gap-0.5 px-3 py-2 min-h-11 min-w-11 rounded-xl border-none cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
         >
           <Menu className="w-5 h-5" />
           <span className="text-[10px] font-semibold leading-none">{t("psy.dashboard.nav.more")}</span>

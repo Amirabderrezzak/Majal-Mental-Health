@@ -81,8 +81,8 @@ export default function PsySettingsPage({
                 <h4 className="text-sm font-semibold text-foreground">{s.title}</h4>
                 <p className="text-xs text-muted-foreground mt-1 leading-normal font-sans">{s.desc}</p>
               </div>
-              <label className="relative w-12 h-[26px] shrink-0">
-                <input
+              <label htmlFor="psysettingspage-f1" className="relative w-12 h-[26px] shrink-0">
+                <input id="psysettingspage-f1"
                   type="checkbox"
                   checked={s.checked}
                   onChange={(e) => updateClinicSetting(s.key, e.target.checked)}
@@ -98,18 +98,18 @@ export default function PsySettingsPage({
           <h4 className="font-serif text-base font-semibold text-foreground">{t("psy.settings.hours.title")}</h4>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 font-sans">
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("psy.settings.hours.start")}</label>
-              <input type="time" value={clinicSettings.startHour} onChange={(e) => updateClinicSetting("startHour", e.target.value)}
+              <label htmlFor="psysettingspage-f2" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("psy.settings.hours.start")}</label>
+              <input id="psysettingspage-f2" type="time" value={clinicSettings.startHour} onChange={(e) => updateClinicSetting("startHour", e.target.value)}
                 className="px-4 py-3 border border-border/70 rounded-xl text-sm bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card transition-all font-sans cursor-pointer" />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("psy.settings.hours.end")}</label>
-              <input type="time" value={clinicSettings.endHour} onChange={(e) => updateClinicSetting("endHour", e.target.value)}
+              <label htmlFor="psysettingspage-f3" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("psy.settings.hours.end")}</label>
+              <input id="psysettingspage-f3" type="time" value={clinicSettings.endHour} onChange={(e) => updateClinicSetting("endHour", e.target.value)}
                 className="px-4 py-3 border border-border/70 rounded-xl text-sm bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card transition-all font-sans cursor-pointer" />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("psy.settings.hours.buffer")}</label>
-              <select value={clinicSettings.bufferMinutes} onChange={(e) => updateClinicSetting("bufferMinutes", parseInt(e.target.value))}
+              <label htmlFor="psysettingspage-f4" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("psy.settings.hours.buffer")}</label>
+              <select id="psysettingspage-f4" value={clinicSettings.bufferMinutes} onChange={(e) => updateClinicSetting("bufferMinutes", parseInt(e.target.value))}
                 className="px-4 py-3 border border-border/70 rounded-xl text-sm bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card transition-all font-sans cursor-pointer font-sans">
                 <option value={10}>10 min</option>
                 <option value={15}>15 min</option>
@@ -157,8 +157,8 @@ export default function PsySettingsPage({
             <h4 className="text-sm font-semibold text-foreground">{t("psy.availableNow")}</h4>
             <p className="text-xs text-muted-foreground mt-1 leading-normal font-sans">{t("psy.settings.availability.desc")}</p>
           </div>
-          <label className="relative w-12 h-[26px] shrink-0">
-            <input type="checkbox" checked={isAvailableNow} onChange={(e) => setIsAvailableNow(e.target.checked)} className="opacity-0 w-0 h-0" />
+          <label htmlFor="psysettingspage-f5" className="relative w-12 h-[26px] shrink-0">
+            <input id="psysettingspage-f5" type="checkbox" checked={isAvailableNow} onChange={(e) => setIsAvailableNow(e.target.checked)} className="opacity-0 w-0 h-0" />
             <span className="toggle-slider" />
           </label>
         </div>
@@ -173,7 +173,7 @@ export default function PsySettingsPage({
               <video src={videoPreviewUrl} controls className="w-full h-full object-cover" />
             </div>
             <div className="flex gap-2">
-              <button onClick={handleRemoveVideo} className="px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors cursor-pointer">
+              <button onClick={handleRemoveVideo} className="px-4 py-2 text-sm font-medium text-destructive border border-destructive/30 rounded-xl hover:bg-destructive/10 transition-colors cursor-pointer">
                 {t("psy.settings.video.remove")}
               </button>
             </div>
@@ -215,8 +215,8 @@ export default function PsySettingsPage({
                   if (ok) toast.success(was ? "Notifications push désactivées." : "Notifications push activées !");
                   else toast.error("Impossible d'activer les notifications...");
                 }}
-                className={`relative w-12 h-[26px] rounded-full transition-colors duration-300 border-none cursor-pointer disabled:opacity-50 shrink-0 ${pushSubscribed ? "bg-primary" : "bg-gray-300"}`}>
-                <span className={`absolute top-[3px] left-[3px] w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${pushSubscribed ? "translate-x-[22px]" : ""}`} />
+                className={`relative w-12 h-[26px] rounded-full transition-colors duration-300 border-none cursor-pointer disabled:opacity-50 shrink-0 ${pushSubscribed ? "bg-primary" : "bg-muted"}`}>
+                <span className={`absolute top-[3px] start-[3px] w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${pushSubscribed ? "translate-x-[22px] rtl:-translate-x-[22px]" : ""}`} />
               </button>
             ) : (
               <div className="flex items-center gap-2 text-muted-foreground shrink-0">
@@ -236,8 +236,8 @@ export default function PsySettingsPage({
                 <h4 className="text-sm font-semibold text-foreground">{n.title}</h4>
                 <p className="text-xs text-muted-foreground mt-1 leading-normal font-sans">{n.desc}</p>
               </div>
-              <label className="relative w-12 h-[26px] shrink-0">
-                <input
+              <label htmlFor="psysettingspage-f6" className="relative w-12 h-[26px] shrink-0">
+                <input id="psysettingspage-f6"
                   type="checkbox"
                   checked={n.checked}
                   onChange={(e) => updateNotificationPreference(n.key, e.target.checked)}
@@ -254,10 +254,10 @@ export default function PsySettingsPage({
         <h3 className="font-serif text-lg font-semibold text-foreground mb-6 pb-4 border-b border-border/40">{t("psy.settings.security") || "Sécurité"}</h3>
         <form onSubmit={handlePasswordChange} className="flex flex-col gap-4 max-w-md">
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("reset.newPassword") || "Nouveau mot de passe"}</label>
+            <label htmlFor="psysettingspage-f7" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("reset.newPassword") || "Nouveau mot de passe"}</label>
             <div className="flex items-center gap-3 border border-border/70 rounded-xl px-4 py-3 bg-teal-hero/30 focus-within:border-primary focus-within:bg-card transition-all focus-within:ring-1 focus-within:ring-primary">
               <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
-              <input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••"
+              <input id="psysettingspage-f7" type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••"
                 className="border-none bg-transparent outline-none text-sm text-foreground w-full placeholder:text-muted-foreground/60 font-sans" />
             </div>
           </div>

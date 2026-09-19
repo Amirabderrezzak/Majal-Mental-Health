@@ -1,5 +1,5 @@
 import React from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, AlertTriangle } from "lucide-react";
 
 interface State { hasError: boolean; error?: Error }
 
@@ -26,7 +26,7 @@ export default class ErrorBoundary extends React.Component<
       return (
         <div className="min-h-screen flex items-center justify-center bg-teal-hero px-4">
           <div className="text-center max-w-md">
-            <div className="text-5xl mb-4">😕</div>
+            <AlertTriangle className="w-12 h-12 text-warning mx-auto mb-4" aria-hidden="true" />
             <h1 className="font-serif text-2xl text-primary mb-2">Une erreur est survenue</h1>
             <p className="text-muted-foreground text-sm mb-6 leading-relaxed">
               Quelque chose s'est mal passé. Essayez de rafraîchir la page ou revenez plus tard.
@@ -39,7 +39,7 @@ export default class ErrorBoundary extends React.Component<
               Rafraîchir la page
             </button>
             {import.meta.env.DEV && this.state.error && (
-              <pre className="mt-6 text-left text-xs bg-red-50 text-red-700 p-4 rounded-lg overflow-auto max-h-40">
+              <pre className="mt-6 text-start text-xs bg-destructive/10 text-destructive p-4 rounded-lg overflow-auto max-h-40">
                 {this.state.error.message}
               </pre>
             )}

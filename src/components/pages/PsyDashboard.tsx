@@ -1,5 +1,6 @@
+import { useEscapeKey } from "@/lib/a11y";
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Users, Calendar, TrendingUp, Clock, Phone, ChevronRight, Video, Loader2, Check, X, AlertCircle, UserCheck, Sparkles, Ban, FileText, Search } from "lucide-react";
+import { Users, Calendar, TrendingUp, Clock, Phone, ChevronRight, Video, Loader2, Check, X, AlertCircle, UserCheck, Sparkles, Ban, FileText, Search, Lock } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -80,11 +81,11 @@ interface PsyDashboardProps {
 }
 
 const statusConfig: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
-  pending:   { label: "En attente",    icon: <Clock className="w-3 h-3" />,     className: "bg-amber-50 text-amber-700 border border-amber-200" },
-  confirmed: { label: "Confirmé",      icon: <Check className="w-3 h-3" />,     className: "bg-teal-50 text-teal-700 border border-teal-200" },
-  done:      { label: "Terminé",       icon: <Sparkles className="w-3 h-3" />,  className: "bg-gray-100 text-gray-600 border border-gray-200" },
-  cancelled: { label: "Annulé",        icon: <X className="w-3 h-3" />,         className: "bg-red-50 text-red-600 border border-red-200" },
-  "no-show": { label: "Absent",        icon: <X className="w-3 h-3" />,         className: "bg-amber-50 text-amber-700 border border-amber-200" },
+  pending:   { label: "En attente",    icon: <Clock className="w-3 h-3" />,     className: "bg-warning/10 text-warning border border-warning/30" },
+  confirmed: { label: "Confirmé",      icon: <Check className="w-3 h-3" />,     className: "bg-teal-pale text-primary border border-primary/20" },
+  done:      { label: "Terminé",       icon: <Sparkles className="w-3 h-3" />,  className: "bg-muted text-muted-foreground border border-border" },
+  cancelled: { label: "Annulé",        icon: <X className="w-3 h-3" />,         className: "bg-destructive/10 text-destructive border border-destructive/30" },
+  "no-show": { label: "Absent",        icon: <X className="w-3 h-3" />,         className: "bg-warning/10 text-warning border border-warning/30" },
 };
 
 function NotesPopover({ patientId, patientName, onClose }: { patientId: string; patientName: string; onClose: () => void }) {
@@ -103,6 +104,8 @@ function NotesPopover({ patientId, patientName, onClose }: { patientId: string; 
       .then(({ data }) => { setNotes(data?.notes || ""); setLoading(false); });
   }, [user, patientId]);
 
+  useEscapeKey(true, onClose);
+
   const save = async () => {
     if (!user || !patientId) return;
     setSaving(true);
@@ -118,13 +121,13 @@ function NotesPopover({ patientId, patientName, onClose }: { patientId: string; 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/20" />
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-5 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-labelledby="notes-dialog-title" className="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-5 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border/40">
           <div className="w-8 h-8 rounded-lg bg-teal-pale flex items-center justify-center">
             <FileText className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <h4 className="font-serif font-semibold text-sm text-foreground">Notes cliniques</h4>
+            <h2 id="notes-dialog-title" className="font-serif font-semibold text-sm text-foreground">Notes cliniques</h2>
             <p className="text-xs text-muted-foreground">{patientName}</p>
           </div>
         </div>
@@ -135,7 +138,7 @@ function NotesPopover({ patientId, patientName, onClose }: { patientId: string; 
             rows={8} placeholder="Notes sur le patient, observations, plan de traitement..."
             className="w-full px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none focus:border-primary focus:bg-card transition-all resize-none leading-relaxed" />
         )}
-        <p className="text-[10px] text-muted-foreground italic mt-2">🔒 Stockées de manière sécurisée et confidentielle.</p>
+        <p className="text-[10px] text-muted-foreground italic mt-2"><Lock className="w-3 h-3 inline me-1" aria-hidden="true" />Stockées de manière sécurisée et confidentielle.</p>
         <div className="flex gap-3 mt-4 pt-3 border-t border-border/40">
           <button onClick={onClose} className="px-4 py-2.5 border border-border/50 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer hover:bg-accent/40 transition-all">Fermer</button>
           <button onClick={save} disabled={saving || loading}
@@ -184,8 +187,8 @@ export default function PsyDashboard({
   }, [updateBookingStatus]);
 
   const timeStateBorder = (state: "upcoming" | "active" | "ended") => {
-    if (state === "active") return "border-l-4 border-l-primary bg-gradient-to-r from-teal-pale to-transparent";
-    if (state === "upcoming") return "border-l-4 border-l-primary/30";
+    if (state === "active") return "border-s-4 border-s-primary bg-gradient-to-r from-teal-pale to-transparent";
+    if (state === "upcoming") return "border-s-4 border-s-primary/30";
     return "";
   };
 
@@ -201,13 +204,13 @@ export default function PsyDashboard({
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-serif text-3xl text-foreground tracking-tight">{t("psy.dashboard.welcome")}, {profileData.full_name.split(" ")[0]} 👋</h2>
+          <h2 className="font-serif text-3xl text-foreground tracking-tight">{t("psy.dashboard.welcome")}, {profileData.full_name.split(" ")[0]}</h2>
           <p className="text-muted-foreground text-sm mt-1.5 font-sans">{t("psy.dashboard.welcomeSub")}</p>
         </div>
         <div className={`text-xs font-semibold px-4 py-2 rounded-full border flex items-center gap-1.5 ${
-          approvalStatus === "approved" ? "bg-teal-50 text-teal-700 border-teal-200" :
-          approvalStatus === "pending" ? "bg-amber-50 text-amber-700 border-amber-200" :
-          "bg-red-50 text-red-600 border-red-200"
+          approvalStatus === "approved" ? "bg-teal-pale text-primary border-primary/20" :
+          approvalStatus === "pending" ? "bg-warning/10 text-warning border-warning/30" :
+          "bg-destructive/10 text-destructive border-destructive/30"
         }`}>
           {approvalStatus === "approved" ? <UserCheck className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
           {approvalStatus === "approved" ? "Compte vérifié" : approvalStatus === "pending" ? "Vérification en cours..." : "Action requise"}
@@ -219,7 +222,7 @@ export default function PsyDashboard({
           { label: "Patients actifs",   value: totalUniquePatients, icon: <Users className="w-5 h-5" />,     color: "text-primary bg-teal-pale border-primary/10" },
           { label: "Séances ce mois",   value: sessionsThisMonth,   icon: <Calendar className="w-5 h-5" />,  color: "text-primary bg-teal-pale border-border" },
           { label: "Revenus",           value: earningsThisMonth > 0 ? `${(earningsThisMonth / 1000).toFixed(0)}k DA` : "0 DA", icon: <TrendingUp className="w-5 h-5" />, color: "text-primary bg-teal-pale border-border" },
-          { label: "Annulations",       value: `${cancelRate}%`,    icon: <Ban className="w-5 h-5" />,      color: "text-rose-600 bg-rose-50 border-rose-100" },
+          { label: "Annulations",       value: `${cancelRate}%`,    icon: <Ban className="w-5 h-5" />,      color: "text-destructive bg-destructive/10 border-destructive/30" },
         ].map((stat) => (
           <div key={stat.label} className="dashboard-card p-6 flex items-center gap-5 hover:shadow-md transition-all duration-300 group">
             <div className={`p-3 rounded-2xl border ${stat.color} group-hover:scale-110 transition-transform duration-300`}>{stat.icon}</div>
@@ -228,8 +231,8 @@ export default function PsyDashboard({
               <div className="font-serif text-2xl text-foreground mt-1 font-semibold">{stat.value}</div>
               {stat.label === "Annulations" && (
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] text-red-500 font-medium">{cancelledCount} annulé{cancelledCount > 1 ? "s" : ""}</span>
-                  <span className="text-[10px] text-amber-600 font-medium">{noShowCount} no-show</span>
+                  <span className="text-[10px] text-destructive font-medium">{cancelledCount} annulé{cancelledCount > 1 ? "s" : ""}</span>
+                  <span className="text-[10px] text-warning font-medium">{noShowCount} no-show</span>
                 </div>
               )}
             </div>
@@ -260,7 +263,7 @@ export default function PsyDashboard({
                     <span className={`text-xs font-bold ${isNow ? "text-primary" : "text-foreground"}`}>{timeLabel}</span>
                     {isNow && <span className="text-[8px] text-primary font-semibold uppercase tracking-wider mt-0.5">Maintenant</span>}
                   </div>
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${isNow ? "bg-teal-pale0 animate-pulse" : i < todaySessions.length - 1 ? "bg-primary/30" : "bg-gray-200"}`} />
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${isNow ? "bg-primary animate-pulse" : i < todaySessions.length - 1 ? "bg-primary/30" : "bg-muted"}`} />
                   <div className="flex-1 min-w-0 flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isNow ? "bg-teal-pale text-primary" : "bg-teal-pale text-primary"}`}>
                       {getInitials(s.patient_name)}
@@ -273,7 +276,7 @@ export default function PsyDashboard({
                   <div className="flex gap-1.5 shrink-0">
                     {isNow && (
                       <button onClick={() => handleStartCall(s.id)} disabled={startingCall === s.id}
-                        className="px-3 py-1.5 rounded-lg bg-primary text-white text-[10px] font-semibold border-none cursor-pointer hover:bg-primary/90 active:scale-95 transition-all flex items-center gap-1">
+                        className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-[10px] font-semibold border-none cursor-pointer hover:bg-primary/90 active:scale-95 transition-all flex items-center gap-1">
                         {startingCall === s.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Video className="w-3 h-3" />}
                         Rejoindre
                       </button>
@@ -292,7 +295,7 @@ export default function PsyDashboard({
       )}
 
       {immediateRequests.length > 0 && (
-        <div className="dashboard-card p-5 border-l-4 border-l-primary bg-gradient-to-r from-teal-pale/30 to-transparent">
+        <div className="dashboard-card p-5 border-s-4 border-s-primary bg-gradient-to-r from-teal-pale/30 to-transparent">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-9 h-9 rounded-xl bg-teal-pale flex items-center justify-center">
               <Phone className="w-4 h-4 text-primary" />
@@ -317,12 +320,12 @@ export default function PsyDashboard({
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => handleRequestResponse(req.id, true)} disabled={respondingToRequest === req.id}
-                    className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 active:scale-95 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-xs">
+                    className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 active:scale-95 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-xs">
                     {respondingToRequest === req.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                     Accepter
                   </button>
                   <button onClick={() => handleRequestResponse(req.id, false)} disabled={respondingToRequest === req.id}
-                    className="px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100 active:scale-95 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5">
+                    className="px-4 py-2 rounded-xl bg-destructive/10 text-destructive text-xs font-semibold hover:bg-destructive/10 active:scale-95 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5">
                     <X className="w-3.5 h-3.5" />
                     Refuser
                   </button>
@@ -344,7 +347,7 @@ export default function PsyDashboard({
                 )}
               </div>
               <button onClick={() => setActivePage("sessions")} className="text-primary text-sm font-semibold flex items-center gap-1 bg-transparent border-none cursor-pointer hover:text-teal-mid transition-colors">
-                Voir tout <ChevronRight className="w-4 h-4" />
+                Voir tout <ChevronRight className="w-4 h-4 rtl:rotate-180" />
               </button>
             </div>
           </div>
@@ -371,7 +374,7 @@ export default function PsyDashboard({
                   <div key={s.id} ref={el => sessionRefs.current[s.id] = el}
                     className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border transition-all duration-300 ${
                       effectiveStatus !== "pending" && effectiveStatus !== "confirmed"
-                        ? "border-gray-100 bg-gray-50/50 opacity-60"
+                        ? "border-border bg-background opacity-60"
                         : isActive
                         ? "border-primary/15 bg-teal-pale shadow-sm"
                         : "border-border/50 bg-card hover:border-primary/30 hover:bg-teal-hero/20"
@@ -407,7 +410,7 @@ export default function PsyDashboard({
                             Confirmer
                           </button>
                           <button onClick={() => doUpdate(s.id, "cancelled")} disabled={updating === s.id}
-                            className="bg-red-50 text-red-600 border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-red-100 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1">
+                            className="bg-destructive/10 text-destructive border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-destructive/10 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </>
@@ -419,7 +422,7 @@ export default function PsyDashboard({
                           </span>
                           {isActive && (
                             <button onClick={() => handleStartCall(s.id)} disabled={startingCall === s.id}
-                              className="bg-primary text-white border-none rounded-xl px-3.5 py-2 text-xs font-semibold cursor-pointer hover:bg-primary/90 active:scale-95 transition-all flex items-center gap-1.5 shadow-xs">
+                              className="bg-primary text-primary-foreground border-none rounded-xl px-3.5 py-2 text-xs font-semibold cursor-pointer hover:bg-primary/90 active:scale-95 transition-all flex items-center gap-1.5 shadow-xs">
                               {startingCall === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Video className="w-3.5 h-3.5" />}
                               Rejoindre
                             </button>
@@ -427,11 +430,11 @@ export default function PsyDashboard({
                           {effectiveStatus === "confirmed" && !isActive && (
                             <>
                               <button onClick={() => doUpdate(s.id, "done")} disabled={updating === s.id}
-                                className="bg-gray-100 text-gray-600 border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-gray-200 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1">
+                                className="bg-muted text-muted-foreground border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-accent/40 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1">
                                 <Check className="w-3 h-3" /> Terminer
                               </button>
                               <button onClick={() => setNotesTarget({ id: s.patient_id, name: s.patient_name || "Patient" })}
-                                className="bg-teal-pale/60 text-primary border-none rounded-xl px-2.5 py-2 text-xs font-semibold cursor-pointer hover:bg-primary hover:text-white active:scale-95 transition-all" title="Notes cliniques">
+                                className="bg-teal-pale/60 text-primary border-none rounded-xl px-2.5 py-2 text-xs font-semibold cursor-pointer hover:bg-primary hover:text-white active:scale-95 transition-all" title="Notes cliniques" aria-label="Notes cliniques">
                                 <FileText className="w-3.5 h-3.5" />
                               </button>
                             </>
@@ -459,7 +462,7 @@ export default function PsyDashboard({
                   const pct = maxEarning > 0 ? (e.amount / maxEarning) * 100 : 0;
                   return (
                     <div key={e.day} className="flex-1 h-full flex flex-col justify-end items-center relative group">
-                      <span className="absolute -top-7 bg-foreground text-background text-[10px] font-bold px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-sm z-20 whitespace-nowrap">{e.amount.toLocaleString()} DA</span>
+                      <span className="absolute -top-7 bg-foreground text-background text-[10px] font-bold px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-sm z-20 whitespace-nowrap"><bdi>{e.amount.toLocaleString()} DA</bdi></span>
                       <div className="w-5 sm:w-6 bg-primary/10 hover:bg-primary/20 transition-all rounded-t-md relative cursor-pointer"
                         style={{ height: `${pct}%`, minHeight: e.amount > 0 ? "8px" : "4px" }}>
                         {e.amount > 0 && <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-primary rounded-t-md" />}
@@ -475,7 +478,7 @@ export default function PsyDashboard({
             <div>
               <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t("psy.dashboard.weekTotal")}</div>
               <div className="font-serif text-2xl text-primary font-bold mt-0.5">
-                {realWeeklyEarnings.reduce((s, e) => s + e.amount, 0).toLocaleString()} DA
+                <bdi>{realWeeklyEarnings.reduce((s, e) => s + e.amount, 0).toLocaleString()} DA</bdi>
               </div>
             </div>
             <TrendingUp className="w-7 h-7 text-primary/40" />
@@ -487,10 +490,10 @@ export default function PsyDashboard({
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-border/40">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input type="text" value={patientSearch} onChange={e => setPatientSearch(e.target.value)}
+              <Search className="w-4 h-4 text-muted-foreground absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input type="text" aria-label="Rechercher un patient" value={patientSearch} onChange={e => setPatientSearch(e.target.value)}
                 placeholder="Rechercher un patient..."
-                className="w-52 pl-9 pr-3 py-1.5 border border-border/60 rounded-lg text-xs bg-transparent outline-none focus:border-primary focus:bg-teal-hero/30 transition-all" />
+                className="w-full sm:w-52 ps-9 pe-3 py-1.5 border border-border/60 rounded-lg text-xs bg-transparent outline-none focus:border-primary focus:bg-teal-hero/30 transition-all" />
             </div>
             {patientSearch && (
               <button onClick={() => setPatientSearch("")} className="text-[10px] text-muted-foreground hover:text-foreground bg-transparent border-none cursor-pointer">Effacer</button>
@@ -499,7 +502,7 @@ export default function PsyDashboard({
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground">{filteredPatients.length} patient{filteredPatients.length > 1 ? "s" : ""}</span>
             <button onClick={() => setActivePage("patients")} className="text-primary text-sm font-semibold flex items-center gap-1 bg-transparent border-none cursor-pointer hover:text-teal-mid transition-colors">
-              Voir tout <ChevronRight className="w-4 h-4" />
+              Voir tout <ChevronRight className="w-4 h-4 rtl:rotate-180" />
             </button>
           </div>
         </div>
@@ -530,7 +533,7 @@ export default function PsyDashboard({
                   <div className="text-[10px] text-primary font-medium mt-0.5 font-sans">Dernière visite : {p.lastSeen}</div>
                 </div>
                 <button onClick={() => setNotesTarget({ id: p.id, name: p.name })}
-                  className="p-2 rounded-lg bg-teal-pale/40 text-primary hover:bg-primary hover:text-white active:scale-95 transition-all border-none cursor-pointer shrink-0" title="Notes cliniques">
+                  className="p-2 rounded-lg bg-teal-pale/40 text-primary hover:bg-primary hover:text-white active:scale-95 transition-all border-none cursor-pointer shrink-0" title="Notes cliniques" aria-label="Notes cliniques">
                   <FileText className="w-3.5 h-3.5" />
                 </button>
               </div>

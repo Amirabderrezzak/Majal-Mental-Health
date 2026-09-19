@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Shield, Star, Calendar, Heart } from "lucide-react";
+import { Shield, Star, Calendar, Heart, Search, CalendarDays, MessageCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -56,10 +56,10 @@ const Index = () => {
             {t("hero.subtitle")}
           </p>
           <div className="flex gap-3.5 flex-wrap">
-            <Link to="/psychologues" className="px-7 py-3.5 rounded-[32px] bg-primary text-primary-foreground font-medium text-[15px] no-underline hover:bg-teal-mid transition-colors">
+            <Link to="/psychologues" className="px-7 py-3.5 rounded-full bg-primary text-primary-foreground font-medium text-[15px] no-underline hover:bg-teal-mid transition-colors">
               {t("hero.cta")}
             </Link>
-            <a href="#how" className="px-7 py-3.5 rounded-[32px] bg-card text-primary font-medium text-[15px] no-underline border border-border hover:border-primary transition-colors">
+            <a href="#how" className="px-7 py-3.5 rounded-full bg-card text-primary font-medium text-[15px] no-underline border border-border hover:border-primary transition-colors">
               {t("hero.how")}
             </a>
           </div>
@@ -69,7 +69,7 @@ const Index = () => {
           <div className="absolute inset-0 bg-gradient-to-b from-primary/15 to-primary/65 flex flex-col items-center justify-end pb-10">
             <Heart className="w-14 h-14 text-primary-foreground mb-3" />
             <div className="text-center text-primary-foreground">
-              <h3 className="font-serif text-[26px] font-normal">Majal</h3>
+              <p className="font-serif text-[26px] font-normal">Majal</p>
               <p className="text-sm opacity-85 mt-1">{t("hero.overlay.subtitle")}</p>
             </div>
           </div>
@@ -97,12 +97,12 @@ const Index = () => {
         <p className="text-base text-muted-foreground mb-14 fade-up">{t("how.subtitle")}</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
-            { icon: "🔍", title: t("how.step1.title"), desc: t("how.step1.desc") },
-            { icon: "📅", title: t("how.step2.title"), desc: t("how.step2.desc") },
-            { icon: "💬", title: t("how.step3.title"), desc: t("how.step3.desc") },
+            { Icon: Search, title: t("how.step1.title"), desc: t("how.step1.desc") },
+            { Icon: CalendarDays, title: t("how.step2.title"), desc: t("how.step2.desc") },
+            { Icon: MessageCircle, title: t("how.step3.title"), desc: t("how.step3.desc") },
           ].map((c, i) => (
             <div key={i} className="bg-card rounded-lg p-6 sm:p-10 text-start shadow-card fade-up" style={{ transitionDelay: `${i * 0.1}s` }}>
-              <span className="text-[40px] block mb-5">{c.icon}</span>
+              <c.Icon className="w-10 h-10 text-primary mb-5" aria-hidden="true" />
               <h3 className="text-[17px] font-semibold text-primary mb-2.5 font-sans">{c.title}</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">{c.desc}</p>
             </div>
@@ -121,7 +121,7 @@ const Index = () => {
             { Icon: Heart, title: t("why.4.title"), desc: t("why.4.desc") },
           ].map((item, i) => (
             <div key={i} className="flex flex-col items-center gap-4 fade-up" style={{ transitionDelay: `${i * 0.1}s` }}>
-              <div className="w-[72px] h-[72px] bg-teal-pale rounded-[18px] flex items-center justify-center">
+              <div className="w-[72px] h-[72px] bg-teal-pale rounded-xl flex items-center justify-center">
                 <item.Icon className="w-7 h-7 text-primary" />
               </div>
               <h3 className="text-base font-semibold text-primary font-sans">{item.title}</h3>
@@ -160,7 +160,7 @@ const Index = () => {
         </p>
         <Link
           to="/psychologues"
-          className="inline-block px-10 py-4 bg-card text-primary font-semibold text-base rounded-[40px] no-underline hover:-translate-y-0.5 hover:shadow-card-hover transition-all"
+          className="inline-block px-10 py-4 bg-card text-primary font-semibold text-base rounded-full no-underline hover:-translate-y-0.5 hover:shadow-card-hover transition-all"
         >
           {t("cta.button")}
         </Link>

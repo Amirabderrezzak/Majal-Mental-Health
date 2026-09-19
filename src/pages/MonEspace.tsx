@@ -1,3 +1,4 @@
+import { useEscapeKey } from "@/lib/a11y";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,9 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { getInitials } from "@/lib/utils";
+import { getRefundTier } from "@/lib/cancellationPolicy";
 
 import PatientSidebar, { type Page } from "@/components/pages/PatientSidebar";
 import PatientTopBar from "@/components/pages/PatientTopBar";
+import PatientMobileNav from "@/components/pages/PatientMobileNav";
 import PatientDashboard from "@/components/pages/PatientDashboard";
 import PatientSessions from "@/components/pages/PatientSessions";
 import PatientMessages from "@/components/pages/PatientMessages";
@@ -76,12 +79,13 @@ export default function MonEspace() {
   const [past, setPast] = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
 
   const [activeChatUserId, setActiveChatUserId] = useState<string | null>(null);
   const [activeChatUserName, setActiveChatUserName] = useState<string>("");
 
   const [wellnessStreak, setWellnessStreak] = useState(5);
-  const [unlockedBadges, setUnlockedBadges] = useState<{ id: string; name: string; emoji: string; desc: string }[]>([]);
+  const [unlockedBadges, setUnlockedBadges] = useState<{ id: string; name: string; desc: string }[]>([]);
 
   const locale = lang === "ar" ? "ar-SA" : "fr-FR";
   const fmt  = (iso: string) => new Date(iso).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" });
@@ -105,9 +109,9 @@ export default function MonEspace() {
       localStorage.setItem(`majal_streak_${user.id}`, "5");
     }
     setUnlockedBadges([
-      { id: "1", name: t("space.badge.pioneer"), emoji: "🌱", desc: t("space.badge.pioneerDesc") },
-      { id: "2", name: t("space.badge.zen"), emoji: "🧘", desc: t("space.badge.zenDesc") },
-      { id: "3", name: t("space.badge.explorer"), emoji: "🗺️", desc: t("space.badge.explorerDesc") }
+      { id: "1", name: t("space.badge.pioneer"), desc: t("space.badge.pioneerDesc") },
+      { id: "2", name: t("space.badge.zen"), desc: t("space.badge.zenDesc") },
+      { id: "3", name: t("space.badge.explorer"), desc: t("space.badge.explorerDesc") }
     ]);
   }, [user]);
 
@@ -161,7 +165,11 @@ export default function MonEspace() {
     };
   }, [user]);
 
-  const handleCancelBooking = async (id: string) => {
+  const requestCancelBooking = (id: string) => setPendingCancelId(id);
+  useEscapeKey(pendingCancelId !== null, () => setPendingCancelId(null));
+
+  const executeCancelBooking = async (id: string) => {
+    setPendingCancelId(null);
     setCancelling(id);
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
@@ -181,8 +189,9 @@ export default function MonEspace() {
       if (!response.ok || data.error) {
         toast.error(data.error || t("space.toast.cancelError"));
       } else {
-        toast.success(t("space.toast.cancelled"));
         const cancelledBooking = upcoming.find(b => b.id === id);
+        const refund = cancelledBooking ? getRefundTier(new Date(cancelledBooking.booked_at)).refundPercent : null;
+        toast.success(refund === null ? t("space.toast.cancelled") : `${t("space.toast.cancelled")} — ${t("space.cancel.refundLine").replace("{pct}", String(refund))}`);
         if (cancelledBooking) {
           setUpcoming(prev => prev.filter(b => b.id !== id));
           setPast(prev => [{ ...cancelledBooking, status: "cancelled" as const }, ...prev].sort((a, b) => new Date(b.booked_at).getTime() - new Date(a.booked_at).getTime()));
@@ -269,7 +278,7 @@ export default function MonEspace() {
           bookingsLoading={bookingsLoading}
           wellnessStreak={wellnessStreak}
           unlockedBadges={unlockedBadges}
-          handleCancelBooking={handleCancelBooking}
+          handleCancelBooking={requestCancelBooking}
           setActivePage={setActivePage}
           fmt={fmt}
           fmtT={fmtT}
@@ -284,7 +293,7 @@ export default function MonEspace() {
           past={past}
                 cancelling={cancelling}
           bookingsLoading={bookingsLoading}
-          handleCancelBooking={handleCancelBooking}
+          handleCancelBooking={requestCancelBooking}
           handleReschedule={handleReschedule}
           locale={locale}
           fmt={fmt}
@@ -336,8 +345,34 @@ export default function MonEspace() {
       />
       <main className={`flex-1 ${dir === "rtl" ? "lg:mr-64" : "lg:ml-64"} min-h-screen flex flex-col`}>
         <PatientTopBar title={pageTitle[activePage]} setSidebarOpen={setSidebarOpen} />
-        <div className="flex-1 overflow-auto">{renderPage()}</div>
+        <div className={`flex-1 overflow-auto ${activePage !== "dashboard" ? "pb-20 lg:pb-0" : ""}`}>{renderPage()}</div>
       </main>
+      {activePage !== "dashboard" && (
+        <PatientMobileNav activePage={activePage} setActivePage={setActivePage} setSidebarOpen={setSidebarOpen} />
+      )}
+
+      {pendingCancelId && (() => {
+        const b = upcoming.find(x => x.id === pendingCancelId);
+        if (!b) return null;
+        const { tier, refundPercent } = getRefundTier(new Date(b.booked_at));
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="cancel-dialog-title">
+            <div className="absolute inset-0 bg-foreground/40" onClick={() => setPendingCancelId(null)} />
+            <div className="relative w-full max-w-md bg-card rounded-xl shadow-overlay border border-border p-6">
+              <h2 id="cancel-dialog-title" className="font-serif text-xl text-foreground mb-2">{t("space.cancel.title")}</h2>
+              <p className="text-sm text-muted-foreground mb-4">{b.psychologist_name} · {fmt(b.booked_at)} · {fmtT(b.booked_at)}</p>
+              <div className={`rounded-lg border px-4 py-3 mb-5 text-sm ${refundPercent === 100 ? "bg-teal-pale border-primary/20 text-primary" : "bg-destructive/10 border-danger/20 text-danger"}`}>
+                <div className="font-semibold mb-1">{t("space.cancel.refundLine").replace("{pct}", String(refundPercent))}</div>
+                <div>{t(`space.cancel.tier.${tier}`)}</div>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button type="button" autoFocus onClick={() => setPendingCancelId(null)} className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground bg-transparent cursor-pointer hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none">{t("space.cancel.keep")}</button>
+                <button type="button" onClick={() => executeCancelBooking(b.id)} className="px-4 py-2.5 rounded-lg bg-destructive text-destructive-foreground text-sm font-semibold border-none cursor-pointer hover:opacity-90 focus-visible:ring-2 focus-visible:ring-destructive/40 focus-visible:outline-none">{t("space.cancel.confirm")}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

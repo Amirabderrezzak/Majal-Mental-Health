@@ -1,3 +1,4 @@
+import { asButton } from "@/lib/a11y";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -33,7 +34,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
     { name: "Teal Calme", bg: "from-teal-mid to-teal-dark" },
     { name: "Aurore Éveillée", bg: "bg-teal" },
     { name: "Chaleur Réconfortante", bg: "bg-teal-cta" },
-    { name: "Forêt de Soin", bg: "from-primary to-teal-700" },
+    { name: "Forêt de Soin", bg: "from-primary to-teal-dark" },
     { name: "Crépuscule Apaisant", bg: "bg-teal-mid" },
   ];
 
@@ -350,7 +351,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
 
             <div className="dashboard-card p-6 space-y-4">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mes Réflexions Actives ({publishedStories.length})</h4>
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-56 overflow-y-auto pe-1">
                 {publishedStories.map((story, idx) => (
                   <div key={idx} className="flex items-center justify-between p-3 border border-solid border-border/40 rounded-xl bg-teal-hero/5 text-xs hover:bg-teal-hero/10 transition-colors font-sans">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -358,8 +359,10 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
                       <span className="truncate text-foreground/90 font-medium">{story.text}</span>
                     </div>
                     <button
+                      type="button"
                       onClick={() => handleDeleteStory(idx)}
-                      className="p-1 rounded text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-all border-none bg-transparent cursor-pointer"
+                      aria-label={t("common.delete")}
+                      className="p-2.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all border-none bg-transparent cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -423,7 +426,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
                   </div>
                   <button
                     onClick={handleStopAudioRoom}
-                    className="btn bg-red-50 text-red-600 hover:bg-red-100"
+                    className="btn bg-destructive/10 text-destructive hover:bg-destructive/10"
                   >
                     Terminer le salon
                   </button>
@@ -457,7 +460,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
             <div className="dashboard-card p-6 space-y-4">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vos salons</h4>
               {liveRoom ? (
-                 <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                 <div className="space-y-2.5 max-h-80 overflow-y-auto pe-1">
                   <div className="flex items-center justify-between p-2 rounded-xl border border-solid border-primary/20 bg-teal-hero/5 font-sans">
                     <div className="flex items-center gap-2">
                       <span className="relative flex h-2 w-2">
@@ -510,7 +513,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
 
                 <div className="space-y-3 pt-4 border-t border-solid border-border/30">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("space.forum.comments")} ({selectedThread.replies.length})</h4>
-                  <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-60 overflow-y-auto pe-1">
                     {selectedThread.replies.map((reply: any, idx: number) => (
                       <div key={idx} className={`p-4 rounded-xl border border-solid font-sans text-xs leading-relaxed ${reply.isPsy ? "bg-teal-pale/35 border-primary/20" : "bg-accent/15 border-border/30"}`}>
                         <div className="flex items-center justify-between mb-2">
@@ -562,7 +565,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
                 {forumThreads.map((thread) => (
                   <div
                     key={thread.id}
-                    onClick={() => setSelectedThread(thread)}
+                    {...asButton(() => setSelectedThread(thread))}
                     className="surface p-6 flex flex-col justify-between card-hover cursor-pointer"
                   >
                     <div>

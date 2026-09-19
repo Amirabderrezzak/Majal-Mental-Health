@@ -123,43 +123,43 @@ const Inscription = () => {
 
           <form onSubmit={handleSignUp} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-muted-foreground">{t("auth.fullName")}</label>
+              <label htmlFor="inscription-f1" className="text-[13px] font-medium text-muted-foreground">{t("auth.fullName")}</label>
               <div className={inputClasses}>
                 <User className="w-4 h-4 text-muted-foreground shrink-0" />
-                <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t("auth.namePlaceholder")} className={inputFieldClasses} />
+                <input id="inscription-f1" type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t("auth.namePlaceholder")} className={inputFieldClasses} />
               </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-muted-foreground">{t("auth.email")}</label>
+              <label htmlFor="inscription-f2" className="text-[13px] font-medium text-muted-foreground">{t("auth.email")}</label>
               <div className={inputClasses}>
                 <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
-                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="votre@email.com" className={inputFieldClasses} />
+                <input id="inscription-f2" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="votre@email.com" className={inputFieldClasses} />
               </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-muted-foreground">{t("auth.phone")}</label>
+              <label htmlFor="inscription-f3" className="text-[13px] font-medium text-muted-foreground">{t("auth.phone")}</label>
               <div className={inputClasses}>
                 <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
-                <input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("auth.phonePlaceholder")} className={inputFieldClasses} />
+                <input id="inscription-f3" type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("auth.phonePlaceholder")} className={inputFieldClasses} />
               </div>
             </div>
 
             {userType === "psychologue" && (
               <>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[13px] font-medium text-muted-foreground">{t("auth.orderNumber")}</label>
+                  <label htmlFor="inscription-f4" className="text-[13px] font-medium text-muted-foreground">{t("auth.orderNumber")}</label>
                   <div className={inputClasses}>
                     <Award className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <input type="text" required value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} placeholder={t("auth.orderPlaceholder")} className={inputFieldClasses} />
+                    <input id="inscription-f4" type="text" required value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} placeholder={t("auth.orderPlaceholder")} className={inputFieldClasses} />
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[13px] font-medium text-muted-foreground">{t("auth.specialtyLabel")}</label>
+                  <label htmlFor="inscription-f5" className="text-[13px] font-medium text-muted-foreground">{t("auth.specialtyLabel")}</label>
                   <div className={inputClasses}>
                     <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <select required value={specialty} onChange={(e) => setSpecialty(e.target.value)} className={inputFieldClasses + " cursor-pointer"}>
+                    <select id="inscription-f5" required value={specialty} onChange={(e) => setSpecialty(e.target.value)} className={inputFieldClasses + " cursor-pointer"}>
                       <option value="">{t("auth.chooseSpecialty")}</option>
                       <option value="psychologie-clinique">{t("auth.clinicalPsy")}</option>
                       <option value="psychotherapie">{t("auth.psychotherapy")}</option>
@@ -172,21 +172,21 @@ const Inscription = () => {
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[13px] font-medium text-muted-foreground">{t("auth.cityLabel")}</label>
+                  <label htmlFor="inscription-f6" className="text-[13px] font-medium text-muted-foreground">{t("auth.cityLabel")}</label>
                   <div className={inputClasses}>
                     <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <input type="text" required value={city} onChange={(e) => setCity(e.target.value)} placeholder={t("auth.cityPlaceholder")} className={inputFieldClasses} />
+                    <input id="inscription-f6" type="text" required value={city} onChange={(e) => setCity(e.target.value)} placeholder={t("auth.cityPlaceholder")} className={inputFieldClasses} />
                   </div>
                 </div>
               </>
             )}
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-muted-foreground">{t("auth.password")}</label>
+              <label htmlFor="inscription-f7" className="text-[13px] font-medium text-muted-foreground">{t("auth.password")}</label>
               <div className={inputClasses}>
                 <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
-                <input type={showPw ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("auth.minChars")} className={inputFieldClasses} />
-                <button type="button" onClick={() => setShowPw(!showPw)} className="bg-transparent border-none cursor-pointer p-0">
+                <input id="inscription-f7" type={showPw ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("auth.minChars")} className={inputFieldClasses} />
+                <button type="button" onClick={() => setShowPw(!showPw)} aria-label={showPw ? t("common.hidePassword") : t("common.showPassword")} aria-pressed={showPw} className="bg-transparent border-none cursor-pointer p-2 -m-2 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none">
                   {showPw ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
                 </button>
               </div>

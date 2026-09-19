@@ -1,3 +1,4 @@
+import { asButton } from "@/lib/a11y";
 import { useState, useEffect } from "react";
 import { Users, MessageSquare, X, ShieldCheck } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -235,7 +236,7 @@ export default function ForumPage() {
             filteredThreads.map((threadItem) => (
               <article 
                 key={threadItem.id} 
-                onClick={() => setSelectedThread(threadItem)}
+                {...asButton(() => setSelectedThread(threadItem))}
                 className="surface p-6 flex flex-col justify-between card-hover cursor-pointer border border-border/40"
               >
                 <div>

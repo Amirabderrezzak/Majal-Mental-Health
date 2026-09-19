@@ -1,14 +1,13 @@
+import { useEscapeKey } from "@/lib/a11y";
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import {
-  ChevronLeft, Calendar, MessageSquare, Clock, Check,
-  GraduationCap, Award, Star, MapPin, Loader2, Globe, X,
-} from "lucide-react";
+import { ChevronLeft, Calendar, MessageSquare, Clock, Check, GraduationCap, Award, Star, MapPin, Loader2, Globe, X, User } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { DEFAULT_CLINIC_SETTINGS, DAY_KEYS } from "@/lib/availability";
 import { toast } from "sonner";
 
 interface PsyProfile {
@@ -70,6 +69,7 @@ const Profil = () => {
 
   // Review form state
   const [showReviewModal, setShowReviewModal] = useState(false);
+  useEscapeKey(showReviewModal, () => setShowReviewModal(false));
   const [reviewRating, setReviewRating]       = useState(5);
   const [reviewComment, setReviewComment]     = useState("");
   const [reviewHover, setReviewHover]         = useState<number | null>(null);
@@ -88,7 +88,7 @@ const Profil = () => {
     Promise.all([
       supabase
         .from("psychologist_directory")
-        .select("user_id, full_name, specialty, city, bio, approach, formations, price_per_session, years_experience, language, avatar_url, video_url, is_available_now")
+        .select("user_id, full_name, specialty, city, bio, approach, formations, price_per_session, years_experience, language, avatar_url, video_url, is_available_now, clinic_settings")
         .eq("user_id", id)
         .single(),
 
@@ -110,7 +110,7 @@ const Profil = () => {
         navigate("/psychologues");
         return;
       }
-      if (profileRes.data) setPsyProfile(profileRes.data as PsyProfile);
+      if (profileRes.data) setPsyProfile(profileRes.data as unknown as PsyProfile);
       if (reviewsRes.data) {
         setReviews(reviewsRes.data as Review[]);
         if (user) {
@@ -137,7 +137,6 @@ const Profil = () => {
   const exp        = psyProfile?.years_experience ?? 0;
   const langs      = psyProfile?.language ? [psyProfile.language] : ["Français"];
   const avatarUrl  = psyProfile?.avatar_url ?? null;
-  const emoji      = "🧑‍⚕️";
 
   // ── Start a conversation with this psychologist ───────────────────────────
   const handleMessage = () => {
@@ -219,7 +218,7 @@ const Profil = () => {
       <Navbar />
       <div className="max-w-[1200px] mx-auto px-4 sm:px-[5%] py-9 pb-20">
         <Link to="/psychologues" className="inline-flex items-center gap-1.5 text-muted-foreground text-sm no-underline mb-7 hover:text-primary transition-colors">
-          <ChevronLeft className="w-4 h-4" /> {t("prof.back")}
+          <ChevronLeft className="w-4 h-4 rtl:rotate-180" /> {t("prof.back")}
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-7 items-start">
@@ -232,7 +231,7 @@ const Profil = () => {
                   className="w-[100px] h-[100px] rounded-full object-cover border-[3px] border-card shadow-card" />
               ) : (
                 <div className="w-[100px] h-[100px] rounded-full border-[3px] border-card shadow-card text-[72px] flex items-center justify-center bg-card">
-                  {emoji}
+                  <User className="w-10 h-10 text-primary" aria-hidden="true" />
                 </div>
               )}
               <h1 className="font-serif text-xl text-primary text-center">{name}</h1>
@@ -250,7 +249,7 @@ const Profil = () => {
                 </div>
               )}
               <div className="bg-card rounded-xl px-6 py-4 text-center w-full mt-1">
-                <div className="font-serif text-[28px] text-primary">{price.toLocaleString()} DZD</div>
+                <div className="font-serif text-[28px] text-primary"><bdi>{price.toLocaleString()} DZD</bdi></div>
                 <div className="text-[13px] text-muted-foreground mt-0.5">{t("prof.session")}</div>
               </div>
             </div>
@@ -276,7 +275,7 @@ const Profil = () => {
                   <div className="text-xs text-muted-foreground">{t("prof.availability")}</div>
                   {psyProfile?.is_available_now ? (
                     <div className="text-sm font-medium text-primary flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-teal-pale0 animate-pulse" />
+                      <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                       {t("psy.availableNow")}
                     </div>
                   ) : (
@@ -380,24 +379,24 @@ const Profil = () => {
                 {/* Disponibilités */}
                 <div className="bg-card rounded-lg shadow-card p-4 sm:p-7">
                   <h2 className="font-serif text-xl text-primary mb-5">{t("prof.slots")}</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
-                    {[
-                      { label: t("res.morning"),   slots: ["09:00", "10:00", "11:00"] },
-                      { label: t("res.afternoon"), slots: ["14:00", "15:00", "16:00"] },
-                      { label: t("res.evening"),   slots: ["18:00", "19:00"] },
-                    ].map(col => (
-                      <div key={col.label}>
-                        <h4 className="text-[13px] font-medium text-muted-foreground mb-3 font-sans">{col.label}</h4>
-                        <div className="flex flex-col gap-2">
-                          {col.slots.map(s => (
-                            <div key={s} className="py-2.5 text-center rounded-[10px] border border-border bg-teal-hero text-sm font-sans text-foreground">
-                              {s}
-                            </div>
-                          ))}
+                  {(() => {
+                    const cs = { ...DEFAULT_CLINIC_SETTINGS, ...((psyProfile as any)?.clinic_settings ?? {}) };
+                    const dayName = (k: string) => t(`prof.day.${k}`);
+                    return cs.vacationMode ? (
+                      <p className="text-sm text-muted-foreground mb-6">{t("prof.onVacation")}</p>
+                    ) : (
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 text-sm">
+                        <div>
+                          <dt className="text-[13px] font-medium text-muted-foreground mb-1">{t("prof.workingDays")}</dt>
+                          <dd className="text-foreground">{DAY_KEYS.filter(k => cs.workingDays.includes(k)).map(dayName).join(" · ")}</dd>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                        <div>
+                          <dt className="text-[13px] font-medium text-muted-foreground mb-1">{t("prof.workingHours")}</dt>
+                          <dd className="text-foreground"><bdi>{cs.startHour} – {cs.endHour}</bdi></dd>
+                        </div>
+                      </dl>
+                    );
+                  })()}
                   <Link to={`/reservation/${bookingId}`}
                     className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-[15px] font-medium no-underline flex items-center justify-center gap-2 hover:bg-teal-mid transition-colors">
                     <Calendar className="w-4 h-4" /> {t("prof.book")}
@@ -427,7 +426,7 @@ const Profil = () => {
                         <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
                           <div className="h-full bg-teal-light rounded-full transition-all" style={{ width: `${b.pct}%` }} />
                         </div>
-                        <span className="w-5 text-right">{b.count}</span>
+                        <span className="w-5 text-end">{b.count}</span>
                       </div>
                     ))}
                   </div>
@@ -480,11 +479,11 @@ const Profil = () => {
       {showReviewModal && (
         <div className="fixed inset-0 bg-foreground/40 z-[200] flex items-center justify-center px-4"
           onClick={() => setShowReviewModal(false)}>
-          <div className="bg-card rounded-2xl p-8 max-w-md w-full shadow-card-hover"
+          <div role="dialog" aria-modal="true" aria-label={t("prof.reviewModalTitle")} className="bg-card rounded-2xl p-8 max-w-md w-full shadow-card-hover"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-serif text-xl text-primary">{t("prof.reviewModalTitle")}</h3>
-              <button onClick={() => setShowReviewModal(false)} className="bg-transparent border-none cursor-pointer text-muted-foreground hover:text-foreground">
+              <button type="button" onClick={() => setShowReviewModal(false)} aria-label={t("common.close")} className="bg-transparent border-none cursor-pointer text-muted-foreground hover:text-foreground p-2 -m-2">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -494,11 +493,15 @@ const Profil = () => {
             {/* Star picker */}
             <div className="flex gap-2 justify-center mb-6">
               {[1, 2, 3, 4, 5].map(s => (
-                <button key={s}
+                <button key={s} type="button"
+                  aria-label={t("prof.rateStars").replace("{n}", String(s))}
+                  aria-pressed={s === reviewRating}
                   onMouseEnter={() => setReviewHover(s)}
                   onMouseLeave={() => setReviewHover(null)}
+                  onFocus={() => setReviewHover(s)}
+                  onBlur={() => setReviewHover(null)}
                   onClick={() => setReviewRating(s)}
-                  className="bg-transparent border-none cursor-pointer p-1 transition-transform hover:scale-110">
+                  className="bg-transparent border-none cursor-pointer p-1 transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none">
                   <Star className={`w-8 h-8 transition-colors ${
                     s <= (reviewHover ?? reviewRating) ? "text-teal-light fill-teal-light" : "text-border"
                   }`} />
@@ -506,7 +509,7 @@ const Profil = () => {
               ))}
             </div>
 
-            <textarea value={reviewComment} onChange={e => setReviewComment(e.target.value)}
+            <textarea aria-label={t("prof.reviewPlaceholder")} value={reviewComment} onChange={e => setReviewComment(e.target.value)}
               rows={4} placeholder={t("prof.reviewPlaceholder")}
               className="w-full px-4 py-3 border border-border rounded-xl text-[15px] text-foreground bg-teal-hero outline-none focus:border-teal-light resize-none font-sans mb-5" />
 

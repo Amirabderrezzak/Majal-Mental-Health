@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ChevronLeft, Calendar, Clock, DollarSign, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, Calendar, Clock, DollarSign, ChevronRight, Loader2, User } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -32,7 +32,6 @@ const Reservation = () => {
   const [docAdolescents, setDocAdolescents] = useState<number | null>(null);
   const [docPricePerSession, setDocPricePerSession] = useState<number | null>(null);
   const [sessionType, setSessionType] = useState<"individual" | "couples" | "adolescents">("individual");
-  const [docEmoji, setDocEmoji] = useState("🧑‍⚕️");
   const [docAvatarUrl, setDocAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(isUUID);
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings>(DEFAULT_CLINIC_SETTINGS);
@@ -73,7 +72,6 @@ const Reservation = () => {
                 : "individual";
             setSessionType(firstOffered);
             setDocAvatarUrl(data.avatar_url);
-            setDocEmoji("🧑‍⚕️");
             const cs = (data as any).clinic_settings;
             if (cs && typeof cs === "object") {
               setClinicSettings({ ...DEFAULT_CLINIC_SETTINGS, ...cs });
@@ -255,7 +253,7 @@ const Reservation = () => {
       <Navbar />
       <div className="max-w-[1200px] mx-auto px-4 sm:px-[5%] py-10 pb-20">
         <Link to={`/profil/${id}`} className="inline-flex items-center gap-1.5 text-muted-foreground text-sm no-underline mb-6 hover:text-primary transition-colors">
-          <ChevronLeft className="w-4 h-4" /> {t("res.back")}
+          <ChevronLeft className="w-4 h-4 rtl:rotate-180" /> {t("res.back")}
         </Link>
         <h1 className="font-serif text-primary text-[clamp(26px,3.5vw,36px)] mb-1">{t("res.title")}</h1>
         <p className="text-[15px] text-muted-foreground mb-9">{t("res.with")} {docName}</p>
@@ -266,12 +264,12 @@ const Reservation = () => {
             <div className="bg-card rounded-lg shadow-card p-4 sm:p-8">
               <div className="text-[17px] font-semibold text-foreground mb-6 font-sans">{t("res.selectDate")}</div>
               <div className="flex items-center justify-between mb-5">
-                <button onClick={() => changeMonth(-1)} className="w-9 h-9 border border-border rounded-lg flex items-center justify-center text-primary cursor-pointer hover:bg-teal-pale transition-colors bg-transparent">
-                  <ChevronLeft className="w-4 h-4" />
+                <button onClick={() => changeMonth(-1)} aria-label={t("res.prevMonth") || "Mois précédent"} className="w-11 h-11 border border-border rounded-lg flex items-center justify-center text-primary cursor-pointer hover:bg-teal-pale transition-colors bg-transparent focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none">
+                  <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
                 </button>
                 <div className="font-serif text-xl text-primary">{months[viewMonth]} {viewYear}</div>
-                <button onClick={() => changeMonth(1)} className="w-9 h-9 border border-border rounded-lg flex items-center justify-center text-primary cursor-pointer hover:bg-teal-pale transition-colors bg-transparent">
-                  <ChevronRight className="w-4 h-4" />
+                <button onClick={() => changeMonth(1)} aria-label={t("res.nextMonth") || "Mois suivant"} className="w-11 h-11 border border-border rounded-lg flex items-center justify-center text-primary cursor-pointer hover:bg-teal-pale transition-colors bg-transparent focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none">
+                  <ChevronRight className="w-4 h-4 rtl:rotate-180" />
                 </button>
               </div>
               <div className="grid grid-cols-7 gap-1">
@@ -279,19 +277,23 @@ const Reservation = () => {
                   <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2">{d}</div>
                 ))}
                 {calDays.map((d, i) => (
-                  <div
+                  <button
                     key={i}
+                    type="button"
+                    disabled={!d || isPast(d)}
                     onClick={() => d && !isPast(d) && (setSelectedDay(d), setSelectedTime(null))}
-                    className={`aspect-square flex items-center justify-center rounded-[10px] text-sm cursor-pointer transition-all ${
-                      !d ? "cursor-default" :
-                      isPast(d) ? "text-muted-foreground/35 cursor-default" :
-                      d === selectedDay ? "bg-primary text-primary-foreground font-semibold" :
-                      isToday(d) ? "border-2 border-teal-light font-semibold" :
-                      "text-foreground hover:bg-teal-pale hover:text-primary"
+                    aria-label={d ? new Date(viewYear, viewMonth, d).toLocaleDateString(lang === "ar" ? "ar-SA" : "fr-FR", { weekday: "long", day: "numeric", month: "long" }) : undefined}
+                    aria-pressed={d === selectedDay}
+                    className={`aspect-square flex items-center justify-center rounded-md text-sm transition-all border-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none ${
+                      !d ? "cursor-default bg-transparent" :
+                      isPast(d) ? "text-muted-foreground/35 cursor-default bg-transparent" :
+                      d === selectedDay ? "bg-primary text-primary-foreground font-semibold cursor-pointer" :
+                      isToday(d) ? "border-2 border-teal-light font-semibold bg-transparent cursor-pointer" :
+                      "text-foreground hover:bg-teal-pale hover:text-primary bg-transparent cursor-pointer"
                     }`}
                   >
                     {d}
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -311,8 +313,10 @@ const Reservation = () => {
                       {g.slots.map((s) => (
                         <button
                           key={s}
+                          type="button"
                           onClick={() => setSelectedTime(s)}
-                          className={`py-2.5 text-center rounded-[10px] border text-sm cursor-pointer transition-all font-sans ${
+                          aria-pressed={s === selectedTime}
+                          className={`py-2.5 text-center rounded-md border text-sm cursor-pointer transition-all font-sans focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none ${
                             s === selectedTime ? "bg-primary text-primary-foreground border-primary font-medium" :
                             "border-border bg-teal-hero text-foreground hover:border-teal-light hover:bg-teal-pale"
                           }`}
@@ -338,7 +342,7 @@ const Reservation = () => {
                   className="w-14 h-14 object-cover rounded-full border border-border shrink-0"
                 />
               ) : (
-                <div className="text-[44px] w-14 h-14 flex items-center justify-center bg-teal-hero rounded-full shrink-0">{docEmoji}</div>
+                <div className="w-14 h-14 flex items-center justify-center bg-teal-hero rounded-full shrink-0"><User className="w-7 h-7 text-primary" aria-hidden="true" /></div>
               )}
               <div>
                 <div className="font-semibold text-[15px] text-primary">{docName}</div>
@@ -400,7 +404,7 @@ const Reservation = () => {
                  <DollarSign className="w-[18px] h-[18px] text-primary shrink-0 mt-0.5" />
                  <div>
                    <div className="text-xs text-muted-foreground">{t("res.price")}</div>
-                   <div className="text-[22px] font-semibold text-primary">{docPriceComputed.toLocaleString()} DZD</div>
+                   <div className="text-[22px] font-semibold text-primary"><bdi>{docPriceComputed.toLocaleString()} DZD</bdi></div>
                  </div>
                </div>
              </div>

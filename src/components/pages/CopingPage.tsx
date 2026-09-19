@@ -34,20 +34,20 @@ export default function CopingPage() {
   }, [breathActive]);
 
   const getBreathInstructions = () => {
-    if (breathPhase === "inhale") return { text: t("space.coping.breath.inhale"), scale: 1.6, color: "bg-teal-pale text-teal-800 border-teal-300" };
-    if (breathPhase === "hold1") return { text: t("space.coping.breath.hold"), scale: 1.6, color: "bg-amber-100 text-amber-800 border-amber-300" };
+    if (breathPhase === "inhale") return { text: t("space.coping.breath.inhale"), scale: 1.6, color: "bg-teal-pale text-primary border-primary/20" };
+    if (breathPhase === "hold1") return { text: t("space.coping.breath.hold"), scale: 1.6, color: "bg-warning/10 text-warning border-warning/30" };
     if (breathPhase === "exhale") return { text: t("space.coping.breath.exhale"), scale: 1.0, color: "bg-teal-pale text-primary border-primary/25" };
-    return { text: t("space.coping.breath.hold"), scale: 1.0, color: "bg-amber-100 text-amber-800 border-amber-300" };
+    return { text: t("space.coping.breath.hold"), scale: 1.0, color: "bg-warning/10 text-warning border-warning/30" };
   };
 
   const breathInfo = getBreathInstructions();
 
   const groundingSteps = [
-    { num: 5, sense: "👀 Vue", desc: "Regardez autour de vous et nommez 5 choses que vous pouvez voir.", descAr: "انظر حولك وسمِّ 5 أشياء يمكنك رؤيتها." },
-    { num: 4, sense: "🤝 Toucher", desc: "Portez attention à votre corps et nommez 4 choses que vous pouvez toucher ou sentir physiquement.", descAr: "انتبه إلى جسدك وسمِّ 4 أشياء يمكنك لمسها أو الشعور بها جسديًا." },
-    { num: 3, sense: "👂 Ouïe", desc: "Écoutez attentivement et identifiez 3 bruits distincts autour de vous.", descAr: "استمع جيداً وحدد 3 أصوات مختلفة من حولك." },
-    { num: 2, sense: "👃 Odorat", desc: "Respirez doucement et identifiez 2 odeurs différentes dans votre environnement.", descAr: "تنفس ببطء وحدد رائحتين مختلفتين في محيطك." },
-    { num: 1, sense: "👅 Goût", desc: "Prenez conscience d'une chose que vous pouvez goûter, ou concentrez-vous sur la sensation dans votre bouche.", descAr: "كن على دراية بشيء واحد يمكنك تذوقه، أو ركز على الإحساس في فمك." }
+    { num: 5, sense: "Vue", desc: "Regardez autour de vous et nommez 5 choses que vous pouvez voir.", descAr: "انظر حولك وسمِّ 5 أشياء يمكنك رؤيتها." },
+    { num: 4, sense: "Toucher", desc: "Portez attention à votre corps et nommez 4 choses que vous pouvez toucher ou sentir physiquement.", descAr: "انتبه إلى جسدك وسمِّ 4 أشياء يمكنك لمسها أو الشعور بها جسديًا." },
+    { num: 3, sense: "Ouïe", desc: "Écoutez attentivement et identifiez 3 bruits distincts autour de vous.", descAr: "استمع جيداً وحدد 3 أصوات مختلفة من حولك." },
+    { num: 2, sense: "Odorat", desc: "Respirez doucement et identifiez 2 odeurs différentes dans votre environnement.", descAr: "تنفس ببطء وحدد رائحتين مختلفتين في محيطك." },
+    { num: 1, sense: "Goût", desc: "Prenez conscience d'une chose que vous pouvez goûter, ou concentrez-vous sur la sensation dans votre bouche.", descAr: "كن على دراية بشيء واحد يمكنك تذوقه، أو ركز على الإحساس في فمك." }
   ];
 
   return (
@@ -84,7 +84,7 @@ export default function CopingPage() {
             onClick={() => setBreathActive(!breathActive)}
             className={`w-full py-3 rounded-xl text-sm font-semibold border-none cursor-pointer shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 ${
               breathActive 
-                ? "bg-red-50 text-red-600 hover:bg-red-100" 
+                ? "bg-destructive/10 text-destructive hover:bg-destructive/10" 
                 : "bg-primary text-primary-foreground hover:bg-teal-mid"
             }`}
           >

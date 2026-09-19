@@ -134,7 +134,7 @@ export default function PsySessions({
                   {s.status === "pending" && (
                     <>
                       <button onClick={() => updateBookingStatus(s.id, "confirmed")} disabled={updating === s.id} className="bg-teal-pale text-primary border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-primary hover:text-white transition-all disabled:opacity-50 flex items-center gap-1 shadow-sm">{t("psy.dashboard.confirm")}</button>
-                      <button onClick={() => updateBookingStatus(s.id, "cancelled")} disabled={updating === s.id} className="bg-red-50 text-red-600 border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-red-100 transition-all disabled:opacity-50 flex items-center gap-1 shadow-sm">{t("psy.dashboard.reject")}</button>
+                      <button onClick={() => updateBookingStatus(s.id, "cancelled")} disabled={updating === s.id} className="bg-destructive/10 text-destructive border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-destructive/10 transition-all disabled:opacity-50 flex items-center gap-1 shadow-sm">{t("psy.dashboard.reject")}</button>
                     </>
                   )}
                   {s.status === "confirmed" && (
@@ -147,15 +147,15 @@ export default function PsySessions({
                             onClick={() => handleStartCall(s.id)}
                             disabled={startingCall === s.id || timeState !== "active"}
                             title={timeLabel || undefined}
-                            className={`${timeState === "active" ? "bg-primary text-primary-foreground hover:bg-teal-mid" : "bg-gray-100 text-gray-400 cursor-not-allowed"} border-none rounded-xl px-3.5 py-2 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm`}
+                            className={`${timeState === "active" ? "bg-primary text-primary-foreground hover:bg-teal-mid" : "bg-muted text-muted-foreground cursor-not-allowed"} border-none rounded-xl px-3.5 py-2 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm`}
                           >
                             {startingCall === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Video className="w-3.5 h-3.5" />}
                             {timeState === "ended" ? "Terminée" : timeLabel || t("psy.dashboard.startVideo")}
                           </button>
                         );
                       })()}
-                      <button onClick={() => updateBookingStatus(s.id, "done")} disabled={updating === s.id} className="bg-gray-100 text-gray-700 border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-gray-200 transition-all disabled:opacity-50 shadow-sm">{t("psy.dashboard.markDone")}</button>
-                      <button onClick={() => updateBookingStatus(s.id, "cancelled")} disabled={updating === s.id} className="bg-red-50 text-red-600 border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-red-100 transition-all disabled:opacity-50 shadow-sm">{t("space.cancel")}</button>
+                      <button onClick={() => updateBookingStatus(s.id, "done")} disabled={updating === s.id} className="bg-muted text-foreground border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-accent/40 transition-all disabled:opacity-50 shadow-sm">{t("psy.dashboard.markDone")}</button>
+                      <button onClick={() => updateBookingStatus(s.id, "cancelled")} disabled={updating === s.id} className="bg-destructive/10 text-destructive border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-destructive/10 transition-all disabled:opacity-50 shadow-sm">{t("space.cancel")}</button>
                     </>
                   )}
                 </div>

@@ -1,8 +1,10 @@
+import { User, Baby, Heart } from "lucide-react";
+
 export const CATEGORIES = [
   {
     id: "individual",
     label: { fr: "Pour moi", ar: "لي" },
-    icon: "🧑",
+    icon: User,
     subcategories: [
       { id: "stress-anxiety", label: { fr: "Stress & anxiété", ar: "التوتر والقلق" } },
       { id: "depression-malbeing", label: { fr: "Dépression & mal-être", ar: "الاكتئاب وسوء الحالة النفسية" } },
@@ -15,7 +17,7 @@ export const CATEGORIES = [
   {
     id: "child",
     label: { fr: "Pour mon enfant", ar: "طفلي" },
-    icon: "👶",
+    icon: Baby,
     subcategories: [
       { id: "school-difficulties", label: { fr: "Difficultés scolaires & concentration", ar: "الصعوبات الدراسية والتركيز" } },
       { id: "behavior-emotions", label: { fr: "Comportement & émotions", ar: "السلوك والمشاعر" } },
@@ -27,7 +29,7 @@ export const CATEGORIES = [
   {
     id: "couple",
     label: { fr: "Séance couple", ar: "جلسة זוגית" },
-    icon: "💑",
+    icon: Heart,
     subcategories: [
       { id: "communication-conflicts", label: { fr: "Communication & conflits", ar: "التواصل والنزاعات" } },
       { id: "infidelity-jealousy", label: { fr: "Infidélité & jalousie", ar: "الخيانة والغيرة" } },

@@ -42,7 +42,7 @@ export default function PsyMessages({
 
   return (
     <div className="flex h-full min-h-[500px] animate-in fade-in duration-500">
-      <div className={`w-full md:w-[320px] md:shrink-0 md:border-r md:border-border/60 bg-white flex flex-col ${activeChatUserId ? "hidden md:flex" : "flex"}`}>
+      <div className={`w-full md:w-[320px] md:shrink-0 md:border-e md:border-border/60 bg-white flex flex-col ${activeChatUserId ? "hidden md:flex" : "flex"}`}>
         <div className="p-4 border-b border-border/60">
           <h3 className="font-serif text-base font-semibold text-foreground">{t("space.discussionsTitle")}</h3>
         </div>
@@ -54,7 +54,7 @@ export default function PsyMessages({
               <button
                 key={id}
                 onClick={() => { setActiveChatUserId(id); setActiveChatUserName(data.name || t("psy.dashboard.defaultPatientName")); }}
-                className={`w-full text-left px-4 py-3.5 border-b border-border/20 flex items-center gap-3 transition-all border-none cursor-pointer ${activeChatUserId === id ? "bg-teal-pale/70 border-l-4 border-primary" : "hover:bg-accent/40 bg-transparent"}`}
+                className={`w-full text-start px-4 py-3.5 border-b border-border/20 flex items-center gap-3 transition-all border-none cursor-pointer ${activeChatUserId === id ? "bg-teal-pale/70 border-s-4 border-primary" : "hover:bg-accent/40 bg-transparent"}`}
               >
                 {data.avatar ? (
                   <img src={data.avatar} alt={data.name} className="w-10 h-10 rounded-full object-cover border border-primary/10 shrink-0" />

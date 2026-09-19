@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BookOpen, Trash2 } from "lucide-react";
+import { BookOpen, Trash2, Sun, Leaf, Cloud, CloudRain, Zap, Flame } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -109,12 +109,12 @@ export default function JournalPage() {
   };
 
   const moods = [
-    { id: "happy", emoji: "🌟", color: "from-amber-400/25 to-yellow-500/25 text-amber-700 border-amber-300/40" },
-    { id: "calm", emoji: "🧘", color: "from-teal-400/25 to-primary/25 text-teal-800 border-teal-300/40" },
-    { id: "neutral", emoji: "☁️", color: "from-gray-300/25 to-slate-400/25 text-slate-700 border-slate-300/40" },
-    { id: "sad", emoji: "🌧️", color: "from-blue-400/25 to-indigo-500/25 text-primary border-primary/25/40" },
-    { id: "anxious", emoji: "⚡", color: "from-purple-400/25 to-fuchsia-500/25 text-purple-800 border-purple-300/40" },
-    { id: "angry", emoji: "🌋", color: "from-red-400/25 to-rose-500/25 text-red-800 border-rose-300/40" },
+    { id: "happy", Icon: Sun, color: "from-warning/25 to-warning/25 text-warning border-warning/30" },
+    { id: "calm", Icon: Leaf, color: "from-primary/25 to-primary/25 text-primary border-primary/40" },
+    { id: "neutral", Icon: Cloud, color: "from-muted to-muted text-foreground border-border/40" },
+    { id: "sad", Icon: CloudRain, color: "from-teal-light/25 to-teal-light/25 text-primary border-primary/25" },
+    { id: "anxious", Icon: Zap, color: "from-teal-light/25 to-teal-light/25 text-primary border-primary/25" },
+    { id: "angry", Icon: Flame, color: "from-destructive/25 to-destructive/25 text-destructive border-destructive/30" },
   ];
 
   const moodCounts = journalEntries.reduce((acc, entry) => {
@@ -157,7 +157,7 @@ export default function JournalPage() {
                           : "from-card to-card hover:bg-accent/40 border-border/50 scale-100"
                       }`}
                     >
-                      <span className="text-2xl">{m.emoji}</span>
+                      <m.Icon className="w-6 h-6" aria-hidden="true" />
                       <span className="text-[10px] font-bold uppercase tracking-wider">
                         {t(`space.journal.mood.${m.id}`)}
                       </span>
@@ -201,7 +201,7 @@ export default function JournalPage() {
                     <div key={e.id} className="p-5 border border-border/40 rounded-2xl hover:border-primary/25 transition-all duration-300 bg-teal-hero/10 relative group">
                       <div className="flex items-center justify-between gap-4 mb-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-xl">{moodDetail.emoji}</span>
+                          {moodDetail && <moodDetail.Icon className="w-5 h-5" aria-hidden="true" />}
                           <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-teal-pale text-primary border border-primary/5">
                             {t(`space.journal.mood.${e.mood}`)}
                           </span>
@@ -210,8 +210,10 @@ export default function JournalPage() {
                           </span>
                         </div>
                         <button
+                          type="button"
                           onClick={() => deleteEntry(e.id)}
-                          className="p-1 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-all border-none bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                          aria-label={t("common.delete")}
+                          className="p-2.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all border-none bg-transparent cursor-pointer md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -237,7 +239,7 @@ export default function JournalPage() {
                 <div>
                   <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t("space.journal.insightsDesc")}</div>
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-3xl">{activePrimaryMood?.emoji}</span>
+                    {activePrimaryMood && <activePrimaryMood.Icon className="w-8 h-8" aria-hidden="true" />}
                     <div>
                       <div className="text-sm font-semibold text-foreground">
                         {t(`space.journal.mood.${primaryMood}`)}
@@ -258,7 +260,7 @@ export default function JournalPage() {
                     return (
                       <div key={m.id} className="space-y-1">
                         <div className="flex justify-between text-xs font-semibold text-foreground">
-                          <span>{m.emoji} {t(`space.journal.mood.${m.id}`)}</span>
+                          <span className="inline-flex items-center gap-1.5"><m.Icon className="w-4 h-4" aria-hidden="true" /> {t(`space.journal.mood.${m.id}`)}</span>
                           <span>{count} ({pct}%)</span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">

@@ -1,5 +1,6 @@
+import { useEscapeKey } from "@/lib/a11y";
 import { useState, useEffect } from "react";
-import { Users, MessageSquare, User, X } from "lucide-react";
+import { Users, MessageSquare, User, X, Lock } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +41,7 @@ function PatientDetailsDrawer({
   selectedPatientLastSeen: string;
 }) {
   const { t, dir } = useLanguage();
+  useEscapeKey(!!selectedPatientId, () => setSelectedPatientId(null));
   const { user } = useAuth();
   const [clinicalNotes, setClinicalNotes] = useState("");
 
@@ -76,10 +78,10 @@ function PatientDetailsDrawer({
   const isRtl = dir === "rtl";
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-foreground/30 transition-opacity" onClick={() => setSelectedPatientId(null)} />
       <div className={`relative w-full max-w-lg bg-white h-full shadow-2xl flex flex-col justify-between p-6 md:p-8 animate-in ${isRtl ? "slide-in-from-left duration-300" : "slide-in-from-right duration-300"}`}>
-        <div className="space-y-6 flex-1 overflow-y-auto pr-1">
+        <div className="space-y-6 flex-1 overflow-y-auto pe-1">
           <div className="flex items-start justify-between pb-4 border-b border-border/40">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-teal-pale flex items-center justify-center text-primary font-bold text-base border border-solid border-primary/5 shadow-sm shrink-0">
@@ -90,13 +92,13 @@ function PatientDetailsDrawer({
                 <p className="text-xs text-muted-foreground mt-0.5 font-sans">Patient Majal</p>
               </div>
             </div>
-            <button onClick={() => setSelectedPatientId(null)} className="p-1.5 rounded-lg hover:bg-accent/40 text-muted-foreground hover:text-foreground transition-all border-none bg-transparent cursor-pointer">
+            <button type="button" aria-label={t("common.close")} onClick={() => setSelectedPatientId(null)} className="p-2.5 rounded-lg hover:bg-accent/40 text-muted-foreground hover:text-foreground transition-all border-none bg-transparent cursor-pointer">
               <X className="w-5 h-5" />
             </button>
           </div>
 
           <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-teal-hero/10 border border-solid border-primary/5 text-center font-sans">
-            <div className="border-r border-solid border-border/30">
+            <div className="border-e border-solid border-border/30">
               <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Séances totales</div>
               <div className="text-lg font-bold text-foreground mt-1">{selectedPatientSessions}</div>
             </div>
@@ -118,7 +120,7 @@ function PatientDetailsDrawer({
               className="w-full flex-1 px-4 py-3.5 border border-border/70 rounded-2xl text-sm text-foreground bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card font-sans transition-all resize-none leading-relaxed"
             />
             <span className="text-[10px] text-muted-foreground italic font-sans block">
-              🔒 Ces notes cliniques sont stockées de manière sécurisée et confidentielle.
+              <Lock className="w-3 h-3 inline me-1" aria-hidden="true" />Ces notes cliniques sont stockées de manière sécurisée et confidentielle.
             </span>
           </div>
         </div>
@@ -187,7 +189,7 @@ export default function PsyPatients({
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-border/40 text-center font-sans">
-                  <div className="border-r border-border/30">
+                  <div className="border-e border-border/30">
                     <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Séances</div>
                     <div className="text-lg font-bold text-foreground mt-1">{p.sessions}</div>
                   </div>

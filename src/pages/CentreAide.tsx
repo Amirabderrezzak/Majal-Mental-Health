@@ -40,7 +40,7 @@ const categories = [
   {
     icon: <BookOpen className="w-6 h-6" />,
     title: "Séances en ligne",
-    color: "text-violet-700 bg-violet-50",
+    color: "text-primary bg-teal-pale",
     articles: [
       "Comment se connecter à une séance vidéo ?",
       "Problèmes de connexion et de son",
@@ -51,7 +51,7 @@ const categories = [
   {
     icon: <Shield className="w-6 h-6" />,
     title: "Confidentialité & Sécurité",
-    color: "text-amber-700 bg-amber-50",
+    color: "text-warning bg-warning/10",
     articles: [
       "Comment Majal protège mes données ?",
       "Qui peut voir mes informations ?",
@@ -62,7 +62,7 @@ const categories = [
   {
     icon: <User className="w-6 h-6" />,
     title: "Espace Psychologue",
-    color: "text-rose-700 bg-rose-50",
+    color: "text-destructive bg-destructive/10",
     articles: [
       "Configurer mes disponibilités",
       "Gérer mes patients",
@@ -101,7 +101,7 @@ const CentreAide = () => (
               {cat.articles.map(a => (
                 <li key={a}>
                   <a href="/contact" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors no-underline group">
-                    <ChevronRight className="w-3.5 h-3.5 text-primary shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                    <ChevronRight className="w-3.5 h-3.5 text-primary shrink-0 group-hover:translate-x-0.5 transition-transform rtl:rotate-180" />
                     {a}
                   </a>
                 </li>

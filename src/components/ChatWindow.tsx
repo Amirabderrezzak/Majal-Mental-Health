@@ -222,7 +222,7 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
       </div>
 
       {/* Messages View */}
-      <div className="flex-1 overflow-y-auto p-5 bg-accent/20 flex flex-col gap-4">
+      <div className="flex-1 overflow-y-auto p-5 bg-accent/20 flex flex-col gap-4" role="log" aria-live="polite" aria-label={t("chat.messagesRegion")}>
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -237,10 +237,10 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
             const isMe = msg.sender_id === user?.id;
             return (
               <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[70%] rounded-2xl px-4 py-2 text-sm ${isMe ? "bg-primary text-primary-foreground rounded-br-none" : "bg-white text-foreground rounded-bl-none shadow-sm border border-border"}`}>
+                <div className={`max-w-[70%] rounded-2xl px-4 py-2 text-sm ${isMe ? "bg-primary text-primary-foreground rounded-ee-none" : "bg-white text-foreground rounded-es-none shadow-sm border border-border"}`}>
                   {msg.content && <p className="break-words">{msg.content}</p>}
                   {msg.file_url && renderAttachment(msg)}
-                  <div className={`text-[10px] mt-1 opacity-60 text-right ${!isMe && "text-muted-foreground"}`}>
+                  <div className={`text-[10px] mt-1 opacity-60 text-end ${!isMe && "text-muted-foreground"}`}>
                     {new Date(msg.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                   </div>
                 </div>
@@ -261,15 +261,19 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
           accept="image/*,.pdf,.doc,.docx"
         />
         <button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="p-2 text-muted-foreground hover:bg-accent hover:text-foreground rounded-full transition-colors bg-transparent border-none cursor-pointer"
+          className="p-2.5 text-muted-foreground hover:bg-accent hover:text-foreground rounded-full transition-colors bg-transparent border-none cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+          aria-label={t("chat.attachFile")}
           title={t("chat.attachFile")}
         >
           <Paperclip className="w-5 h-5" />
         </button>
 
         <div className="flex-1 relative">
+          <label htmlFor="chat-message-input" className="sr-only">{t("chat.placeholder")}</label>
           <input
+            id="chat-message-input"
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
@@ -282,25 +286,27 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
 
         {inputText.trim() ? (
           <button
+            type="button"
             onClick={handleSendText}
             disabled={sending}
-            className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-teal-mid transition-colors disabled:opacity-50 border-none cursor-pointer"
+            aria-label={t("chat.send")}
+            className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-teal-mid transition-colors disabled:opacity-50 border-none cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
           >
-            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
+            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 ml-0.5 rtl:-scale-x-100" />}
           </button>
         ) : (
           <button
-            onMouseDown={startRecording}
-            onMouseUp={stopRecording}
-            onTouchStart={startRecording}
-            onTouchEnd={stopRecording}
+            type="button"
+            onClick={() => (isRecording ? stopRecording() : startRecording())}
             disabled={sending}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-none cursor-pointer ${
-              isRecording 
-                ? "bg-red-500 text-white animate-pulse" 
+            aria-pressed={isRecording}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border-none cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none ${
+              isRecording
+                ? "bg-destructive text-destructive-foreground animate-pulse"
                 : "bg-teal-pale text-primary hover:bg-teal-hero disabled:opacity-50"
             }`}
-            title={t("chat.holdToRecord")}
+            aria-label={isRecording ? t("chat.stopRecording") : t("chat.startRecording")}
+            title={isRecording ? t("chat.stopRecording") : t("chat.startRecording")}
           >
             {isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-5 h-5" />}
           </button>

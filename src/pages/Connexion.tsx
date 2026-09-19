@@ -91,10 +91,10 @@ const Connexion = () => {
 
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-muted-foreground">{t("auth.email")}</label>
+              <label htmlFor="connexion-f1" className="text-[13px] font-medium text-muted-foreground">{t("auth.email")}</label>
               <div className="flex items-center gap-2.5 border border-border rounded-xl px-4 py-3 bg-teal-hero focus-within:border-teal-light focus-within:bg-card transition-colors">
                 <Mail className="w-4 h-4 text-muted-foreground" />
-                <input
+                <input id="connexion-f1"
                   type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
                   placeholder="votre@email.com"
                   className="border-none bg-transparent outline-none text-[15px] text-foreground w-full placeholder:text-muted-foreground font-sans"
@@ -102,15 +102,15 @@ const Connexion = () => {
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-muted-foreground">{t("auth.password")}</label>
+              <label htmlFor="connexion-f2" className="text-[13px] font-medium text-muted-foreground">{t("auth.password")}</label>
               <div className="flex items-center gap-2.5 border border-border rounded-xl px-4 py-3 bg-teal-hero focus-within:border-teal-light focus-within:bg-card transition-colors">
                 <Lock className="w-4 h-4 text-muted-foreground" />
-                <input
+                <input id="connexion-f2"
                   type={showPw ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="border-none bg-transparent outline-none text-[15px] text-foreground w-full placeholder:text-muted-foreground font-sans"
                 />
-                <button type="button" onClick={() => setShowPw(!showPw)} className="bg-transparent border-none cursor-pointer p-0">
+                <button type="button" onClick={() => setShowPw(!showPw)} aria-label={showPw ? t("common.hidePassword") : t("common.showPassword")} aria-pressed={showPw} className="bg-transparent border-none cursor-pointer p-2 -m-2 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none">
                   {showPw ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
                 </button>
               </div>

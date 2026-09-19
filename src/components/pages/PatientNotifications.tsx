@@ -1,3 +1,4 @@
+import { asButton } from "@/lib/a11y";
 import { useState } from "react";
 import { Bell, Calendar, MessageSquare, Check, Trash2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -55,7 +56,7 @@ export default function PatientNotifications({ setActivePage }: PatientNotificat
               )}
             </span>
             {notifFilter === tab.id && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+              <span className="absolute bottom-0 start-0 end-0 h-0.5 bg-primary rounded-full" />
             )}
           </button>
         ))}
@@ -76,23 +77,23 @@ export default function PatientNotifications({ setActivePage }: PatientNotificat
             };
             const colorMap = {
               booking: "bg-teal-pale text-primary border-border",
-              message: "bg-teal-50 text-teal-600 border-teal-100",
-              system: "bg-amber-50 text-amber-600 border-amber-100"
+              message: "bg-teal-pale text-primary border-primary/20",
+              system: "bg-warning/10 text-warning border-warning/30"
             };
             return (
               <div
                 key={notif.id}
                 className={`dashboard-card p-4 flex gap-4 items-start relative hover:shadow-md transition-all group ${
-                  !notif.is_read ? 'border-l-4 border-l-primary bg-primary/[0.02]' : ''
+                  !notif.is_read ? 'border-s-4 border-s-primary bg-primary/[0.02]' : ''
                 }`}
               >
-                <div className={`p-2.5 rounded-xl border shrink-0 ${colorMap[notif.type] || "bg-gray-50 text-gray-600 border-gray-100"}`}>
+                <div className={`p-2.5 rounded-xl border shrink-0 ${colorMap[notif.type] || "bg-background text-muted-foreground border-border"}`}>
                   {iconMap[notif.type] || <Bell className="w-4 h-4" />}
                 </div>
 
                 <div
                   className="flex-1 min-w-0 cursor-pointer"
-                  onClick={async () => {
+                  {...asButton(async () => {
                     if (!notif.is_read) {
                       await markAsRead(notif.id);
                     }
@@ -104,7 +105,7 @@ export default function PatientNotifications({ setActivePage }: PatientNotificat
                         window.location.href = notif.link;
                       }
                     }
-                  }}
+                  })}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[10px] text-muted-foreground">
@@ -113,7 +114,7 @@ export default function PatientNotifications({ setActivePage }: PatientNotificat
                       })}
                     </span>
                     {!notif.is_read && (
-                      <span className="w-2 h-2 bg-primary rounded-full" />
+                      <span className="w-2 h-2 bg-primary rounded-full" role="img" aria-label={t("space.notif.unread")} />
                     )}
                   </div>
                   <h4 className="text-sm font-semibold text-foreground mt-1 leading-snug">{notif.title}</h4>
@@ -121,8 +122,10 @@ export default function PatientNotifications({ setActivePage }: PatientNotificat
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => deleteNotification(notif.id)}
-                  className="p-1 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all border-none bg-transparent cursor-pointer shrink-0"
+                  aria-label={t("common.delete")}
+                  className="p-2.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 transition-all border-none bg-transparent cursor-pointer shrink-0 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

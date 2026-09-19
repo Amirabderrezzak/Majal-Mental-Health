@@ -59,9 +59,9 @@ function ReceiptModal({
             <h3 className="text-base font-serif font-bold text-foreground">{t("psy.earnings.receipt.title")}</h3>
             <div className="grid grid-cols-2 gap-y-1.5 text-xs pt-1.5">
               <span className="text-muted-foreground">{t("psy.earnings.receipt.invoiceNum")}</span>
-              <span className="font-semibold text-right text-foreground">INV-2026-{b.id.slice(0, 5).toUpperCase()}</span>
+              <span className="font-semibold text-end text-foreground">INV-2026-{b.id.slice(0, 5).toUpperCase()}</span>
               <span className="text-muted-foreground">{t("psy.earnings.receipt.date")}</span>
-              <span className="font-semibold text-right text-foreground">{new Date(b.booked_at).toLocaleDateString("fr-FR")}</span>
+              <span className="font-semibold text-end text-foreground">{new Date(b.booked_at).toLocaleDateString("fr-FR")}</span>
             </div>
           </div>
 
@@ -83,7 +83,7 @@ function ReceiptModal({
             </div>
             <div className="flex justify-between text-foreground">
               <span>{t("psy.earnings.receipt.sessionVal")}</span>
-              <span className="font-bold">{(b.price || 0).toLocaleString()} DA</span>
+              <span className="font-bold"><bdi>{(b.price || 0).toLocaleString()} DA</bdi></span>
             </div>
           </div>
 
@@ -127,9 +127,9 @@ export default function PsyEarnings({
     <div className="p-4 sm:p-6 space-y-6 animate-in fade-in duration-500">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
-          { label: t("psy.earnings.thisMonth"),    value: `${earningsThisMonth.toLocaleString()} DA`,                                                              sub: `${sessionsThisMonth} ${t("psy.earnings.sessionsMonth")}` },
-          { label: t("psy.earnings.pending"),       value: `${pendingPayments.toLocaleString()} DA`,                                                               sub: `${bookings.filter(b => b.status === "pending").length} ${t("psy.earnings.sessionsPending")}` },
-          { label: t("psy.earnings.avgPerSession"), value: sessionsThisMonth > 0 ? `${Math.round(earningsThisMonth / sessionsThisMonth).toLocaleString()} DA` : "—", sub: `${sessionsThisMonth} ${t("psy.earnings.sessionsMonth")}` },
+          { label: t("psy.earnings.thisMonth"),    value: `⁦${earningsThisMonth.toLocaleString()} DA⁩`,                                                              sub: `${sessionsThisMonth} ${t("psy.earnings.sessionsMonth")}` },
+          { label: t("psy.earnings.pending"),       value: `⁦${pendingPayments.toLocaleString()} DA⁩`,                                                               sub: `${bookings.filter(b => b.status === "pending").length} ${t("psy.earnings.sessionsPending")}` },
+          { label: t("psy.earnings.avgPerSession"), value: sessionsThisMonth > 0 ? `⁦${Math.round(earningsThisMonth / sessionsThisMonth).toLocaleString()} DA⁩` : "—", sub: `${sessionsThisMonth} ${t("psy.earnings.sessionsMonth")}` },
         ].map((c) => (
           <div key={c.label} className="dashboard-card p-6 flex flex-col justify-between">
             <div>
@@ -157,7 +157,7 @@ export default function PsyEarnings({
               return (
                 <div key={e.day} className="flex-1 h-full flex flex-col justify-end items-center relative group">
                   <span className="absolute -top-7 bg-foreground text-background text-[10px] font-bold px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-sm z-20 whitespace-nowrap">
-                    {e.amount.toLocaleString()} DA
+                    <bdi>{e.amount.toLocaleString()} DA</bdi>
                   </span>
                   <div className="w-7 sm:w-8 bg-primary/10 hover:bg-primary/20 transition-all rounded-t-md relative cursor-pointer"
                     style={{ height: `${pct}%`, minHeight: e.amount > 0 ? "8px" : "4px" }}
@@ -189,7 +189,7 @@ export default function PsyEarnings({
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="text-sm font-bold text-primary font-sans">+{(b.price || 0).toLocaleString()} DA</div>
+                <div className="text-sm font-bold text-primary font-sans"><bdi>+{(b.price || 0).toLocaleString()} DA</bdi></div>
                 <button
                   type="button"
                   onClick={() => setSelectedReceiptBooking(b)}

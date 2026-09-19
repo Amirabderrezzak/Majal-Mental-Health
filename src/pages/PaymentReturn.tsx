@@ -89,15 +89,15 @@ export default function PaymentReturn() {
               to="/mon-espace"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold no-underline hover:bg-teal-mid transition-all active:scale-95"
             >
-              Voir mes réservations <ArrowRight className="w-4 h-4" />
+              Voir mes réservations <ArrowRight className="w-4 h-4 rtl:rotate-180" />
             </Link>
           </>
         )}
 
         {status === "pending" && (
           <>
-            <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-6 border border-amber-100">
-              <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
+            <div className="w-16 h-16 rounded-2xl bg-warning/10 flex items-center justify-center mx-auto mb-6 border border-warning/30">
+              <Loader2 className="w-8 h-8 text-warning animate-spin" />
             </div>
             <h1 className="font-serif text-2xl text-foreground mb-2">Paiement en cours de vérification</h1>
             <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
@@ -107,15 +107,15 @@ export default function PaymentReturn() {
               to="/mon-espace"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold no-underline hover:bg-teal-mid transition-all active:scale-95"
             >
-              Retour à mon espace <ArrowRight className="w-4 h-4" />
+              Retour à mon espace <ArrowRight className="w-4 h-4 rtl:rotate-180" />
             </Link>
           </>
         )}
 
         {status === "cancelled" && (
           <>
-            <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-6 border border-amber-100">
-              <XCircle className="w-8 h-8 text-amber-600" />
+            <div className="w-16 h-16 rounded-2xl bg-warning/10 flex items-center justify-center mx-auto mb-6 border border-warning/30">
+              <XCircle className="w-8 h-8 text-warning" />
             </div>
             <h1 className="font-serif text-2xl text-foreground mb-2">Paiement annulé</h1>
             <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
@@ -125,15 +125,15 @@ export default function PaymentReturn() {
               to="/psychologues"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold no-underline hover:bg-teal-mid transition-all active:scale-95"
             >
-              Retour aux psychologues <ArrowRight className="w-4 h-4" />
+              Retour aux psychologues <ArrowRight className="w-4 h-4 rtl:rotate-180" />
             </Link>
           </>
         )}
 
         {status === "error" && (
           <>
-            <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-6 border border-red-100">
-              <XCircle className="w-8 h-8 text-red-600" />
+            <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center mx-auto mb-6 border border-destructive/30">
+              <XCircle className="w-8 h-8 text-destructive" />
             </div>
             <h1 className="font-serif text-2xl text-foreground mb-2">Erreur</h1>
             <p className="text-sm text-muted-foreground mb-8 leading-relaxed">{errorMsg || "Une erreur est survenue lors du traitement."}</p>
@@ -141,7 +141,7 @@ export default function PaymentReturn() {
               to="/mon-espace"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold no-underline hover:bg-teal-mid transition-all active:scale-95"
             >
-              Retour à mon espace <ArrowRight className="w-4 h-4" />
+              Retour à mon espace <ArrowRight className="w-4 h-4 rtl:rotate-180" />
             </Link>
           </>
         )}

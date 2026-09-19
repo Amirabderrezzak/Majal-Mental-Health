@@ -78,7 +78,7 @@ export default function PsyProfileEditor({
             </label>
             <input type="file" id="avatar-upload" accept="image/*" onChange={handleAvatarUpload} disabled={uploadingAvatar} className="hidden" />
           </div>
-          <div className="text-center sm:text-left">
+          <div className="text-center sm:text-start">
             <h4 className="font-semibold text-base text-foreground leading-snug">{profileData.full_name || "Praticien"}</h4>
             <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-normal">Formats acceptés : JPG, PNG, WEBP (max 5 Mo)</p>
           </div>
@@ -93,8 +93,8 @@ export default function PsyProfileEditor({
             { label: t("psy.dashboard.profile.yearsExperience"), key: "years_experience", type: "number" },
           ] as const).map((f) => (
             <div key={f.key} className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{f.label}</label>
-              <input
+              <label htmlFor="psyprofileeditor-f1" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{f.label}</label>
+              <input id="psyprofileeditor-f1"
                 type={f.type}
                 value={profileData[f.key]}
                 onChange={(e) => setProfileData((p) => ({ ...p, [f.key]: f.type === "number" ? parseInt(e.target.value) || 0 : e.target.value }))}
@@ -110,8 +110,8 @@ export default function PsyProfileEditor({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {priceBands.map((band) => (
               <div key={band.key} className="flex flex-col gap-2">
-                <label className="text-xs font-semibold text-muted-foreground">{band.label}</label>
-                <input
+                <label htmlFor="psyprofileeditor-f2" className="text-xs font-semibold text-muted-foreground">{band.label}</label>
+                <input id="psyprofileeditor-f2"
                   type="number"
                   min={band.min}
                   max={band.max}
@@ -127,10 +127,10 @@ export default function PsyProfileEditor({
 
         <div className="mt-5">
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("psy.dashboard.profile.bio")}</label>
+            <label htmlFor="psyprofileeditor-f3" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("psy.dashboard.profile.bio")}</label>
             <span className="text-[11px] text-muted-foreground font-sans">{profileData.bio.length}/1000</span>
           </div>
-          <textarea
+          <textarea id="psyprofileeditor-f3"
             value={profileData.bio}
             onChange={(e) => setProfileData((p) => ({ ...p, bio: e.target.value }))}
             rows={4}
@@ -142,10 +142,10 @@ export default function PsyProfileEditor({
 
         <div className="mt-5">
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("editor.approach")}</label>
+            <label htmlFor="psyprofileeditor-f4" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("editor.approach")}</label>
             <span className="text-[11px] text-muted-foreground font-sans">{profileData.approach.length}/1000</span>
           </div>
-          <textarea
+          <textarea id="psyprofileeditor-f4"
             value={profileData.approach}
             onChange={(e) => setProfileData((p) => ({ ...p, approach: e.target.value }))}
             rows={3}
@@ -157,10 +157,10 @@ export default function PsyProfileEditor({
 
         <div className="mt-5">
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("editor.formations")}</label>
+            <label htmlFor="psyprofileeditor-f5" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("editor.formations")}</label>
             <span className="text-[11px] text-muted-foreground font-sans">{profileData.formations.length}/1000</span>
           </div>
-          <textarea
+          <textarea id="psyprofileeditor-f5"
             value={profileData.formations}
             onChange={(e) => setProfileData((p) => ({ ...p, formations: e.target.value }))}
             rows={3}
@@ -185,7 +185,7 @@ export default function PsyProfileEditor({
           {CATEGORIES.map((cat) => (
             <div key={cat.id}>
               <h4 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
-                <span className="text-base">{cat.icon}</span> {cat.label[lang]}
+                <cat.icon className="w-4 h-4" aria-hidden="true" /> {cat.label[lang]}
               </h4>
               <div className="flex flex-wrap gap-2">
                 {cat.subcategories.map((sub) => {

@@ -1,3 +1,4 @@
+import { asButton } from "@/lib/a11y";
 import { Bell, Menu } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { Page } from "./PsySidebar";
@@ -32,8 +33,10 @@ export default function PsyTopBar({
     <div className="sticky top-0 z-40 bg-card border-b border-border/60 px-4 sm:px-6 py-4 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-4">
         <button
+          type="button"
           onClick={() => setSidebarOpen(true)}
-          className="lg:hidden bg-transparent border-none cursor-pointer text-foreground hover:text-primary transition-colors duration-150"
+          aria-label={t("common.openMenu")}
+          className="lg:hidden bg-transparent border-none cursor-pointer text-foreground hover:text-primary transition-colors duration-150 p-2.5 -m-2.5 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -42,8 +45,11 @@ export default function PsyTopBar({
       <div className="flex items-center gap-3">
         <div className="relative">
           <button
+            type="button"
             onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
-            className="relative bg-transparent border-none cursor-pointer text-muted-foreground hover:text-primary transition-colors p-1.5 rounded-full hover:bg-accent/40 flex items-center justify-center"
+            aria-label={t("common.notifications")}
+            aria-expanded={notifDropdownOpen}
+            className="relative bg-transparent border-none cursor-pointer text-muted-foreground hover:text-primary transition-colors p-2.5 rounded-full hover:bg-accent/40 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
@@ -78,7 +84,7 @@ export default function PsyTopBar({
                   notifications.map((notif) => (
                     <div
                       key={notif.id}
-                      onClick={async () => {
+                      {...asButton(async () => {
                         await markAsRead(notif.id);
                         setNotifDropdownOpen(false);
                         if (notif.link) {
@@ -89,13 +95,13 @@ export default function PsyTopBar({
                             window.location.href = notif.link;
                           }
                         }
-                      }}
+                      })}
                       className={`flex flex-col p-4 text-start hover:bg-accent/30 cursor-pointer transition-colors ${!notif.is_read ? "bg-primary/5" : ""}`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
                           notif.type === 'booking' ? 'bg-teal-pale text-primary' :
-                          notif.type === 'message' ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-700'
+                          notif.type === 'message' ? 'bg-primary/10 text-primary' : 'bg-muted text-foreground'
                         }`}>
                           {t(`space.notif.${notif.type}`) || notif.type}
                         </span>

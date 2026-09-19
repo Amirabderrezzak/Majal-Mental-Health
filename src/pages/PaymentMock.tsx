@@ -42,22 +42,22 @@ export default function PaymentMock() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-50">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-[400px] text-center border border-slate-100">
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-[400px] text-center border border-border">
         <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center">
+          <div className="w-16 h-16 bg-teal-pale text-primary rounded-full flex items-center justify-center">
             <DollarSign size={32} />
           </div>
         </div>
-        <h1 className="text-2xl font-serif text-slate-900 mb-2">{t("pay.title")}</h1>
-        <p className="text-slate-500 mb-8">
-          {t("pay.amountLabel")} <strong className="text-slate-800 text-xl">{amount} DZD</strong>
+        <h1 className="text-2xl font-serif text-foreground mb-2">{t("pay.title")}</h1>
+        <p className="text-muted-foreground mb-8">
+          {t("pay.amountLabel")} <strong className="text-foreground text-xl">{amount} DZD</strong>
         </p>
 
         <button
           onClick={simulatePayment}
           disabled={paying}
-          className="w-full py-4 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium flex items-center justify-center gap-2 transition-all cursor-pointer"
+          className="w-full py-4 bg-primary hover:bg-teal-mid text-primary-foreground rounded-xl font-medium flex items-center justify-center gap-2 transition-all cursor-pointer"
         >
           {paying ? (
             <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -69,7 +69,7 @@ export default function PaymentMock() {
           )}
         </button>
 
-        <p className="text-xs text-slate-400 mt-6">
+        <p className="text-xs text-muted-foreground mt-6">
           {t("pay.simNote")}
         </p>
       </div>

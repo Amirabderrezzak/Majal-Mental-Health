@@ -26,6 +26,13 @@ const Psychologues = () => {
   const [requestStatus, setRequestStatus] = useState<"sending" | "pending" | "accepted" | "declined" | "expired" | null>(null);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const expirationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pendingElapsedMs, setPendingElapsedMs] = useState(0);
+  useEffect(() => {
+    if (requestStatus !== "pending") { setPendingElapsedMs(0); return; }
+    const startedAt = Date.now();
+    const id = setInterval(() => setPendingElapsedMs(Math.min(Date.now() - startedAt, 90000)), 500);
+    return () => clearInterval(id);
+  }, [requestStatus]);
   const channelRef = useRef<any>(null);
 
   useEffect(() => {
@@ -202,7 +209,7 @@ const Psychologues = () => {
             </div>
             <div className="flex items-center gap-2 text-sm text-foreground">
               <DollarSign className="w-[15px] h-[15px] text-primary" />
-              {d.price.toLocaleString()} DZD {t("psy.session")}
+              <bdi>{d.price.toLocaleString()} DZD</bdi> {t("psy.session")}
             </div>
           </div>
           <div className="flex gap-1.5 flex-wrap mb-4">
@@ -228,7 +235,7 @@ const Psychologues = () => {
               )}
             </div>
           )}
-          <div className="py-2 px-3.5 rounded-[10px] border border-border bg-teal-hero text-[13px] text-muted-foreground text-center mb-3.5">
+          <div className="py-2 px-3.5 rounded-md border border-border bg-teal-hero text-[13px] text-muted-foreground text-center mb-3.5">
             {d.dispo}
           </div>
           {d.is_available_now && (
@@ -239,9 +246,9 @@ const Psychologues = () => {
                 handleImmediateRequest(d.id);
               }}
               disabled={requestStatus !== null}
-              className="flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-[10px] bg-teal-pale border border-primary/15 text-[13px] font-semibold text-primary mb-3.5 w-full cursor-pointer hover:bg-teal-pale transition-colors disabled:opacity-60"
+              className="flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-md bg-teal-pale border border-primary/15 text-[13px] font-semibold text-primary mb-3.5 w-full cursor-pointer hover:bg-teal-pale transition-colors disabled:opacity-60"
             >
-              <span className="w-2 h-2 rounded-full bg-teal-pale0 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               {requestingPsyId === d.id && requestStatus === "sending" ? t("psy.requestSending") : t("psy.talkNow")}
             </button>
           )}
@@ -276,6 +283,7 @@ const Psychologues = () => {
               <Search className="w-[18px] h-[18px] text-muted-foreground" />
               <input
                 type="text"
+                aria-label={t("psy.search")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t("psy.search")}
@@ -317,7 +325,7 @@ const Psychologues = () => {
                       : "bg-card text-foreground border-border hover:border-primary/40 hover:bg-teal-pale/50"
                   }`}
                 >
-                  <span className="text-base">{cat.icon}</span>
+                  <cat.icon className="w-4 h-4" aria-hidden="true" />
                   {cat.label[lang]}
                 </button>
               ))}
@@ -350,16 +358,16 @@ const Psychologues = () => {
           {showFilters && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-border animate-in fade-in duration-200">
               <div>
-                <label className="block text-[13px] font-medium text-muted-foreground mb-2">{t("psy.language")}</label>
-                <select value={langFilter} onChange={(e) => setLangFilter(e.target.value)} className="w-full p-2.5 border border-border rounded-[10px] text-sm text-foreground bg-card cursor-pointer outline-none font-sans">
+                <label htmlFor="psychologues-f1" className="block text-[13px] font-medium text-muted-foreground mb-2">{t("psy.language")}</label>
+                <select id="psychologues-f1" value={langFilter} onChange={(e) => setLangFilter(e.target.value)} className="w-full p-2.5 border border-border rounded-md text-sm text-foreground bg-card cursor-pointer outline-none font-sans">
                   <option value="">{t("psy.all")}</option>
                    <option value="Français">{t("space.lang.french")}</option>
                    <option value="Arabe">{t("space.lang.arabic")}</option>
                 </select>
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-muted-foreground mb-2">{t("psy.price")}</label>
-                <select value={price} onChange={(e) => setPrice(e.target.value)} className="w-full p-2.5 border border-border rounded-[10px] text-sm text-foreground bg-card cursor-pointer outline-none font-sans">
+                <label htmlFor="psychologues-f2" className="block text-[13px] font-medium text-muted-foreground mb-2">{t("psy.price")}</label>
+                <select id="psychologues-f2" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full p-2.5 border border-border rounded-md text-sm text-foreground bg-card cursor-pointer outline-none font-sans">
                   <option value="">{t("psy.allPrices")}</option>
                   <option value="3000">{t("psy.lessThan")} 3000 DZD</option>
                   <option value="4000">{t("psy.lessThan")} 4000 DZD</option>
@@ -374,29 +382,29 @@ const Psychologues = () => {
               <span className="text-xs text-muted-foreground">{t("psy.activeFilters")}</span>
               {selectedCat && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                  {selectedCat.icon} {selectedCat.label[lang]}
-                  <button onClick={() => { setSelectedCategory(null); setSelectedSubcategory(null); }} className="ml-0.5 hover:text-primary/70 cursor-pointer"><X className="w-3 h-3" /></button>
+                  <selectedCat.icon className="w-3.5 h-3.5 inline" aria-hidden="true" /> {selectedCat.label[lang]}
+                  <button onClick={() => { setSelectedCategory(null); setSelectedSubcategory(null); }} type="button" aria-label={t("common.removeFilter")} className="ms-0.5 p-1 hover:text-primary/70 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none rounded-full"><X className="w-3 h-3" /></button>
                 </span>
               )}
               {selectedSub && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-pale text-primary text-xs font-medium">
                   {selectedSub.label[lang]}
-                  <button onClick={() => setSelectedSubcategory(null)} className="ml-0.5 hover:text-primary/70 cursor-pointer"><X className="w-3 h-3" /></button>
+                  <button onClick={() => setSelectedSubcategory(null)} type="button" aria-label={t("common.removeFilter")} className="ms-0.5 p-1 hover:text-primary/70 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none rounded-full"><X className="w-3 h-3" /></button>
                 </span>
               )}
               {langFilter && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-pale text-primary text-xs font-medium">
                   {langFilter}
-                  <button onClick={() => setLangFilter("")} className="ml-0.5 hover:text-primary/70 cursor-pointer"><X className="w-3 h-3" /></button>
+                  <button onClick={() => setLangFilter("")} type="button" aria-label={t("common.removeFilter")} className="ms-0.5 p-1 hover:text-primary/70 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none rounded-full"><X className="w-3 h-3" /></button>
                 </span>
               )}
               {price && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-pale text-primary text-xs font-medium">
-                  &lt; {parseInt(price).toLocaleString()} DZD
-                  <button onClick={() => setPrice("")} className="ml-0.5 hover:text-primary/70 cursor-pointer"><X className="w-3 h-3" /></button>
+                  &lt; <bdi>{parseInt(price).toLocaleString()} DZD</bdi>
+                  <button onClick={() => setPrice("")} type="button" aria-label={t("common.removeFilter")} className="ms-0.5 p-1 hover:text-primary/70 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none rounded-full"><X className="w-3 h-3" /></button>
                 </span>
               )}
-              <button onClick={clearAll} className="ml-auto text-xs text-muted-foreground hover:text-primary underline cursor-pointer">{t("psy.clearAll")}</button>
+              <button onClick={clearAll} className="ms-auto text-xs text-muted-foreground hover:text-primary underline cursor-pointer">{t("psy.clearAll")}</button>
             </div>
           )}
         </div>
@@ -414,7 +422,8 @@ const Psychologues = () => {
           </div>
         ) : (
           <>
-            <div className="text-sm text-muted-foreground mb-6">
+            <h2 className="sr-only">{t("psy.resultsHeading")}</h2>
+            <div className="text-sm text-muted-foreground mb-6" aria-live="polite">
               {filtered.length} {filtered.length > 1 ? t("psy.psychologues") : t("psy.psychologue")}{" "}
               {filtered.length > 1 ? t("psy.availables") : t("psy.available")}
             </div>
@@ -440,13 +449,13 @@ const Psychologues = () => {
           <div className="bg-card rounded-2xl shadow-lg max-w-sm w-full p-8 text-center space-y-4">
             {requestStatus === "pending" && (
               <>
-                <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto">
-                  <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
+                <div className="w-16 h-16 rounded-full bg-teal-pale flex items-center justify-center mx-auto">
+                  <Loader2 className="w-8 h-8 text-warning animate-spin" />
                 </div>
                 <h3 className="font-serif text-lg font-semibold text-foreground">{t("psy.requestPending")}</h3>
                 <p className="text-sm text-muted-foreground">{t("psy.requestPendingDesc")}</p>
-                <div className="w-full bg-border rounded-full h-2">
-                  <div className="bg-amber-500 h-2 rounded-full animate-pulse" style={{ width: "60%" }} />
+                <div className="w-full bg-border rounded-full h-2" role="progressbar" aria-valuemin={0} aria-valuemax={90} aria-valuenow={Math.round(pendingElapsedMs / 1000)} aria-label={t("psy.requestPending")}>
+                  <div className="bg-warning h-2 rounded-full transition-[width] duration-500 ease-linear" style={{ width: `${(pendingElapsedMs / 90000) * 100}%` }} />
                 </div>
               </>
             )}
@@ -461,8 +470,8 @@ const Psychologues = () => {
             )}
             {requestStatus === "declined" && (
               <>
-                <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto">
-                  <PhoneOff className="w-8 h-8 text-red-600" />
+                <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
+                  <PhoneOff className="w-8 h-8 text-destructive" />
                 </div>
                 <h3 className="font-serif text-lg font-semibold text-foreground">{t("psy.requestDeclined")}</h3>
                 <p className="text-sm text-muted-foreground">{t("psy.requestDeclinedDesc")}</p>
@@ -470,8 +479,8 @@ const Psychologues = () => {
             )}
             {requestStatus === "expired" && (
               <>
-                <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center mx-auto">
-                  <Clock className="w-8 h-8 text-orange-600" />
+                <div className="w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center mx-auto">
+                  <Clock className="w-8 h-8 text-warning" />
                 </div>
                 <h3 className="font-serif text-lg font-semibold text-foreground">{t("psy.requestExpired")}</h3>
                 <p className="text-sm text-muted-foreground">{t("psy.requestExpiredDesc")}</p>

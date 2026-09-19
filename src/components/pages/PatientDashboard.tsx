@@ -1,3 +1,4 @@
+import { asButton } from "@/lib/a11y";
 import { useState, useRef, useCallback, useMemo } from "react";
 import { Calendar, Clock, Heart, ChevronRight, Video, X, Loader2, TrendingUp, Sparkles, Timer, Award, PhoneCall, MessageSquare, AlertTriangle, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -58,7 +59,7 @@ interface PatientDashboardProps {
   cancelling: string | null;
   bookingsLoading: boolean;
   wellnessStreak: number;
-  unlockedBadges: { id: string; name: string; emoji: string; desc: string }[];
+  unlockedBadges: { id: string; name: string; desc: string }[];
   handleCancelBooking: (id: string) => void;
   setActivePage: (page: string) => void;
   fmt: (iso: string) => string;
@@ -104,6 +105,11 @@ export default function PatientDashboard({
     lastTapRef.current = time;
   }, [nextSession]);
 
+  const joinNextSession = useCallback(() => {
+    if (nextSession?.video_room_url) window.open(nextSession.video_room_url, "_blank");
+    else toast.info(t("space.dashboard.toast.roomNotStarted"));
+  }, [nextSession]);
+
   const handleJoinClick = useCallback((b: Booking) => {
     const state = getSessionTimeStateFromProps(b.booked_at, b.duration_minutes);
     if (state !== "active") {
@@ -116,8 +122,8 @@ export default function PatientDashboard({
   }, [getSessionTimeStateFromProps]);
 
   const timeStateBorder = (state: "upcoming" | "active" | "ended") => {
-    if (state === "active") return "border-l-4 border-l-primary bg-gradient-to-r from-teal-pale to-transparent";
-    if (state === "upcoming") return "border-l-4 border-l-primary/30";
+    if (state === "active") return "border-s-4 border-s-primary bg-gradient-to-r from-teal-pale to-transparent";
+    if (state === "upcoming") return "border-s-4 border-s-primary/30";
     return "";
   };
 
@@ -127,12 +133,12 @@ export default function PatientDashboard({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="font-serif text-3xl text-foreground tracking-tight">
-            {t("space.dashboard.greeting")}{profile.full_name ? `, ${profile.full_name.split(" ")[0]}` : ""} 👋
+            {t("space.dashboard.greeting")}{profile.full_name ? `, ${profile.full_name.split(" ")[0]}` : ""}
           </h2>
           <p className="text-muted-foreground text-sm mt-1.5 font-sans">{t("space.dashboard.welcomeMsg")}</p>
         </div>
         <Link to="/psychologues" className="self-start md:self-auto px-5 py-3 rounded-full bg-primary text-primary-foreground text-sm font-semibold no-underline hover:bg-teal-mid hover:-translate-y-0.5 active:scale-95 transition-all shadow-sm flex items-center gap-2">
-          {t("space.bookSession")} <ArrowRight className="w-4 h-4" />
+          {t("space.bookSession")} <ArrowRight className="w-4 h-4 rtl:rotate-180" />
         </Link>
       </div>
 
@@ -145,7 +151,9 @@ export default function PatientDashboard({
         {nextSession && nextCountdown ? (
           <>
             <div
+              {...asButton(joinNextSession)}
               onClick={handleDoubleTap}
+              aria-label={t("pd.accessRoom")}
               className={`bg-gradient-to-br from-primary to-teal-dark rounded-3xl p-6 shadow-card relative overflow-hidden cursor-pointer select-none ${
                 getSessionTimeStateFromProps(nextSession.booked_at, nextSession.duration_minutes) === "active"
                   ? "ring-2 ring-primary/30 ring-offset-2 ring-offset-0"
@@ -153,8 +161,6 @@ export default function PatientDashboard({
               }`}
               title={t("pd.dblClickHint")}
             >
-              <div className="absolute -top-16 -left-16 w-40 h-40 bg-white/5 rounded-full blur-2xl" />
-              <div className="absolute -bottom-16 -right-16 w-40 h-40 bg-white/5 rounded-full blur-2xl" />
               <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center border border-white/10">
@@ -174,7 +180,7 @@ export default function PatientDashboard({
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="text-right">
+                  <div className="text-end">
                     {getSessionTimeStateFromProps(nextSession.booked_at, nextSession.duration_minutes) === "active" ? (
                       <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
@@ -191,7 +197,7 @@ export default function PatientDashboard({
                     onClick={(e) => { e.stopPropagation(); handleJoinClick(nextSession); }}
                     className={`px-5 py-3 rounded-xl text-sm font-semibold border transition-all active:scale-95 cursor-pointer ${
                       getSessionTimeStateFromProps(nextSession.booked_at, nextSession.duration_minutes) === "active"
-                        ? "bg-primary text-white border-primary/25 hover:bg-teal-pale0 shadow-lg shadow-card"
+                        ? "bg-primary text-white border-primary/25 hover:bg-teal-mid shadow-lg shadow-card"
                         : "bg-white/15 text-white border-white/20 hover:bg-white/25"
                     }`}
                   >
@@ -263,7 +269,7 @@ export default function PatientDashboard({
           {[
             { icon: <Sparkles className="w-4 h-4" />, color: "text-primary bg-teal-pale border-primary/10", label: t("pd.stat.sessions"), value: totalDone },
             { icon: <Clock className="w-4 h-4" />, color: "text-primary bg-teal-pale border-border", label: t("pd.stat.hours"), value: totalHours },
-            { icon: <Heart className="w-4 h-4" />, color: "text-rose-600 bg-rose-50 border-rose-100", label: t("pd.stat.streak"), value: `${wellnessStreak}j` },
+            { icon: <Heart className="w-4 h-4" />, color: "text-destructive bg-destructive/10 border-destructive/30", label: t("pd.stat.streak"), value: `${wellnessStreak}j` },
           ].map(s => (
             <div key={s.label} className="dashboard-card p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all duration-300 group text-center">
               <div className={`p-2 rounded-xl border ${s.color} group-hover:scale-110 transition-transform duration-300`}>{s.icon}</div>
@@ -282,7 +288,7 @@ export default function PatientDashboard({
               <span className="text-xs text-muted-foreground">{totalDone}/20 {t("pd.sessionsWord")}</span>
             </div>
             <div className="flex items-center gap-4">
-              <div className="flex-1 h-2.5 rounded-full bg-gray-100 overflow-hidden">
+              <div className="flex-1 h-2.5 rounded-full bg-muted overflow-hidden">
                 <div className="h-full rounded-full bg-gradient-to-r from-primary to-primary transition-all duration-1000" style={{ width: `${Math.min((totalDone / 20) * 100, 100)}%` }} />
               </div>
             </div>
@@ -295,7 +301,7 @@ export default function PatientDashboard({
             <div className="flex items-center justify-between mb-4">
               <span className="text-sm font-semibold text-foreground">{t("pd.recentSessions")}</span>
               <button onClick={() => setActivePage("sessions")} className="text-primary text-xs font-semibold bg-transparent border-none cursor-pointer hover:text-teal-mid transition-colors">
-                Voir tout <ChevronRight className="w-3 h-3 inline" />
+                Voir tout <ChevronRight className="w-3 h-3 inline rtl:rotate-180" />
               </button>
             </div>
             <div className="space-y-0">
@@ -308,7 +314,7 @@ export default function PatientDashboard({
                   <div className="pb-4 flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-foreground truncate">{b.psychologist_name || t("prof.defaultName")}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0 ml-2">{fmt(b.booked_at)}</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0 ms-2">{fmt(b.booked_at)}</span>
                     </div>
                       <div className="text-xs text-muted-foreground mt-0.5">{b.duration_minutes} {t("pd.minWord")}</div>
                   </div>
@@ -325,10 +331,10 @@ export default function PatientDashboard({
           <h3 className="font-serif text-lg font-semibold text-foreground flex items-center gap-2">
             <Calendar className="w-4 h-4 text-primary" />
             {t("pd.myUpcomingRdv")}
-            {upcoming.length > 0 && <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold ml-1">{upcoming.length}</span>}
+            {upcoming.length > 0 && <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold ms-1">{upcoming.length}</span>}
           </h3>
           <button onClick={() => setActivePage("sessions")} className="text-primary text-sm font-semibold flex items-center gap-1 bg-transparent border-none cursor-pointer hover:text-teal-mid transition-colors">
-            Voir tout <ChevronRight className="w-4 h-4" />
+            Voir tout <ChevronRight className="w-4 h-4 rtl:rotate-180" />
           </button>
         </div>
         {bookingsLoading ? (
@@ -345,7 +351,7 @@ export default function PatientDashboard({
               return (
                 <div
                   key={b.id}
-                  onClick={() => isActive && handleJoinClick(b)}
+                  {...(isActive ? asButton(() => handleJoinClick(b)) : {})}
                   className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border rounded-2xl transition-all duration-300 ${
                     isActive
                       ? "border-primary/25 bg-teal-pale shadow-md shadow-card ring-1 ring-primary/20 cursor-pointer"
@@ -366,7 +372,7 @@ export default function PatientDashboard({
                       <div className="flex items-center gap-2 mt-1">
                         {isActive ? (
                           <span className="text-xs flex items-center gap-1.5 text-primary font-semibold">
-                            <span className="w-2 h-2 rounded-full bg-teal-pale0 animate-pulse" />
+                            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                              {t("pd.roomOpen")}
                           </span>
                         ) : (
@@ -390,7 +396,7 @@ export default function PatientDashboard({
                           className={`flex items-center gap-2 px-4 py-2.5 ${
                             isActive
                               ? "bg-primary text-primary-foreground hover:bg-teal-mid shadow-sm"
-                              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-muted text-muted-foreground cursor-not-allowed"
                           } rounded-xl text-xs font-semibold border-none transition-all active:scale-95`}
                         >
                           <Video className="w-4 h-4" />
@@ -452,12 +458,12 @@ export default function PatientDashboard({
           <div className="mt-5 dashboard-card p-5">
             <div className="flex items-center gap-2 mb-4">
                <h4 className="font-serif text-base font-semibold text-foreground">{t("pd.badges")}</h4>
-              <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold">{unlockedBadges.length}</span>
+              <span className="px-2 py-0.5 rounded-full bg-warning/10 text-warning text-[10px] font-bold">{unlockedBadges.length}</span>
             </div>
             <div className="flex flex-wrap gap-3">
               {unlockedBadges.map(badge => (
-                <div key={badge.id} className="flex items-center gap-2 px-3.5 py-2 border border-border/40 rounded-xl bg-teal-pale/20 hover:border-amber-200 hover:bg-amber-50/30 transition-all cursor-default">
-                  <span className="text-xl">{badge.emoji}</span>
+                <div key={badge.id} className="flex items-center gap-2 px-3.5 py-2 border border-border/40 rounded-xl bg-teal-pale/20 hover:border-warning/30 hover:bg-warning/10 transition-all cursor-default">
+                  <Award className="w-5 h-5 text-warning" aria-hidden="true" />
                   <div>
                     <div className="font-semibold text-xs text-foreground">{badge.name}</div>
                     <div className="text-[10px] text-muted-foreground leading-tight">{badge.desc}</div>
@@ -472,8 +478,6 @@ export default function PatientDashboard({
       {/* Bottom CTA — only when no upcoming sessions */}
       {upcoming.length === 0 && (
         <div className="bg-gradient-to-br from-teal-cta to-teal-dark rounded-3xl p-8 text-center shadow-card relative overflow-hidden">
-          <div className="absolute -top-12 -left-12 w-32 h-32 bg-white/5 rounded-full blur-xl" />
-          <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-white/5 rounded-full blur-xl" />
           <div className="relative z-10">
             <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/10 shadow-sm">
               <TrendingUp className="w-6 h-6 text-white" />
@@ -489,7 +493,7 @@ export default function PatientDashboard({
 
       {/* ══ Floating action bar (mobile only) ══ */}
       <div
-        className="fixed bottom-0 left-0 right-0 lg:hidden z-50 border-t border-border/50 bg-card shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+        className="fixed bottom-0 start-0 end-0 lg:hidden z-50 border-t border-border/50 bg-card shadow-overlay"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         <div className="flex items-center justify-around py-2.5 px-2">
@@ -523,7 +527,7 @@ export default function PatientDashboard({
 
           <button
             onClick={() => setWellnessTab("helpline")}
-            className="flex flex-col items-center gap-0.5 px-4 py-1 text-red-500 bg-transparent border-none cursor-pointer hover:text-red-600 transition-colors"
+            className="flex flex-col items-center gap-0.5 px-4 py-1 text-destructive bg-transparent border-none cursor-pointer hover:text-destructive transition-colors"
           >
             <PhoneCall className="w-5 h-5" />
              <span className="text-[10px] font-semibold">{t("pd.emergency")}</span>

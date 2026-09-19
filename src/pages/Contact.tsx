@@ -51,17 +51,17 @@ const Contact = () => {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-medium text-muted-foreground">{t("contact.nameLabel")}</label>
-                <input type="text" required value={name} onChange={e => setName(e.target.value)} placeholder={t("contact.namePlaceholder")} className={inputCls} />
+                <label htmlFor="contact-f1" className="text-[13px] font-medium text-muted-foreground">{t("contact.nameLabel")}</label>
+                <input id="contact-f1" type="text" required value={name} onChange={e => setName(e.target.value)} placeholder={t("contact.namePlaceholder")} className={inputCls} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-medium text-muted-foreground">{t("auth.email")}</label>
-                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="votre@email.com" className={inputCls} />
+                <label htmlFor="contact-f2" className="text-[13px] font-medium text-muted-foreground">{t("auth.email")}</label>
+                <input id="contact-f2" type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="votre@email.com" className={inputCls} />
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-muted-foreground">{t("contact.subjectLabel")}</label>
-              <select value={subject} onChange={e => setSubject(e.target.value)} required className={inputCls + " cursor-pointer"}>
+              <label htmlFor="contact-f3" className="text-[13px] font-medium text-muted-foreground">{t("contact.subjectLabel")}</label>
+              <select id="contact-f3" value={subject} onChange={e => setSubject(e.target.value)} required className={inputCls + " cursor-pointer"}>
                 <option value="">{t("contact.subjectChoose")}</option>
                 <option value="technique">{t("contact.subject.technique")}</option>
                 <option value="reservation">{t("contact.subject.reservation")}</option>
@@ -71,8 +71,8 @@ const Contact = () => {
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-muted-foreground">{t("contact.messageLabel")}</label>
-              <textarea required value={message} onChange={e => setMessage(e.target.value)} rows={5}
+              <label htmlFor="contact-f4" className="text-[13px] font-medium text-muted-foreground">{t("contact.messageLabel")}</label>
+              <textarea id="contact-f4" required value={message} onChange={e => setMessage(e.target.value)} rows={5}
                 placeholder={t("contact.messagePlaceholder")}
                 className={inputCls + " resize-none"} />
             </div>
@@ -92,7 +92,7 @@ const Contact = () => {
             { icon: <MapPin className="w-5 h-5 text-primary" />, title: t("contact.info.address"), lines: ["Alger, Algérie"] },
           ].map(c => (
             <div key={c.title} className="bg-card rounded-xl shadow-card p-6 flex gap-4">
-              <div className="w-10 h-10 bg-[#2A9D8F] rounded-xl flex items-center justify-center shrink-0">{c.icon}</div>
+              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shrink-0">{c.icon}</div>
               <div>
                 <h4 className="font-semibold text-[15px] text-foreground mb-1">{c.title}</h4>
                 {c.lines.map(l => <p key={l} className="text-sm text-muted-foreground">{l}</p>)}

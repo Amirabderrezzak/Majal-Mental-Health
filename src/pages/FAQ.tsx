@@ -59,9 +59,9 @@ const FAQ = () => {
             <div key={i} className="bg-card rounded-xl shadow-card overflow-hidden">
               <button
                 onClick={() => setOpen(open === i ? null : i)}
-                className="w-full flex items-center justify-between px-6 py-5 text-left bg-transparent border-none cursor-pointer"
+                className="w-full flex items-center justify-between px-6 py-5 text-start bg-transparent border-none cursor-pointer"
               >
-                <span className="font-medium text-[15px] text-foreground pr-4">{faq.q}</span>
+                <span className="font-medium text-[15px] text-foreground pe-4">{faq.q}</span>
                 <ChevronDown className={`w-5 h-5 text-primary shrink-0 transition-transform ${open === i ? "rotate-180" : ""}`} />
               </button>
               {open === i && (

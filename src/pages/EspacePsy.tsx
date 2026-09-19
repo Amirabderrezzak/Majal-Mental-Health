@@ -920,13 +920,13 @@ export default function EspacePsy() {
         />
 
         {clinicSettings.vacationMode && (
-          <div className="mx-6 mt-6 p-4 rounded-xl border border-solid border-amber-200/50 bg-amber-50/40 shadow-sm flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="p-2 rounded-lg bg-amber-100/80 text-amber-700 shrink-0">
+          <div className="mx-6 mt-6 p-4 rounded-xl border border-solid border-warning/30 bg-warning/10 shadow-sm flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="p-2 rounded-lg bg-warning/10 text-warning shrink-0">
               <AlertTriangle className="w-5 h-5 animate-pulse" />
             </div>
             <div>
-              <h4 className="font-semibold text-sm text-amber-900">{t("psy.settings.vacation.title")}</h4>
-              <p className="text-xs text-amber-800/85 mt-0.5 leading-relaxed font-sans">
+              <h4 className="font-semibold text-sm text-warning">{t("psy.settings.vacation.title")}</h4>
+              <p className="text-xs text-warning/85 mt-0.5 leading-relaxed font-sans">
                 {t("psy.settings.vacationBanner")}
               </p>
             </div>
@@ -934,26 +934,26 @@ export default function EspacePsy() {
         )}
 
         {approvalStatus === "pending" && (
-          <div className="mx-6 mt-6 p-4 rounded-xl border border-amber-200/50 bg-amber-50/40 shadow-sm flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="p-2 rounded-lg bg-amber-100/80 text-amber-700 shrink-0">
+          <div className="mx-6 mt-6 p-4 rounded-xl border border-warning/30 bg-warning/10 shadow-sm flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="p-2 rounded-lg bg-warning/10 text-warning shrink-0">
               <Clock className="w-5 h-5 animate-pulse" />
             </div>
             <div>
-              <h4 className="font-semibold text-sm text-amber-900">{t("psy.dashboard.pendingTitle")}</h4>
-              <p className="text-xs text-amber-800/85 mt-0.5 leading-relaxed">
+              <h4 className="font-semibold text-sm text-warning">{t("psy.dashboard.pendingTitle")}</h4>
+              <p className="text-xs text-warning/85 mt-0.5 leading-relaxed">
                 {t("psy.dashboard.pendingDesc")}
               </p>
             </div>
           </div>
         )}
         {approvalStatus === "rejected" && (
-          <div className="mx-6 mt-6 p-4 rounded-xl border border-red-200/50 bg-red-50/40 shadow-sm flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="p-2 rounded-lg bg-red-100/80 text-red-700 shrink-0">
+          <div className="mx-6 mt-6 p-4 rounded-xl border border-destructive/30 bg-destructive/10 shadow-sm flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="p-2 rounded-lg bg-destructive/10 text-destructive shrink-0">
               <X className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="font-semibold text-sm text-red-900">{t("psy.dashboard.rejectedTitle")}</h4>
-              <p className="text-xs text-red-800/85 mt-0.5 leading-relaxed">
+              <h4 className="font-semibold text-sm text-destructive">{t("psy.dashboard.rejectedTitle")}</h4>
+              <p className="text-xs text-destructive/85 mt-0.5 leading-relaxed">
                 {t("psy.dashboard.rejectedDesc")}
               </p>
             </div>
