@@ -1,4 +1,5 @@
 import { useEscapeKey } from "@/lib/a11y";
+import { specialtyLabel } from "@/lib/specialty";
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ChevronLeft, Calendar, MessageSquare, Clock, Check, GraduationCap, Award, Star, MapPin, Loader2, Globe, X, User } from "lucide-react";
@@ -235,7 +236,7 @@ const Profil = () => {
                 </div>
               )}
               <h1 className="font-serif text-xl text-primary text-center">{name}</h1>
-              <span className="text-sm text-muted-foreground text-center">{specialty}</span>
+              <span className="text-sm text-muted-foreground text-center">{specialtyLabel(specialty, t)}</span>
               {city && (
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <MapPin className="w-3 h-3" />{city}

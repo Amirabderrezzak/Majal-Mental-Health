@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { DEFAULT_CLINIC_SETTINGS } from "@/lib/availability";
 import { Menu, X, Bell, AlertTriangle, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -131,10 +132,12 @@ export default function EspacePsy() {
     vacationMode: false,
     autoConfirm: false,
     acceptingNew: true,
-    startHour: "08:00",
-    endHour: "18:00",
-    bufferMinutes: 15,
-    workingDays: ["Sun", "Mon", "Tue", "Wed", "Thu"],
+    // Same defaults the booking page and the server apply when nothing is saved,
+    // so a new therapist sees exactly the hours patients are offered.
+    startHour: DEFAULT_CLINIC_SETTINGS.startHour,
+    endHour: DEFAULT_CLINIC_SETTINGS.endHour,
+    bufferMinutes: DEFAULT_CLINIC_SETTINGS.bufferMinutes,
+    workingDays: [...DEFAULT_CLINIC_SETTINGS.workingDays],
   });
 
   const [notificationPreferences, setNotificationPreferences] = useState({

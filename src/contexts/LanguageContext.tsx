@@ -569,6 +569,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "admin.toast.errorStats": { fr: "Erreur statistiques", ar: "خطأ في الإحصائيات" },
   "admin.toast.updateFailed": { fr: "Échec de la mise à jour", ar: "فشل التحديث" },
   "admin.toast.statusUpdated": { fr: "Statut mis à jour", ar: "تم تحديث الحالة" },
+  "admin.toast.emailFailed": { fr: "Statut mis à jour, mais l'e-mail n'a pas pu être envoyé.", ar: "تم تحديث الحالة لكن تعذر إرسال البريد الإلكتروني." },
   "admin.toast.adminFailed": { fr: "Échec admin", ar: "فشل إداري" },
   "admin.toast.deleteFailed": { fr: "Suppression échouée", ar: "فشل الحذف" },
   "admin.toast.reviewDeleted": { fr: "Avis supprimé", ar: "تم حذف التقييم" },

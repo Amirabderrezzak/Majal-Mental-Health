@@ -1,4 +1,5 @@
 import { asButton } from "@/lib/a11y";
+import { specialtyLabel } from "@/lib/specialty";
 import { useState, useRef, useCallback, useMemo } from "react";
 import { Calendar, Clock, Heart, ChevronRight, Video, X, Loader2, TrendingUp, Sparkles, Timer, Award, PhoneCall, MessageSquare, AlertTriangle, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -368,7 +369,7 @@ export default function PatientDashboard({
                     )}
                     <div className="min-w-0">
                       <div className="font-semibold text-base text-foreground truncate">{b.psychologist_name}</div>
-                       <div className="text-xs text-primary/95 font-medium mt-0.5">{b.psychologist_specialty || t("pd.defaultSpecialty")}</div>
+                       <div className="text-xs text-primary/95 font-medium mt-0.5">{specialtyLabel(b.psychologist_specialty, t) || t("pd.defaultSpecialty")}</div>
                       <div className="flex items-center gap-2 mt-1">
                         {isActive ? (
                           <span className="text-xs flex items-center gap-1.5 text-primary font-semibold">

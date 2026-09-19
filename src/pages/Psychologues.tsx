@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { specialtyLabel } from "@/lib/specialty";
 import { Link, useNavigate } from "react-router-dom";
 import { Search, SlidersHorizontal, Clock, DollarSign, Loader2, X, Phone, PhoneOff, CheckCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -191,7 +192,7 @@ const Psychologues = () => {
           <h3 className="font-serif text-lg text-primary text-center">
             <Link to={profileLink(d)} className="no-underline text-inherit after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary/50 after:rounded-lg">{d.name}</Link>
           </h3>
-          <span className="text-[13px] text-muted-foreground">{d.specialty}</span>
+          <span className="text-[13px] text-muted-foreground">{specialtyLabel(d.specialty, t)}</span>
           {d.city && (
             <span className="text-[12px] text-muted-foreground/70">{d.city}</span>
           )}

@@ -185,11 +185,14 @@ export default function AdminDashboard() {
 
     // Send email notification to therapist
     if (status === 'approved' || status === 'rejected') {
+      // The endpoint requires the admin's JWT; without it every approval/rejection
+      // email was silently refused (401) and therapists were never told.
+      const { data: { session } } = await supabase.auth.getSession();
       fetch('/api/admin?action=notify-therapist', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
         body: JSON.stringify({ therapist_id: userId, action: status }),
-      }).catch(console.error);
+      }).then(async (r) => { if (!r.ok) { console.error('notify-therapist failed', r.status, await r.text()); toast.warning(t("admin.toast.emailFailed")); } }).catch(console.error);
     }
   };
 

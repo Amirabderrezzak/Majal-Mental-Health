@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { specialtyLabel } from "@/lib/specialty";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ChevronLeft, Calendar, Clock, DollarSign, ChevronRight, Loader2, User } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -346,7 +347,7 @@ const Reservation = () => {
               )}
               <div>
                 <div className="font-semibold text-[15px] text-primary">{docName}</div>
-                <div className="text-[13px] text-muted-foreground mt-0.5">{docSpecialty}</div>
+                <div className="text-[13px] text-muted-foreground mt-0.5">{specialtyLabel(docSpecialty, t)}</div>
               </div>
             </div>
               <div className="flex flex-col gap-4 mb-6">

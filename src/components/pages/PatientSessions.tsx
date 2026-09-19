@@ -1,4 +1,5 @@
 import { useEscapeKey } from "@/lib/a11y";
+import { specialtyLabel } from "@/lib/specialty";
 import { useState, useEffect } from "react";
 import { Calendar, Clock, Check, X, Loader2, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -334,7 +335,7 @@ export default function PatientSessions({
                         )}
                         <div>
                           <div className="font-semibold text-sm text-foreground">{b.psychologist_name}</div>
-                          <div className="text-xs text-primary font-medium mt-0.5">{b.psychologist_specialty || "Psychologue"}</div>
+                          <div className="text-xs text-primary font-medium mt-0.5">{specialtyLabel(b.psychologist_specialty, t, "Psychologue")}</div>
                           <div className="text-xs text-muted-foreground mt-1">{fmtT(b.booked_at)} · {b.duration_minutes} min</div>
                         </div>
                       </div>
@@ -386,7 +387,7 @@ export default function PatientSessions({
                   )}
                   <div>
                     <div className="font-semibold text-sm text-foreground">{b.psychologist_name}</div>
-                    <div className="text-xs text-primary font-medium mt-0.5">{b.psychologist_specialty || "Psychologue"}</div>
+                    <div className="text-xs text-primary font-medium mt-0.5">{specialtyLabel(b.psychologist_specialty, t, "Psychologue")}</div>
                     <div className="text-xs text-muted-foreground mt-1">{fmt(b.booked_at)} · {fmtT(b.booked_at)} · {b.duration_minutes} {t("space.minutesLabel")}</div>
                     {b.price && <div className="text-xs text-muted-foreground/80 mt-0.5"><bdi>{b.price.toLocaleString()} {t("space.priceCurrency")}</bdi></div>}
                   </div>

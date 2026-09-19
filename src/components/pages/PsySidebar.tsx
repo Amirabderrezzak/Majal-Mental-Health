@@ -1,4 +1,5 @@
 import { LogOut, X, LayoutDashboard, Calendar, Users, MessageSquare, DollarSign, User, Settings, PenTool } from "lucide-react";
+import { specialtyLabel } from "@/lib/specialty";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -87,7 +88,7 @@ export default function PsySidebar({ sidebarOpen, setSidebarOpen, activePage, se
           )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-foreground truncate">{profileData.full_name}</p>
-            <p className="text-[10px] text-muted-foreground truncate">{profileData.specialty || "Psychologue"}</p>
+            <p className="text-[10px] text-muted-foreground truncate">{specialtyLabel(profileData.specialty, t, "Psychologue")}</p>
           </div>
         </div>
         <button

@@ -60,6 +60,11 @@ export const notifyTherapistHandler = async (req: any, res: any) => {
       .eq("user_id", therapist_id)
       .single();
 
+    // Only announce a decision that is actually recorded on the profile.
+    if (therapist?.approval_status !== action) {
+      return res.status(409).json({ error: "Le statut du profil ne correspond pas à cette notification." });
+    }
+
     const { data: authUser } = await supabase.auth.admin.getUserById(therapist_id);
 
     const email = authUser?.user?.email;
