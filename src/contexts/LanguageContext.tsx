@@ -750,6 +750,8 @@ const translations: Record<string, Record<Lang, string>> = {
   "common.cancel": { fr: "Annuler", ar: "إلغاء" },
   "psy.resultsHeading": { fr: "Résultats de la recherche", ar: "نتائج البحث" },
   "space.nav.mobile": { fr: "Navigation principale", ar: "التنقل الرئيسي" },
+  "space.sessionsTitle": { fr: "Mes séances", ar: "جلساتي" },
+  "space.back": { fr: "Retour", ar: "رجوع" },
   "admin.openMenu": { fr: "Ouvrir le menu", ar: "فتح القائمة" },
   "admin.closeMenu": { fr: "Fermer le menu", ar: "إغلاق القائمة" },
   "admin.nav.dashboard": { fr: "Tableau de bord", ar: "لوحة القيادة" },

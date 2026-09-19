@@ -169,8 +169,8 @@ const Psychologues = () => {
   };
 
   const DoctorCard = ({ d }: { d: PsyProfile }) => (
-    <Link to={profileLink(d)} className="no-underline block">
-      <div className="rounded-lg overflow-hidden border border-border bg-card shadow-card hover:-translate-y-1 hover:shadow-card-hover transition-all cursor-pointer">
+    <div className="relative block">
+      <div className="rounded-lg overflow-hidden border border-border bg-card shadow-card hover:-translate-y-1 hover:shadow-card-hover focus-within:-translate-y-1 transition-all cursor-pointer">
         <div className="bg-teal-hero px-5 pt-8 pb-5 flex flex-col items-center gap-3">
           {d.avatar_url ? (
             <img
@@ -188,7 +188,9 @@ const Psychologues = () => {
                 .join("")}
             </div>
           )}
-          <h3 className="font-serif text-lg text-primary text-center">{d.name}</h3>
+          <h3 className="font-serif text-lg text-primary text-center">
+            <Link to={profileLink(d)} className="no-underline text-inherit after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary/50 after:rounded-lg">{d.name}</Link>
+          </h3>
           <span className="text-[13px] text-muted-foreground">{d.specialty}</span>
           {d.city && (
             <span className="text-[12px] text-muted-foreground/70">{d.city}</span>
@@ -240,13 +242,14 @@ const Psychologues = () => {
           </div>
           {d.is_available_now && (
             <button
+              type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 handleImmediateRequest(d.id);
               }}
               disabled={requestStatus !== null}
-              className="flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-md bg-teal-pale border border-primary/15 text-[13px] font-semibold text-primary mb-3.5 w-full cursor-pointer hover:bg-teal-pale transition-colors disabled:opacity-60"
+              className="relative z-10 flex items-center justify-center gap-2 py-2.5 px-3.5 rounded-md bg-teal-pale border border-primary/15 text-[13px] font-semibold text-primary mb-3.5 w-full cursor-pointer hover:bg-teal-pale transition-colors disabled:opacity-60"
             >
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               {requestingPsyId === d.id && requestStatus === "sending" ? t("psy.requestSending") : t("psy.talkNow")}
@@ -255,13 +258,13 @@ const Psychologues = () => {
           <Link
             to={bookingLink(d)}
             onClick={(e) => e.stopPropagation()}
-            className="block w-full py-3 rounded-xl bg-primary text-primary-foreground text-center text-[15px] font-medium no-underline hover:bg-teal-mid transition-colors"
+            className="relative z-10 block w-full py-3 rounded-xl bg-primary text-primary-foreground text-center text-[15px] font-medium no-underline hover:bg-teal-mid transition-colors"
           >
             {t("psy.book")}
           </Link>
         </div>
       </div>
-    </Link>
+    </div>
   );
 
   return (

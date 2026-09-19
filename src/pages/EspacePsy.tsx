@@ -85,7 +85,7 @@ export default function EspacePsy() {
     setStartingCall(bookingId);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch("/api/calls?action=create-room", {
+      const res = await fetch("/api/calls?action=room", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -345,7 +345,7 @@ export default function EspacePsy() {
     if (accept) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const res = await fetch("/api/calls?action=create-instant-room", {
+        const res = await fetch("/api/calls?action=instant-room", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

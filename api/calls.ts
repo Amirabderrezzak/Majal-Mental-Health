@@ -149,7 +149,9 @@ export const instantRoomHandler = async (req: any, res: any) => {
 
   try {
     // Clean up any expired requests first
-    await supabase.rpc("expire_immediate_requests").catch(() => {});
+    // supabase-js query builders are thenables without .catch(); errors come back in the result.
+    const { error: expireError } = await supabase.rpc("expire_immediate_requests");
+    if (expireError) console.error("expire_immediate_requests failed:", expireError);
 
     const { data: request, error: reqError } = await supabase
       .from("immediate_session_requests")
