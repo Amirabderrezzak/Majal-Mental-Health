@@ -654,7 +654,7 @@ export default function EspacePsy() {
     if (!user) return;
     const load = async () => {
       const { data } = await supabase.from("reschedule_requests")
-        .select("id, booking_id, patient_id, proposed_at, original_booked_at, message, created_at")
+        .select("id, booking_id, patient_id, proposed_at, original_booked_at, message, created_at, initiated_by")
         .eq("psychologist_id", user.id).eq("status", "pending")
         .order("proposed_at", { ascending: true });
       setRescheduleRequests((data ?? []) as RescheduleRequest[]);
@@ -667,10 +667,33 @@ export default function EspacePsy() {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
   // Names come from the session list (same patients).
-  const rescheduleRequestsNamed = rescheduleRequests.map((r) => ({
+  // Requests patients sent (to answer) vs. proposals this therapist sent (shown on the session row).
+  const rescheduleRequestsNamed = rescheduleRequests.filter((r) => r.initiated_by !== "psychologist").map((r) => ({
     ...r,
     patient_name: bookings.find((b) => b.patient_id === r.patient_id)?.patient_name,
   }));
+  const requestsByBooking = Object.fromEntries(rescheduleRequests.map((r) => [r.booking_id, { id: r.id, proposed_at: r.proposed_at, initiated_by: r.initiated_by ?? "patient" }]));
+  const proposeNewTime = async (bookingId: string, proposedAtIso: string, message: string) => {
+    try {
+      const { data } = await apiPost<{ request: { id: string; proposed_at: string; created_at: string } }>("/api/bookings?action=reschedule-request", { booking_id: bookingId, proposed_at: proposedAtIso, message: message || undefined });
+      const b = bookings.find((x) => x.id === bookingId);
+      setRescheduleRequests((prev) => [...prev, { id: data.request.id, booking_id: bookingId, patient_id: b?.patient_id ?? "", proposed_at: data.request.proposed_at, original_booked_at: b?.booked_at ?? "", message: message || null, created_at: data.request.created_at, initiated_by: "psychologist" }]);
+      toast.success(t("psy.propose.sent"));
+      return true;
+    } catch (err: any) {
+      toast.error(err?.message || t("psy.request.error"));
+      return false;
+    }
+  };
+  const withdrawProposal = async (requestId: string) => {
+    try {
+      await apiPost("/api/bookings?action=reschedule-cancel", { request_id: requestId });
+      setRescheduleRequests((prev) => prev.filter((r) => r.id !== requestId));
+      toast.success(t("psy.propose.withdrawn"));
+    } catch (err: any) {
+      toast.error(err?.message || t("psy.request.error"));
+    }
+  };
   const respondToReschedule = async (requestId: string, accept: boolean, note: string) => {
     try {
       const { data } = await apiPost<{ booked_at?: string }>("/api/bookings?action=reschedule-respond", { request_id: requestId, accept, note: note.trim() || undefined });
@@ -829,7 +852,7 @@ export default function EspacePsy() {
     switch (activePage) {
       case "dashboard": return (
         <PsyDashboard
-          pendingRescheduleCount={rescheduleRequests.length}
+          pendingRescheduleCount={rescheduleRequestsNamed.length}
           profileData={profileData}
           approvalStatus={approvalStatus}
           totalUniquePatients={totalUniquePatients}
@@ -854,6 +877,9 @@ export default function EspacePsy() {
       case "sessions": return (
         <PsySessions
           topSlot={<RescheduleRequestsPanel requests={rescheduleRequestsNamed} clinicSettings={clinicSettings} onRespond={respondToReschedule} />}
+          requestsByBooking={requestsByBooking}
+          onPropose={proposeNewTime}
+          onWithdrawProposal={withdrawProposal}
           bookings={bookings}
           bookingsLoading={bookingsLoading}
           updateBookingStatus={updateBookingStatus}

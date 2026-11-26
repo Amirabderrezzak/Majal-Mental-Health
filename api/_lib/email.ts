@@ -412,22 +412,28 @@ export async function sendNoShowNotification(opts: {
   });
 }
 
-// ── 11. Reschedule request (therapist) ───────────────────────────────────────
+// ── 11. Reschedule request (to the other party) ──────────────────────────────
 export async function sendRescheduleRequest(opts: {
-  therapistEmail: string;
-  therapistName: string;
-  patientName: string;
+  to: string;
+  recipientName: string;
+  fromName: string;
+  fromRole: 'patient' | 'psychologue';
   currentDate: string;
   proposedDate: string;
   message?: string | null;
 }) {
+  const fromPatient = opts.fromRole === 'patient';
+  const greeting = fromPatient ? `Bonjour Dr. <strong>${escapeHtml(opts.recipientName)}</strong>,` : `Bonjour <strong>${escapeHtml(opts.recipientName)}</strong>,`;
+  const intro = fromPatient
+    ? `<strong>${escapeHtml(opts.fromName)}</strong> souhaite déplacer sa séance à un horaire en dehors de vos disponibilités habituelles.`
+    : `Le <strong>Dr. ${escapeHtml(opts.fromName)}</strong> ne pourra pas assurer votre séance et vous propose un autre horaire. Si vous acceptez, la séance est simplement déplacée : <strong>vous n'avez rien à repayer</strong>.`;
   return resend.emails.send({
     from: FROM,
-    to: opts.therapistEmail,
-    subject: '🕑 Demande de changement d\'horaire — Majal',
+    to: opts.to,
+    subject: fromPatient ? '🕑 Demande de changement d\'horaire — Majal' : '🕑 Votre psychologue propose un autre horaire — Majal',
     html: wrap(`
-      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Un patient propose un autre horaire</h2>
-      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour Dr. <strong>${escapeHtml(opts.therapistName)}</strong>, <strong>${escapeHtml(opts.patientName)}</strong> souhaite déplacer sa séance à un horaire en dehors de vos disponibilités habituelles.</p>
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">${fromPatient ? 'Un patient propose un autre horaire' : 'Nouvel horaire proposé'}</h2>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">${greeting} ${intro}</p>
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border-radius:10px;border:1px solid #bfdbfe;margin-bottom:24px;">
         <tr><td style="padding:20px 24px;">
           <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>Séance actuelle :</strong> ${escapeHtml(opts.currentDate)}</p>
@@ -436,35 +442,38 @@ export async function sendRescheduleRequest(opts: {
         </td></tr>
       </table>
       <p style="color:#374151;font-size:14px;">Tant que vous n'avez pas répondu, la séance reste prévue à l'horaire actuel.</p>
-      ${btn('Répondre à la demande', `${SITE}/espace-psy?page=sessions`)}
+      ${btn('Répondre', `${SITE}/${fromPatient ? 'espace-psy' : 'mon-espace'}?page=sessions`)}
     `),
   });
 }
 
-// ── 12. Reschedule request answered (patient) ────────────────────────────────
+// ── 12. Reschedule request answered (to whoever proposed) ────────────────────
 export async function sendRescheduleAnswer(opts: {
-  patientEmail: string;
-  patientName: string;
-  therapistName: string;
+  to: string;
+  recipientName: string;
+  responderName: string;
+  recipientRole: 'patient' | 'psychologue';
   accepted: boolean;
   currentDate: string;
   proposedDate: string;
   note?: string | null;
 }) {
-  const heading = opts.accepted ? 'Votre nouvel horaire est accepté' : 'Votre demande de changement n\'a pas été acceptée';
+  const toPatient = opts.recipientRole === 'patient';
+  const who = toPatient ? `Le <strong>Dr. ${escapeHtml(opts.responderName)}</strong>` : `<strong>${escapeHtml(opts.responderName)}</strong>`;
+  const heading = opts.accepted ? 'Nouvel horaire accepté' : 'Nouvel horaire refusé';
   const body = opts.accepted
-    ? `Le <strong>Dr. ${escapeHtml(opts.therapistName)}</strong> a accepté de déplacer votre séance au <strong>${escapeHtml(opts.proposedDate)}</strong>.`
-    : `Le <strong>Dr. ${escapeHtml(opts.therapistName)}</strong> ne peut pas vous recevoir le ${escapeHtml(opts.proposedDate)}. Votre séance reste prévue le <strong>${escapeHtml(opts.currentDate)}</strong>.`;
+    ? `${who} a accepté de déplacer la séance au <strong>${escapeHtml(opts.proposedDate)}</strong>.`
+    : `${who} n'est pas disponible le ${escapeHtml(opts.proposedDate)}. La séance reste prévue le <strong>${escapeHtml(opts.currentDate)}</strong>.${toPatient ? '' : ' Vous pouvez proposer un autre horaire, ou annuler la séance (le patient sera intégralement remboursé).'}`;
   return resend.emails.send({
     from: FROM,
-    to: opts.patientEmail,
+    to: opts.to,
     subject: `${opts.accepted ? '✅' : '📅'} ${heading} — Majal`,
     html: wrap(`
       <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">${heading}</h2>
-      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${escapeHtml(opts.patientName)}</strong>,</p>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${escapeHtml(opts.recipientName)}</strong>,</p>
       <p style="color:#374151;font-size:15px;line-height:1.6;">${body}</p>
-      ${opts.note ? `<p style="color:#374151;font-size:14px;white-space:pre-wrap;"><strong>Message du psychologue :</strong> ${escapeHtml(opts.note)}</p>` : ''}
-      ${btn('Voir mes séances', `${SITE}/mon-espace?page=sessions`)}
+      ${opts.note ? `<p style="color:#374151;font-size:14px;white-space:pre-wrap;"><strong>Message :</strong> ${escapeHtml(opts.note)}</p>` : ''}
+      ${btn('Voir mes séances', `${SITE}/${toPatient ? 'mon-espace' : 'espace-psy'}?page=sessions`)}
     `),
   });
 }

@@ -12,6 +12,7 @@ export interface RescheduleRequest {
   original_booked_at: string;
   message: string | null;
   created_at: string;
+  initiated_by?: string;
   patient_name?: string;
 }
 

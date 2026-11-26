@@ -65,7 +65,7 @@ interface Booking {
   no_show_party?: string | null;
   /** pending booking whose bank capture is still being verified */
   verifying?: boolean;
-  pending_request?: { id: string; proposed_at: string; message: string | null } | null;
+  pending_request?: { id: string; proposed_at: string; message: string | null; initiated_by?: string } | null;
 }
 
 const PAGES: Page[] = ["dashboard", "sessions", "messages", "explore", "forum", "journal", "coping", "profil", "notifications"];
@@ -168,9 +168,9 @@ export default function MonEspace() {
         supabase.from("bookings").select("id, booked_at, status, duration_minutes, price, psychologist_id, video_room_url, policy_anchor_at, reschedule_count, session_kind, no_show_party")
           .eq("patient_id", user.id).order("booked_at", { ascending: true }),
         supabase.from("payments").select("booking_id").eq("patient_id", user.id).eq("status", "pending"),
-        supabase.from("reschedule_requests").select("id, booking_id, proposed_at, message").eq("patient_id", user.id).eq("status", "pending"),
+        supabase.from("reschedule_requests").select("id, booking_id, proposed_at, message, initiated_by").eq("patient_id", user.id).eq("status", "pending"),
       ]);
-      const requestByBooking = new Map((openRequests ?? []).map((r) => [r.booking_id, { id: r.id, proposed_at: r.proposed_at, message: r.message }]));
+      const requestByBooking = new Map((openRequests ?? []).map((r) => [r.booking_id, { id: r.id, proposed_at: r.proposed_at, message: r.message, initiated_by: r.initiated_by }]));
       const verifyingIds = new Set((verifyingPayments ?? []).map((p) => p.booking_id).filter(Boolean));
 
       const all: Booking[] = ((data ?? []) as Booking[]).map((b) => ({ ...b, verifying: b.status === "pending" && verifyingIds.has(b.id), pending_request: requestByBooking.get(b.id) ?? null }));
@@ -333,6 +333,7 @@ export default function MonEspace() {
     switch (activePage) {
       case "dashboard": return (
         <PatientDashboard
+          pendingProposals={upcoming.filter((b) => b.pending_request?.initiated_by === "psychologist").length}
           profile={profile}
           upcoming={upcoming}
           past={past}

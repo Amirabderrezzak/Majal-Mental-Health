@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Video, Loader2 } from "lucide-react";
+import { Video, Loader2, CalendarClock } from "lucide-react";
+import { algiersParts, algiersSlotToDate } from "@/lib/availability";
+import { fmtDate, fmtTime } from "@/lib/sessionApi";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SessionCalendar } from "@/components/SessionCalendar";
 import { SessionsListSkeleton } from "@/components/LoadingSkeletons";
@@ -52,13 +54,75 @@ interface PsySessionsProps {
   statusLabels: Record<string, string>;
   /** Rendered above the list (pending "propose another time" requests). */
   topSlot?: React.ReactNode;
+  /** Open reschedule request per booking (either side). */
+  requestsByBooking?: Record<string, { id: string; proposed_at: string; initiated_by: string }>;
+  /** Therapist proposes another time for a paid session (instead of cancelling). */
+  onPropose?: (bookingId: string, proposedAtIso: string, message: string) => Promise<boolean>;
+  onWithdrawProposal?: (requestId: string) => Promise<void>;
 }
 
 export default function PsySessions({
   bookings, bookingsLoading, updateBookingStatus, updating,
-  handleStartCall, startingCall, statusLabels, topSlot
+  handleStartCall, startingCall, statusLabels, topSlot,
+  requestsByBooking = {}, onPropose, onWithdrawProposal,
 }: PsySessionsProps) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const locale = lang === "ar" ? "ar-DZ" : "fr-FR";
+  // "Propose another time" dialog
+  const [proposeFor, setProposeFor] = useState<Booking | null>(null);
+  const [pDate, setPDate] = useState("");
+  const [pTime, setPTime] = useState("");
+  const [pMessage, setPMessage] = useState("");
+  const [proposing, setProposing] = useState(false);
+  const todayAlgiers = (() => { const a = algiersParts(new Date()); return `${a.y}-${String(a.mo + 1).padStart(2, "0")}-${String(a.d).padStart(2, "0")}`; })();
+  const closePropose = () => { setProposeFor(null); setPDate(""); setPTime(""); setPMessage(""); };
+  const submitPropose = async () => {
+    if (!proposeFor || !pDate || !pTime || !onPropose) return;
+    const [y, m, d] = pDate.split("-").map(Number);
+    setProposing(true);
+    const ok = await onPropose(proposeFor.id, algiersSlotToDate(y, m - 1, d, pTime).toISOString(), pMessage.trim());
+    setProposing(false);
+    if (ok) closePropose();
+  };
+  // Rendered by calling it (not as <ProposeDialog />) so inputs keep focus.
+  const ProposeDialog = () => !proposeFor ? null : (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="propose-title">
+      <div className="absolute inset-0 bg-black/40" onClick={closePropose} />
+      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl p-6 md:p-8 space-y-4">
+        <h3 id="propose-title" className="font-serif text-lg font-semibold text-foreground">{t("psy.propose.title")}</h3>
+        <p className="text-sm text-muted-foreground">
+          {t("psy.propose.intro").replace("{name}", proposeFor.patient_name || t("psy.common.patient"))}{" "}
+          <strong className="text-foreground">{fmtDate(proposeFor.booked_at, locale, { weekday: "long", day: "numeric", month: "long" })} · {fmtTime(proposeFor.booked_at, locale)}</strong>
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1.5 text-xs font-semibold text-muted-foreground">
+            {t("res.date")}
+            <input type="date" value={pDate} min={todayAlgiers} onChange={(e) => setPDate(e.target.value)}
+              className="px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none focus:border-primary font-sans" />
+          </label>
+          <label className="flex flex-col gap-1.5 text-xs font-semibold text-muted-foreground">
+            {t("space.request.timeLabel")}
+            <input type="time" step={900} value={pTime} onChange={(e) => setPTime(e.target.value)}
+              className="px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none focus:border-primary font-sans" />
+          </label>
+        </div>
+        <label className="flex flex-col gap-1.5 text-xs font-semibold text-muted-foreground">
+          {t("space.request.messageLabel")}
+          <textarea value={pMessage} maxLength={500} rows={3} onChange={(e) => setPMessage(e.target.value)} placeholder={t("psy.propose.placeholder")}
+            className="px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none focus:border-primary font-sans resize-none" />
+        </label>
+        <p className="text-xs text-muted-foreground">{t("psy.propose.note")}</p>
+        <div className="flex gap-3">
+          <button onClick={closePropose} className="px-4 py-3 border border-border/50 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer hover:bg-accent/40">{t("common.back")}</button>
+          <button onClick={submitPropose} disabled={!pDate || !pTime || proposing}
+            className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid disabled:opacity-50 flex items-center justify-center gap-2">
+            {proposing && <Loader2 className="w-4 h-4 animate-spin" />}
+            {t("psy.propose.send")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [selectedCalDate, setSelectedCalDate] = useState<Date | undefined>(undefined);
 
@@ -159,6 +223,23 @@ export default function PsySessions({
                         );
                       })()}
                       <button onClick={() => updateBookingStatus(s.id, "done")} disabled={updating === s.id || new Date(s.booked_at).getTime() > Date.now()} title={new Date(s.booked_at).getTime() > Date.now() ? "Disponible une fois la séance commencée" : undefined} className="bg-muted text-foreground border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-accent/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">{t("psy.dashboard.markDone")}</button>
+                      {(() => {
+                        const req = requestsByBooking[s.id];
+                        if (req && req.initiated_by === "psychologist") {
+                          return (
+                            <span className="flex items-center gap-2 text-xs rounded-xl border border-warning/30 bg-warning/10 px-3 py-1.5">
+                              <span className="text-foreground">{t("psy.propose.pending")} <strong>{fmtDate(req.proposed_at, locale)} · {fmtTime(req.proposed_at, locale)}</strong></span>
+                              <button onClick={() => onWithdrawProposal?.(req.id)} className="text-destructive font-semibold bg-transparent border-none cursor-pointer hover:underline p-0">{t("space.request.withdraw")}</button>
+                            </span>
+                          );
+                        }
+                        if (req || new Date(s.booked_at).getTime() <= Date.now() || !onPropose) return null;
+                        return (
+                          <button onClick={() => setProposeFor(s)} className="bg-teal-pale text-primary border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-teal-pale/70 transition-all flex items-center gap-1.5 shadow-sm">
+                            <CalendarClock className="w-3.5 h-3.5" /> {t("psy.propose.cta")}
+                          </button>
+                        );
+                      })()}
                       <button onClick={() => { if (window.confirm(t("psy.sessions.cancelConfirm"))) updateBookingStatus(s.id, "cancelled"); }} disabled={updating === s.id} className="bg-destructive/10 text-destructive border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-destructive/10 transition-all disabled:opacity-50 shadow-sm">{t("space.cancel")}</button>
                     </>
                   )}
@@ -168,6 +249,7 @@ export default function PsySessions({
           ))}
         </div>
       </div>
+      {ProposeDialog()}
     </div>
   );
 }

@@ -32,7 +32,7 @@ interface Booking {
   no_show_party?: string | null;
   verifying?: boolean;
   /** Open request to move this session to a time the therapist must accept. */
-  pending_request?: { id: string; proposed_at: string; message: string | null } | null;
+  pending_request?: { id: string; proposed_at: string; message: string | null; initiated_by?: string } | null;
 }
 
 interface PatientSessionsProps {
@@ -117,6 +117,22 @@ export default function PatientSessions({
       toast.error(err?.message || t("space.request.error"));
     } finally {
       setRequesting(false);
+    }
+  };
+  // The therapist proposed another time: accept (session moves, nothing to pay)
+  // or decline (session stays; the therapist may then cancel with a full refund).
+  const [answeringId, setAnsweringId] = useState<string | null>(null);
+  const answerProposal = async (requestId: string, accept: boolean) => {
+    setAnsweringId(requestId);
+    try {
+      await apiPost("/api/bookings?action=reschedule-respond", { request_id: requestId, accept });
+      toast.success(accept ? t("space.proposal.accepted") : t("space.proposal.declined"));
+      onRequestsChanged?.();
+    } catch (err: any) {
+      toast.error(err?.message || t("space.request.error"));
+      onRequestsChanged?.();
+    } finally {
+      setAnsweringId(null);
     }
   };
   const withdrawRequest = async (requestId: string) => {
@@ -528,7 +544,25 @@ export default function PatientSessions({
                       {t("pd.joinNow")}
                     </button>
                   )}
-                  {b.pending_request && (
+                  {b.pending_request?.initiated_by === "psychologist" && (
+                    <div className="text-xs rounded-xl border border-primary/30 bg-teal-pale px-3 py-2.5 max-w-[300px] text-start" role="group" aria-label={t("space.proposal.title")}>
+                      <div className="font-semibold text-foreground">{t("space.proposal.title")}</div>
+                      <div className="text-foreground mt-0.5"><strong>{fmt(b.pending_request.proposed_at)} · {fmtT(b.pending_request.proposed_at)}</strong></div>
+                      {b.pending_request.message && <div className="text-muted-foreground mt-1 whitespace-pre-line">« {b.pending_request.message} »</div>}
+                      <div className="text-muted-foreground mt-1">{t("space.proposal.noPay")}</div>
+                      <div className="flex gap-2 mt-2">
+                        <button onClick={() => answerProposal(b.pending_request!.id, true)} disabled={answeringId === b.pending_request.id}
+                          className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold border-none cursor-pointer hover:bg-teal-mid disabled:opacity-50">
+                          {t("space.proposal.accept")}
+                        </button>
+                        <button onClick={() => answerProposal(b.pending_request!.id, false)} disabled={answeringId === b.pending_request.id}
+                          className="px-3 py-1.5 rounded-lg bg-destructive/10 text-destructive text-xs font-semibold border-none cursor-pointer disabled:opacity-50">
+                          {t("space.proposal.decline")}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {b.pending_request && b.pending_request.initiated_by !== "psychologist" && (
                     <div className="text-xs rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 max-w-[260px] text-end">
                       <div className="font-semibold text-foreground">{t("space.request.pendingTitle")}</div>
                       <div className="text-muted-foreground mt-0.5">{fmt(b.pending_request.proposed_at)} · {fmtT(b.pending_request.proposed_at)}</div>

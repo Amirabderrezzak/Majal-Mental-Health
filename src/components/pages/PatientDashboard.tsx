@@ -55,6 +55,8 @@ interface Booking {
 }
 
 interface PatientDashboardProps {
+  /** Sessions the therapist proposed to move (waiting for this patient's answer). */
+  pendingProposals?: number;
   profile: { full_name: string };
   upcoming: Booking[];
   past: Booking[];
@@ -75,6 +77,7 @@ export default function PatientDashboard({
   profile, upcoming, past, cancelling, bookingsLoading, wellnessStreak,
   unlockedBadges, handleCancelBooking, setActivePage, fmt, fmtT,
   getSessionTimeState: getSessionTimeStateFromProps, formatTimeUntil, getInitials,
+  pendingProposals = 0,
 }: PatientDashboardProps) {
   const { t } = useLanguage();
   const now = useNow(30_000);
@@ -133,6 +136,13 @@ export default function PatientDashboard({
 
   return (
     <div className="p-4 sm:p-6 space-y-8 animate-in fade-in duration-500 pb-24 lg:pb-6">
+      {pendingProposals > 0 && (
+        <button type="button" onClick={() => setActivePage("sessions")}
+          className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl border border-warning/30 bg-warning/10 text-start cursor-pointer hover:bg-warning/15 transition-colors">
+          <span className="text-sm font-semibold text-foreground">{t("space.proposal.banner")}</span>
+          <span className="text-xs font-semibold text-primary whitespace-nowrap">{t("space.proposal.review")}</span>
+        </button>
+      )}
       {/* ── Header ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

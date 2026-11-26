@@ -879,6 +879,7 @@ export type Database = {
           booking_id: string
           created_at: string
           id: string
+          initiated_by: string
           message: string | null
           original_booked_at: string
           patient_id: string
@@ -892,6 +893,7 @@ export type Database = {
           booking_id: string
           created_at?: string
           id?: string
+          initiated_by?: string
           message?: string | null
           original_booked_at: string
           patient_id: string
@@ -905,6 +907,7 @@ export type Database = {
           booking_id?: string
           created_at?: string
           id?: string
+          initiated_by?: string
           message?: string | null
           original_booked_at?: string
           patient_id?: string

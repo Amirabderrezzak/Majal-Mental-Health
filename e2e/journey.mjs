@@ -615,6 +615,79 @@ await step("Patient can withdraw a pending request", async () => {
   expect(r[0].status === "cancelled", JSON.stringify(r));
 });
 
+log("\n8c · Therapist proposes another time (patient accepts, nothing to repay)");
+await step("Therapist uses 'Proposer un autre horaire' on a paid session instead of cancelling", async () => {
+  const b = (await sql("SELECT id, booked_at, policy_anchor_at FROM bookings WHERE patient_id=$1 AND status='confirmed' ORDER BY booked_at DESC LIMIT 1", [patientId]))[0];
+  globalThis.__proposalBooking = b;
+  const day = new Date(new Date(b.booked_at).getTime() + 86400e3 + 3600e3).toISOString().slice(0, 10); // next day (Algiers)
+  await psyPage.goto(`${APP}/espace-psy?page=sessions`);
+  const dateFr = new Date(b.booked_at).toLocaleDateString("fr-FR", { timeZone: "Africa/Algiers" });
+  const row = psyPage.locator("div.flex.items-center.gap-4", { hasText: dateFr }).first();
+  await row.getByRole("button", { name: /Proposer un autre horaire/ }).click();
+  const d = psyPage.getByRole("dialog");
+  await d.locator('input[type="date"]').fill(day);
+  await d.locator('input[type="time"]').fill("19:30");
+  await d.locator("textarea").pressSequentially("Je ne consulte pas ce jour-là, le lendemain vous irait ?", { delay: 3 });
+  const f = await snap(psyPage, "psy-propose");
+  await d.getByRole("button", { name: /Envoyer la proposition/ }).click();
+  await psyPage.getByText(/Proposition envoyée/).first().waitFor({ timeout: 10000 });
+  const r = (await sql("SELECT initiated_by, status FROM reschedule_requests WHERE booking_id=$1 AND status='pending'", [b.id]))[0];
+  expect(r?.initiated_by === "psychologist", JSON.stringify(r));
+  const n = await sql("SELECT content FROM notifications WHERE user_id=$1 AND title='Votre psychologue propose un autre horaire'", [patientId]);
+  expect(n.length === 1 && /rien à repayer/.test(n[0].content), JSON.stringify(n));
+  const mail = (await emails()).find((e) => e.to === PAT.email && /propose un autre horaire/.test(e.subject));
+  expect(mail && /rien à repayer/.test(mail.html), "patient e-mail missing");
+  return f;
+});
+await step("Patient sees the banner and accepts in one click → session moved, no new payment", async () => {
+  const b = globalThis.__proposalBooking;
+  const paymentsBefore = (await sql("SELECT count(*)::int n FROM payments WHERE patient_id=$1", [patientId]))[0].n;
+  await patient.goto(`${APP}/mon-espace`);
+  await patient.getByText(/vous propose un nouvel horaire/).click();
+  await patient.getByRole("group", { name: /propose un autre horaire/ }).getByRole("button", { name: /Accepter le nouvel horaire/ }).click();
+  await patient.getByText(/votre séance est déplacée/).first().waitFor({ timeout: 10000 });
+  const moved = (await sql("SELECT booked_at, policy_anchor_at FROM bookings WHERE id=$1", [b.id]))[0];
+  const nextDay = new Date(new Date(b.booked_at).getTime() + 86400e3 + 3600e3).toISOString().slice(0, 10);
+  const expected = new Date(`${nextDay}T18:30:00Z`); // 19:30 Algiers
+  expect(new Date(moved.booked_at).getTime() === expected.getTime(), `booked_at ${moved.booked_at}, expected ${expected.toISOString()}`);
+  // A therapist-initiated move must not make the patient's refund terms worse:
+  // the anchor stays exactly what it was before (here: from the patient's own earlier moves).
+  expect(String(moved.policy_anchor_at) === String(b.policy_anchor_at), `anchor changed: ${b.policy_anchor_at} → ${moved.policy_anchor_at}`);
+  const paymentsAfter = (await sql("SELECT count(*)::int n FROM payments WHERE patient_id=$1", [patientId]))[0].n;
+  expect(paymentsAfter === paymentsBefore, "a new payment was created");
+  const n = await sql("SELECT title FROM notifications WHERE user_id=$1 AND title='Nouvel horaire accepté par le patient'", [psyId]);
+  expect(n.length === 1, "therapist not told");
+  return await snap(patient, "patient-accepted-proposal");
+});
+await step("A declined therapist proposal keeps the session and tells the therapist what to do", async () => {
+  const b = globalThis.__proposalBooking;
+  const cur = (await sql("SELECT booked_at FROM bookings WHERE id=$1", [b.id]))[0];
+  const token = await tokenFor(PSY);
+  const r = await fetch(`${API}/api/bookings?action=reschedule-request`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ booking_id: b.id, proposed_at: new Date(new Date(cur.booked_at).getTime() + 2 * 86400e3).toISOString() }) });
+  expect(r.ok, `propose ${r.status}`);
+  await patient.goto(`${APP}/mon-espace?page=sessions`);
+  await patient.getByRole("group", { name: /propose un autre horaire/ }).getByRole("button", { name: /^Refuser$/ }).click();
+  await patient.getByText(/Refus envoyé/).first().waitFor({ timeout: 10000 });
+  const after = (await sql("SELECT booked_at FROM bookings WHERE id=$1", [b.id]))[0];
+  expect(new Date(after.booked_at).getTime() === new Date(cur.booked_at).getTime(), "declined proposal moved the session");
+  const n = await sql("SELECT content FROM notifications WHERE user_id=$1 AND title='Horaire proposé refusé'", [psyId]);
+  expect(n.length === 1 && /remboursé/.test(n[0].content), JSON.stringify(n));
+});
+await step("Only the other party can answer, only the proposer can withdraw", async () => {
+  const b = globalThis.__proposalBooking;
+  const cur = (await sql("SELECT booked_at FROM bookings WHERE id=$1", [b.id]))[0];
+  const psyT = await tokenFor(PSY);
+  const patT = await tokenFor(PAT);
+  const post = (a, t, body) => fetch(`${API}/api/bookings?action=${a}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify(body) }).then((r) => r.status);
+  await post("reschedule-request", psyT, { booking_id: b.id, proposed_at: new Date(new Date(cur.booked_at).getTime() + 3 * 86400e3).toISOString() });
+  const id = (await sql("SELECT id FROM reschedule_requests WHERE booking_id=$1 AND status='pending'", [b.id]))[0].id;
+  const selfAccept = await post("reschedule-respond", psyT, { request_id: id, accept: true });
+  const patWithdraw = await post("reschedule-cancel", patT, { request_id: id });
+  const psyWithdraw = await post("reschedule-cancel", psyT, { request_id: id });
+  expect(selfAccept === 403 && patWithdraw === 409 && psyWithdraw === 200, `self-accept ${selfAccept}, patient withdraw ${patWithdraw}, therapist withdraw ${psyWithdraw}`);
+  return "therapist can't accept own proposal; patient can't withdraw it; therapist can";
+});
+
 log("\n9 · Language, mobile, logout");
 await step("Arabic UI uses the Gregorian calendar (no Hijri dates)", async () => {
   await patient.evaluate(() => localStorage.setItem("majal-lang", "ar"));

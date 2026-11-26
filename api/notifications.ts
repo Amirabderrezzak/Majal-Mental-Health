@@ -213,7 +213,7 @@ async function closeEndedSessions(db: any) {
  */
 async function expireRescheduleRequests(db: any) {
   const { data: open } = await db.from("reschedule_requests")
-    .select("id, patient_id, proposed_at, original_booked_at").eq("status", "pending").limit(500);
+    .select("id, patient_id, psychologist_id, initiated_by, proposed_at, original_booked_at").eq("status", "pending").limit(500);
   let n = 0;
   for (const r of open ?? []) {
     const due = Math.min(new Date(r.proposed_at).getTime(), new Date(r.original_booked_at).getTime());
@@ -222,9 +222,15 @@ async function expireRescheduleRequests(db: any) {
       .eq("id", r.id).eq("status", "pending").select("id");
     if (!data || data.length === 0) continue;
     n++;
-    await notify(db, r.patient_id, "Demande de changement expirée",
-      `Votre psychologue n'a pas pu répondre à temps. Votre séance reste prévue le ${formatAlgiersLong(r.original_booked_at)}.`,
-      "/mon-espace?page=sessions");
+    if (r.initiated_by === "psychologist") {
+      await notify(db, r.psychologist_id, "Proposition d'horaire expirée",
+        `Le patient n'a pas répondu à temps. La séance reste prévue le ${formatAlgiersLong(r.original_booked_at)} : si vous ne pouvez pas l'assurer, annulez-la pour qu'il soit remboursé.`,
+        "/espace-psy?page=sessions");
+    } else {
+      await notify(db, r.patient_id, "Demande de changement expirée",
+        `Votre psychologue n'a pas pu répondre à temps. Votre séance reste prévue le ${formatAlgiersLong(r.original_booked_at)}.`,
+        "/mon-espace?page=sessions");
+    }
   }
   return n;
 }
