@@ -38,6 +38,7 @@ async function step(name, fn) {
 const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
 async function snap(page, label) {
   const file = `${String(++shot).padStart(2, "0")}-${label}.png`;
+  await page.waitForTimeout(700); // let fade-in animations finish
   await page.screenshot({ path: path.join(ART, file), fullPage: false });
   return file;
 }
@@ -492,6 +493,118 @@ await step("Reschedule limit: a third move is refused", async () => {
   for (const k of [1, 2, 3]) codes.push(await post({ booking_id: id, new_booked_at: algiers(d4.y, d4.mo, d4.d + 7 * k, 15).toISOString() }));
   expect(codes.join() === "200,200,400", codes.join());
   return codes.join(" → ");
+});
+
+log("\n8b · Propose another time (therapist-approved)");
+let reqBookingId = null;
+let proposedSat = null;
+await step("Limit reached: the patient can still propose a time outside the therapist's hours", async () => {
+  const b = (await sql("SELECT id, booked_at, reschedule_count FROM bookings WHERE patient_id=$1 AND status='confirmed' ORDER BY booked_at DESC LIMIT 1", [patientId]))[0];
+  expect(b && b.reschedule_count === 2, JSON.stringify(b));
+  reqBookingId = b.id;
+  // The Saturday before that session, 18:45 Algiers: not a working day, a
+  // quarter-hour, after closing time — impossible through the normal calendar.
+  const d = new Date(b.booked_at);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 1) % 7 || 7));
+  proposedSat = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 17, 45));
+  const ymd = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+
+  await patient.goto(`${APP}/mon-espace?page=sessions`);
+  await patient.getByRole("button", { name: /^Reporter$/ }).first().click();
+  const dialog = patient.getByRole("dialog");
+  await dialog.getByText(/déjà été déplacée 2 fois/).waitFor();
+  expect(!(await dialog.getByRole("button", { name: /Choisir un nouveau créneau/ }).count()), "free-slot path should be closed after 2 moves");
+  await dialog.getByRole("button", { name: /Proposer un autre horaire/ }).click();
+  await dialog.locator('input[type="date"]').fill(ymd);
+  await dialog.locator('input[type="time"]').fill("18:45");
+  // Typed key by key: the dialog used to remount on every keystroke.
+  await dialog.locator("textarea").pressSequentially("Je travaille en semaine, le samedi soir m'arrangerait.", { delay: 5 });
+  expect((await dialog.locator("textarea").inputValue()).length > 40, "message lost while typing (dialog remounted)");
+  await audit(patient, "propose another time");
+  const file = await snap(patient, "propose-time");
+  await dialog.getByRole("button", { name: /Envoyer la demande/ }).click();
+  await patient.getByText(/Nouvel horaire proposé, en attente/).waitFor({ timeout: 10000 });
+  const r = (await sql("SELECT status, proposed_at, message FROM reschedule_requests WHERE booking_id=$1", [reqBookingId]))[0];
+  expect(r.status === "pending" && new Date(r.proposed_at).getTime() === proposedSat.getTime(), JSON.stringify(r));
+  const still = (await sql("SELECT booked_at FROM bookings WHERE id=$1", [reqBookingId]))[0];
+  expect(new Date(still.booked_at).getTime() === new Date(b.booked_at).getTime(), "booking moved before acceptance");
+  return `${file}; booking unchanged until accepted`;
+});
+await step("Therapist is notified (in-app + e-mail)", async () => {
+  const n = await sql("SELECT content FROM notifications WHERE user_id=$1 AND title LIKE 'Demande de changement%'", [psyId]);
+  expect(n.length === 1, JSON.stringify(n));
+  const mail = (await emails()).find((e) => e.to === PSY.email && /changement d'horaire/.test(e.subject));
+  expect(mail && /samedi m'arrangerait|samedi soir/.test(mail.html), "e-mail missing or without the patient's message");
+  return n[0].content;
+});
+await step("Patients can't create or approve requests by writing to the table directly", async () => {
+  const token = await tokenFor(PAT);
+  const h = { apikey: token, Authorization: `Bearer ${token}`, "Content-Type": "application/json", Prefer: "return=representation" };
+  const ins = await fetch("http://localhost:54321/rest/v1/reschedule_requests", { method: "POST", headers: h, body: JSON.stringify({ booking_id: reqBookingId, patient_id: patientId, psychologist_id: psyId, original_booked_at: new Date().toISOString(), proposed_at: new Date().toISOString() }) });
+  const upd = await fetch(`http://localhost:54321/rest/v1/reschedule_requests?booking_id=eq.${reqBookingId}`, { method: "PATCH", headers: h, body: JSON.stringify({ status: "accepted" }) });
+  const still = (await sql("SELECT status FROM reschedule_requests WHERE booking_id=$1", [reqBookingId]))[0];
+  expect(ins.status >= 400 && still.status === "pending", `insert ${ins.status}, update ${upd.status}, status ${still.status}`);
+  return `insert → ${ins.status}, update → ${upd.status}`;
+});
+await step("A second request for the same session is refused while one is pending", async () => {
+  const token = await tokenFor(PAT);
+  const r = await fetch(`${API}/api/bookings?action=reschedule-request`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ booking_id: reqBookingId, proposed_at: new Date(proposedSat.getTime() + 3600e3).toISOString() }) });
+  expect(r.status === 409, `status ${r.status}`);
+});
+await step("Therapist sees it (dashboard banner, 'outside your hours') and accepts with a note", async () => {
+  await psyPage.goto(`${APP}/espace-psy`);
+  await psyPage.getByText(/demande\(s\) de changement d'horaire/).click();
+  const panel = psyPage.getByRole("region", { name: /Demandes de changement d'horaire/ });
+  await panel.getByText(/Hors de vos horaires/).waitFor({ timeout: 10000 });
+  await panel.getByText(/samedi soir/).waitFor();
+  await panel.locator('input[type="text"]').fill("Avec plaisir, à samedi.");
+  await audit(psyPage, "therapist requests");
+  const file = await snap(psyPage, "psy-reschedule-request");
+  await panel.getByRole("button", { name: /Accepter le nouvel horaire/ }).click();
+  await psyPage.getByText(/Séance déplacée/).first().waitFor({ timeout: 10000 });
+  const b = (await sql("SELECT booked_at, reschedule_count, policy_anchor_at FROM bookings WHERE id=$1", [reqBookingId]))[0];
+  expect(new Date(b.booked_at).getTime() === proposedSat.getTime(), `booked_at ${b.booked_at}`);
+  expect(b.reschedule_count === 2, `an agreed move should not use the limit (count ${b.reschedule_count})`);
+  expect(new Date(b.policy_anchor_at).getTime() < proposedSat.getTime(), "refund anchor lost");
+  const mail = (await emails()).find((e) => e.to === PAT.email && /accepté/.test(e.subject));
+  expect(mail && /Avec plaisir/.test(mail.html), "patient e-mail missing or without the therapist's note");
+  return `${file}; moved to Saturday 18:45, count still 2, refund still measured from the first date`;
+});
+await step("Patient sees the new time; a declined proposal leaves the session where it is", async () => {
+  await patient.goto(`${APP}/mon-espace?page=sessions`);
+  await patient.getByText("18:45").first().waitFor({ timeout: 10000 });
+  const token = await tokenFor(PAT);
+  const later = new Date(proposedSat.getTime() + 2 * 24 * 3600e3); // Monday 18:45
+  const r = await fetch(`${API}/api/bookings?action=reschedule-request`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ booking_id: reqBookingId, proposed_at: later.toISOString(), message: "Ou lundi ?" }) });
+  expect(r.ok, `request ${r.status}`);
+  await psyPage.goto(`${APP}/espace-psy?page=sessions`);
+  const panel = psyPage.getByRole("region", { name: /Demandes de changement d'horaire/ });
+  await panel.getByText(/Ou lundi/).waitFor({ timeout: 10000 });
+  await panel.getByRole("button", { name: /^Refuser$/ }).click();
+  await psyPage.getByText(/Demande refusée/).first().waitFor({ timeout: 10000 });
+  const b = (await sql("SELECT booked_at FROM bookings WHERE id=$1", [reqBookingId]))[0];
+  expect(new Date(b.booked_at).getTime() === proposedSat.getTime(), "declined request moved the session");
+  const n = await sql("SELECT title FROM notifications WHERE user_id=$1 AND title='Horaire non disponible'", [patientId]);
+  expect(n.length === 1, "patient not told about the refusal");
+});
+await step("A proposal overlapping another of the therapist's sessions is refused", async () => {
+  const other = nextWorkingDay(new Date(), 20);
+  await book(patient, psyId, other, "10:00");
+  const token = await tokenFor(PAT);
+  const r = await fetch(`${API}/api/bookings?action=reschedule-request`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ booking_id: reqBookingId, proposed_at: algiers(other.y, other.mo, other.d, 10, 30).toISOString() }) });
+  const body = await r.json();
+  expect(r.status === 409 && /déjà une séance/.test(body.error), `${r.status} ${JSON.stringify(body)}`);
+  return body.error;
+});
+await step("Patient can withdraw a pending request", async () => {
+  const token = await tokenFor(PAT);
+  const ok = await fetch(`${API}/api/bookings?action=reschedule-request`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ booking_id: reqBookingId, proposed_at: new Date(proposedSat.getTime() + 3 * 24 * 3600e3).toISOString() }) });
+  expect(ok.ok, `request ${ok.status}`);
+  await patient.goto(`${APP}/mon-espace?page=sessions`);
+  await patient.getByRole("button", { name: /Annuler la demande/ }).click();
+  await patient.getByText(/Demande annulée/).first().waitFor({ timeout: 10000 });
+  const r = await sql("SELECT status FROM reschedule_requests WHERE booking_id=$1 ORDER BY created_at DESC LIMIT 1", [reqBookingId]);
+  expect(r[0].status === "cancelled", JSON.stringify(r));
 });
 
 log("\n9 · Language, mobile, logout");

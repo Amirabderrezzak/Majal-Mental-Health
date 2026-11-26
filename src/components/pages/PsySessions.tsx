@@ -50,11 +50,13 @@ interface PsySessionsProps {
   handleStartCall: (bookingId: string) => Promise<void>;
   startingCall: string | null;
   statusLabels: Record<string, string>;
+  /** Rendered above the list (pending "propose another time" requests). */
+  topSlot?: React.ReactNode;
 }
 
 export default function PsySessions({
   bookings, bookingsLoading, updateBookingStatus, updating,
-  handleStartCall, startingCall, statusLabels
+  handleStartCall, startingCall, statusLabels, topSlot
 }: PsySessionsProps) {
   const { t } = useLanguage();
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
@@ -66,6 +68,7 @@ export default function PsySessions({
 
   return (
     <div className="p-4 sm:p-6 space-y-6 animate-in fade-in duration-500">
+      {topSlot}
       <div className="dashboard-card overflow-hidden">
         <div className="p-5 border-b border-border/40 flex items-center justify-between bg-white">
           <div className="flex items-center gap-3">
@@ -76,13 +79,13 @@ export default function PsySessions({
                 className={`px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer border-none ${
                   viewMode === "list" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"
                 }`}
-              >Liste</button>
+              >{t("common.viewList")}</button>
               <button
                 onClick={() => setViewMode("calendar")}
                 className={`px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer border-none ${
                   viewMode === "calendar" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"
                 }`}
-              >Calendrier</button>
+              >{t("common.viewCalendar")}</button>
             </div>
           </div>
           <span className="text-xs font-semibold px-3 py-1 bg-teal-pale text-primary rounded-full border border-primary/5">

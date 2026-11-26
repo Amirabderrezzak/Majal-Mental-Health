@@ -4,14 +4,14 @@ import { useState, useEffect } from "react";
 import { Calendar, Clock, Check, X, Loader2, ChevronRight, Video, Star } from "lucide-react";
 import { toast } from "sonner";
 import { useNow } from "@/hooks/useNow";
-import { joinSession } from "@/lib/sessionApi";
+import { joinSession, apiPost } from "@/lib/sessionApi";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SessionCalendar } from "@/components/SessionCalendar";
 import { SessionsListSkeleton, SessionHistorySkeleton } from "@/components/LoadingSkeletons";
 import { isSameDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { ClinicSettings, DEFAULT_CLINIC_SETTINGS, ExistingBooking, getAvailableSlots, algiersDayRange, algiersParts } from "@/lib/availability";
+import { ClinicSettings, DEFAULT_CLINIC_SETTINGS, ExistingBooking, getAvailableSlots, algiersDayRange, algiersParts, algiersSlotToDate } from "@/lib/availability";
 
 // "YYYY-MM-DD" (date input) -> calendar-day parts, read as an Algiers day.
 const ymd = (v: string) => { const [y, m, d] = v.split("-").map(Number); return { y, mo: m - 1, d }; };
@@ -31,6 +31,8 @@ interface Booking {
   session_kind?: string;
   no_show_party?: string | null;
   verifying?: boolean;
+  /** Open request to move this session to a time the therapist must accept. */
+  pending_request?: { id: string; proposed_at: string; message: string | null } | null;
 }
 
 interface PatientSessionsProps {
@@ -44,6 +46,8 @@ interface PatientSessionsProps {
   fmt: (iso: string) => string;
   fmtT: (iso: string) => string;
   getInitials: (name?: string) => string;
+  /** Reload bookings + requests after a request is sent or withdrawn. */
+  onRequestsChanged?: () => void;
 }
 
 export default function PatientSessions({
@@ -57,6 +61,7 @@ export default function PatientSessions({
   fmt,
   fmtT,
   getInitials,
+  onRequestsChanged,
 }: PatientSessionsProps) {
   const { t, dir } = useLanguage();
   const rtl = dir === "rtl";
@@ -67,10 +72,14 @@ export default function PatientSessions({
     const start = new Date(b.booked_at).getTime();
     return now.getTime() >= start - 15 * 60000 && now.getTime() <= start + (b.duration_minutes || 60) * 60000;
   };
-  // Mirrors the server rules (api/bookings.ts): confirmed, scheduled, ≥ 2 h away, at most 2 moves.
-  const canReschedule = (b: Booking) =>
-    b.status === "confirmed" && b.session_kind !== "instant" && (b.reschedule_count ?? 0) < 2 &&
+  // Mirrors the server rules (api/bookings.ts): confirmed, scheduled, ≥ 2 h away.
+  // Moving into a free slot is limited to 2 times; proposing a time the
+  // therapist accepts is always possible (one open request at a time).
+  const canMove = (b: Booking) =>
+    b.status === "confirmed" && b.session_kind !== "instant" && !b.pending_request &&
     new Date(b.booked_at).getTime() - now.getTime() >= 2 * 3600 * 1000;
+  const canPickFreeSlot = (b: Booking) => canMove(b) && (b.reschedule_count ?? 0) < 2;
+  const canReschedule = canMove;
   const onJoin = async (b: Booking) => {
     setJoiningId(b.id);
     try { await joinSession(b.id); }
@@ -83,6 +92,45 @@ export default function PatientSessions({
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [rescheduling, setRescheduling] = useState(false);
+  // "Propose another time" (step 5): any date/time, accepted by the therapist.
+  const [customDate, setCustomDate] = useState("");
+  const [customTime, setCustomTime] = useState("");
+  const [customMessage, setCustomMessage] = useState("");
+  const [requesting, setRequesting] = useState(false);
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
+  const todayAlgiers = (() => { const a = algiersParts(new Date()); return `${a.y}-${String(a.mo + 1).padStart(2, "0")}-${String(a.d).padStart(2, "0")}`; })();
+  const openCustom = () => { setCustomDate(rescheduleDate); setCustomTime(""); setCustomMessage(""); setRescheduleStep(5); };
+  const sendRequest = async () => {
+    if (!rescheduleBooking || !customDate || !customTime) return;
+    const [y, m, d] = customDate.split("-").map(Number);
+    setRequesting(true);
+    try {
+      await apiPost("/api/bookings?action=reschedule-request", {
+        booking_id: rescheduleBooking.id,
+        proposed_at: algiersSlotToDate(y, m - 1, d, customTime).toISOString(),
+        message: customMessage.trim() || undefined,
+      });
+      toast.success(t("space.request.sent"));
+      closeReschedule();
+      onRequestsChanged?.();
+    } catch (err: any) {
+      toast.error(err?.message || t("space.request.error"));
+    } finally {
+      setRequesting(false);
+    }
+  };
+  const withdrawRequest = async (requestId: string) => {
+    setWithdrawingId(requestId);
+    try {
+      await apiPost("/api/bookings?action=reschedule-cancel", { request_id: requestId });
+      toast.success(t("space.request.withdrawn"));
+      onRequestsChanged?.();
+    } catch (err: any) {
+      toast.error(err?.message || t("space.request.error"));
+    } finally {
+      setWithdrawingId(null);
+    }
+  };
   const allBookings = [...upcoming, ...past];
 
   // Real availability for the reschedule wizard: the psychologist's clinic
@@ -144,7 +192,7 @@ export default function PatientSessions({
     setRescheduleTime("");
   };
 
-  const closeReschedule = () => { setRescheduleBooking(null); setRescheduleStep(1); setRescheduleDate(""); setRescheduleTime(""); };
+  const closeReschedule = () => { setRescheduleBooking(null); setRescheduleStep(1); setRescheduleDate(""); setRescheduleTime(""); setCustomDate(""); setCustomTime(""); setCustomMessage(""); };
   useEscapeKey(rescheduleBooking !== null, closeReschedule);
 
   const RescheduleModal = () => {
@@ -155,7 +203,7 @@ export default function PatientSessions({
         <div className="absolute inset-0 bg-black/40" onClick={() => { setRescheduleBooking(null); setRescheduleStep(1); setRescheduleDate(""); setRescheduleTime(""); }} />
         <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl p-6 md:p-8 animate-in zoom-in-95 duration-200">
 
-          <div className="flex items-center justify-center gap-2 mb-6">
+          {rescheduleStep <= 4 && <div className="flex items-center justify-center gap-2 mb-6">
             {[1, 2, 3, 4].map(step => (
               <div key={step} className="flex items-center gap-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
@@ -166,7 +214,7 @@ export default function PatientSessions({
                 {step < 4 && <div className={`w-8 h-0.5 ${rescheduleStep > step ? "bg-primary" : "bg-muted"}`} />}
               </div>
             ))}
-          </div>
+          </div>}
 
           {rescheduleStep === 1 && (
             <div className="space-y-4">
@@ -183,12 +231,59 @@ export default function PatientSessions({
                   </div>
                 </div>
               </div>
+              {canPickFreeSlot(rescheduleBooking) ? (
+                <button
+                  onClick={() => setRescheduleStep(2)}
+                  className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid transition-all"
+                >
+                  {t("space.reschedule.pickSlot")}
+                </button>
+              ) : (
+                <p className="text-xs text-muted-foreground bg-muted/40 rounded-xl p-3">{t("space.request.limitReached")}</p>
+              )}
               <button
-                onClick={() => setRescheduleStep(2)}
-                className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid transition-all"
+                onClick={openCustom}
+                className="w-full py-3 rounded-xl border border-primary/30 text-primary text-sm font-semibold bg-transparent cursor-pointer hover:bg-teal-pale transition-all"
               >
-                {t("space.reschedule.pickSlot")}
+                {t("space.request.openCta")}
               </button>
+            </div>
+          )}
+
+          {rescheduleStep === 5 && (
+            <div className="space-y-4">
+              <h3 className="font-serif text-lg font-semibold text-foreground">{t("space.request.title")}</h3>
+              <p className="text-sm text-muted-foreground">{t("space.request.intro")}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1.5 text-xs font-semibold text-muted-foreground">
+                  {t("res.date")}
+                  <input type="date" value={customDate} min={todayAlgiers} onChange={(e) => setCustomDate(e.target.value)}
+                    className="px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none focus:border-primary focus:bg-card font-sans" />
+                </label>
+                <label className="flex flex-col gap-1.5 text-xs font-semibold text-muted-foreground">
+                  {t("space.request.timeLabel")}
+                  <input type="time" step={900} value={customTime} onChange={(e) => setCustomTime(e.target.value)}
+                    className="px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none focus:border-primary focus:bg-card font-sans" />
+                </label>
+              </div>
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-muted-foreground">
+                {t("space.request.messageLabel")}
+                <textarea value={customMessage} maxLength={500} rows={3} onChange={(e) => setCustomMessage(e.target.value)}
+                  placeholder={t("space.request.messagePlaceholder")}
+                  className="px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none focus:border-primary focus:bg-card font-sans resize-none" />
+              </label>
+              <p className="text-xs text-muted-foreground">{t("space.request.note")}</p>
+              <div className="flex gap-3">
+                <button onClick={() => setRescheduleStep(1)} className="px-4 py-3 border border-border/50 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer hover:bg-accent/40 transition-all">{t("common.back")}</button>
+                <button
+                  onClick={sendRequest}
+                  disabled={!customDate || !customTime || requesting}
+                  className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {requesting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {t("space.request.send")}
+                </button>
+              </div>
             </div>
           )}
 
@@ -219,6 +314,9 @@ export default function PatientSessions({
             <div className="space-y-4">
               <h3 className="font-serif text-lg font-semibold text-foreground">{t("space.reschedule.pickTime")}</h3>
               <p className="text-xs text-muted-foreground">{new Date(`${rescheduleDate}T12:00:00Z`).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</p>
+              <button type="button" onClick={openCustom} className="text-xs text-primary font-semibold underline bg-transparent border-none cursor-pointer p-0">
+                {t("space.request.noSlotFits")}
+              </button>
               {availableRescheduleSlots.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">{t("res.noSlotsThisDay") || "Aucun créneau disponible ce jour-là."}</p>
               ) : (
@@ -430,6 +528,16 @@ export default function PatientSessions({
                       {t("pd.joinNow")}
                     </button>
                   )}
+                  {b.pending_request && (
+                    <div className="text-xs rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 max-w-[260px] text-end">
+                      <div className="font-semibold text-foreground">{t("space.request.pendingTitle")}</div>
+                      <div className="text-muted-foreground mt-0.5">{fmt(b.pending_request.proposed_at)} · {fmtT(b.pending_request.proposed_at)}</div>
+                      <button onClick={() => withdrawRequest(b.pending_request!.id)} disabled={withdrawingId === b.pending_request.id}
+                        className="mt-1 text-xs text-destructive font-semibold bg-transparent border-none cursor-pointer hover:underline p-0 disabled:opacity-50">
+                        {t("space.request.withdraw")}
+                      </button>
+                    </div>
+                  )}
                   {!b.verifying && (
                   <button 
                     onClick={() => handleCancelBooking(b.id)}
@@ -520,7 +628,10 @@ export default function PatientSessions({
         )}
       </div>
       </>)}
-      <RescheduleModal />
+      {/* Called, not rendered as <RescheduleModal />: a component defined inside
+          render is a new type every render, so React remounted the dialog and
+          text fields lost focus on each keystroke. */}
+      {RescheduleModal()}
     </div>
   );
 }

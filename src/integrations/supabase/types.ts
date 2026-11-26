@@ -874,6 +874,70 @@ export type Database = {
           },
         ]
       }
+      reschedule_requests: {
+        Row: {
+          booking_id: string
+          created_at: string
+          id: string
+          message: string | null
+          original_booked_at: string
+          patient_id: string
+          proposed_at: string
+          psychologist_id: string
+          responded_at: string | null
+          response_note: string | null
+          status: string
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          original_booked_at: string
+          patient_id: string
+          proposed_at: string
+          psychologist_id: string
+          responded_at?: string | null
+          response_note?: string | null
+          status?: string
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          original_booked_at?: string
+          patient_id?: string
+          proposed_at?: string
+          psychologist_id?: string
+          responded_at?: string | null
+          response_note?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reschedule_requests_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reschedule_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reschedule_requests_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reviews: {
         Row: {
           booking_id: string | null

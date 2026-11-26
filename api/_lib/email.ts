@@ -411,3 +411,60 @@ export async function sendNoShowNotification(opts: {
     `),
   });
 }
+
+// ── 11. Reschedule request (therapist) ───────────────────────────────────────
+export async function sendRescheduleRequest(opts: {
+  therapistEmail: string;
+  therapistName: string;
+  patientName: string;
+  currentDate: string;
+  proposedDate: string;
+  message?: string | null;
+}) {
+  return resend.emails.send({
+    from: FROM,
+    to: opts.therapistEmail,
+    subject: '🕑 Demande de changement d\'horaire — Majal',
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Un patient propose un autre horaire</h2>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour Dr. <strong>${escapeHtml(opts.therapistName)}</strong>, <strong>${escapeHtml(opts.patientName)}</strong> souhaite déplacer sa séance à un horaire en dehors de vos disponibilités habituelles.</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border-radius:10px;border:1px solid #bfdbfe;margin-bottom:24px;">
+        <tr><td style="padding:20px 24px;">
+          <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>Séance actuelle :</strong> ${escapeHtml(opts.currentDate)}</p>
+          <p style="margin:0;font-size:14px;color:#374151;"><strong>Horaire proposé :</strong> ${escapeHtml(opts.proposedDate)}</p>
+          ${opts.message ? `<p style="margin:12px 0 0;font-size:14px;color:#374151;white-space:pre-wrap;"><strong>Message :</strong> ${escapeHtml(opts.message)}</p>` : ''}
+        </td></tr>
+      </table>
+      <p style="color:#374151;font-size:14px;">Tant que vous n'avez pas répondu, la séance reste prévue à l'horaire actuel.</p>
+      ${btn('Répondre à la demande', `${SITE}/espace-psy?page=sessions`)}
+    `),
+  });
+}
+
+// ── 12. Reschedule request answered (patient) ────────────────────────────────
+export async function sendRescheduleAnswer(opts: {
+  patientEmail: string;
+  patientName: string;
+  therapistName: string;
+  accepted: boolean;
+  currentDate: string;
+  proposedDate: string;
+  note?: string | null;
+}) {
+  const heading = opts.accepted ? 'Votre nouvel horaire est accepté' : 'Votre demande de changement n\'a pas été acceptée';
+  const body = opts.accepted
+    ? `Le <strong>Dr. ${escapeHtml(opts.therapistName)}</strong> a accepté de déplacer votre séance au <strong>${escapeHtml(opts.proposedDate)}</strong>.`
+    : `Le <strong>Dr. ${escapeHtml(opts.therapistName)}</strong> ne peut pas vous recevoir le ${escapeHtml(opts.proposedDate)}. Votre séance reste prévue le <strong>${escapeHtml(opts.currentDate)}</strong>.`;
+  return resend.emails.send({
+    from: FROM,
+    to: opts.patientEmail,
+    subject: `${opts.accepted ? '✅' : '📅'} ${heading} — Majal`,
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">${heading}</h2>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${escapeHtml(opts.patientName)}</strong>,</p>
+      <p style="color:#374151;font-size:15px;line-height:1.6;">${body}</p>
+      ${opts.note ? `<p style="color:#374151;font-size:14px;white-space:pre-wrap;"><strong>Message du psychologue :</strong> ${escapeHtml(opts.note)}</p>` : ''}
+      ${btn('Voir mes séances', `${SITE}/mon-espace?page=sessions`)}
+    `),
+  });
+}

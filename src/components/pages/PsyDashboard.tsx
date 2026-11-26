@@ -60,6 +60,7 @@ interface Booking {
 }
 
 interface PsyDashboardProps {
+  pendingRescheduleCount?: number;
   profileData: { full_name: string; avatar_url?: string };
   approvalStatus: string;
   totalUniquePatients: number;
@@ -157,7 +158,8 @@ export default function PsyDashboard({
   profileData, approvalStatus, totalUniquePatients, sessionsThisMonth,
   earningsThisMonth, upcomingBookings, immediateRequests, handleRequestResponse,
   respondingToRequest, bookings, bookingsLoading, updateBookingStatus, updating,
-  handleStartCall, startingCall, realWeeklyEarnings, maxEarning, realPatients, setActivePage
+  handleStartCall, startingCall, realWeeklyEarnings, maxEarning, realPatients, setActivePage,
+  pendingRescheduleCount = 0,
 }: PsyDashboardProps) {
   const { t, dir } = useLanguage();
   const now = useNow(30_000);
@@ -195,6 +197,15 @@ export default function PsyDashboard({
 
   return (
     <div className={`p-4 sm:p-6 space-y-8 animate-in fade-in duration-500 ${dir === "rtl" ? "rtl" : ""}`}>
+      {pendingRescheduleCount > 0 && (
+        <button type="button" onClick={() => setActivePage("sessions")}
+          className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl border border-warning/30 bg-warning/10 text-start cursor-pointer hover:bg-warning/15 transition-colors">
+          <span className="text-sm font-semibold text-foreground">
+            {t("psy.request.banner").replace("{n}", String(pendingRescheduleCount))}
+          </span>
+          <span className="text-xs font-semibold text-primary whitespace-nowrap">{t("psy.request.review")}</span>
+        </button>
+      )}
       {notesTarget && (
         <NotesPopover
           patientId={notesTarget.id}

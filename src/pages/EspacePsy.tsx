@@ -19,6 +19,7 @@ import PsyEarnings from "@/components/pages/PsyEarnings";
 import PsyProfileEditor from "@/components/pages/PsyProfileEditor";
 import PsySettingsPage from "@/components/pages/PsySettingsPage";
 import ContentCreatorPage from "@/components/pages/ContentCreatorPage";
+import RescheduleRequestsPanel, { type RescheduleRequest } from "@/components/pages/RescheduleRequestsPanel";
 import PsyMobileNav from "@/components/pages/PsyMobileNav";
 
 interface Booking {
@@ -647,6 +648,44 @@ export default function EspacePsy() {
     };
   }, [user]);
 
+  // ── "Propose another time" requests from patients ──────────────────────────
+  const [rescheduleRequests, setRescheduleRequests] = useState<RescheduleRequest[]>([]);
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      const { data } = await supabase.from("reschedule_requests")
+        .select("id, booking_id, patient_id, proposed_at, original_booked_at, message, created_at")
+        .eq("psychologist_id", user.id).eq("status", "pending")
+        .order("proposed_at", { ascending: true });
+      setRescheduleRequests((data ?? []) as RescheduleRequest[]);
+    };
+    load();
+    const channel = supabase
+      .channel(`reschedule:psy:${user.id}:${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "reschedule_requests", filter: `psychologist_id=eq.${user.id}` }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+  // Names come from the session list (same patients).
+  const rescheduleRequestsNamed = rescheduleRequests.map((r) => ({
+    ...r,
+    patient_name: bookings.find((b) => b.patient_id === r.patient_id)?.patient_name,
+  }));
+  const respondToReschedule = async (requestId: string, accept: boolean, note: string) => {
+    try {
+      const { data } = await apiPost<{ booked_at?: string }>("/api/bookings?action=reschedule-respond", { request_id: requestId, accept, note: note.trim() || undefined });
+      const req = rescheduleRequests.find((r) => r.id === requestId);
+      setRescheduleRequests((prev) => prev.filter((r) => r.id !== requestId));
+      if (accept && req && data.booked_at) {
+        setBookings((prev) => prev.map((b) => (b.id === req.booking_id ? { ...b, booked_at: data.booked_at!, video_room_url: null } : b)));
+      }
+      toast.success(accept ? t("psy.request.accepted") : t("psy.request.declined"));
+    } catch (err: any) {
+      toast.error(err?.message || t("psy.request.error"));
+      if (err?.status === 409) setRescheduleRequests((prev) => prev.filter((r) => r.id !== requestId));
+    }
+  };
+
   // ── Derived real-time stats from bookings ──────────────────────────────────
   const now = new Date();
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
@@ -790,6 +829,7 @@ export default function EspacePsy() {
     switch (activePage) {
       case "dashboard": return (
         <PsyDashboard
+          pendingRescheduleCount={rescheduleRequests.length}
           profileData={profileData}
           approvalStatus={approvalStatus}
           totalUniquePatients={totalUniquePatients}
@@ -813,6 +853,7 @@ export default function EspacePsy() {
       );
       case "sessions": return (
         <PsySessions
+          topSlot={<RescheduleRequestsPanel requests={rescheduleRequestsNamed} clinicSettings={clinicSettings} onRespond={respondToReschedule} />}
           bookings={bookings}
           bookingsLoading={bookingsLoading}
           updateBookingStatus={updateBookingStatus}

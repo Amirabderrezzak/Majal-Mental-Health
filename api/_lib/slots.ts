@@ -11,6 +11,7 @@ export const ALGIERS_OFFSET_MIN = 60;
 export const ALGIERS_TZ = "Africa/Algiers";
 export const SESSION_MINUTES = 60;
 const SLOT_STEP_MIN = 30;
+const APPROVED_STEP_MIN = 15;
 const STALE_PENDING_MS = 30 * 60 * 1000;
 
 export interface ClinicSettings {
@@ -81,6 +82,12 @@ export function validateBookingSlot(opts: {
   /** booking being moved (reschedule) or a reservation this patient already holds for the same slot */
   ignoreBookingId?: string;
   now?: Date;
+  /**
+   * A time the therapist explicitly agrees to (reschedule request): working
+   * days/hours and vacation don't apply, 15-minute steps are allowed and no
+   * buffer is added — but it still can't overlap another session.
+   */
+  therapistApproved?: boolean;
 }): SlotCheck {
   const now = opts.now ?? new Date();
   const fail = (status: number, error: string): SlotCheck => ({ ok: false, status, error });
@@ -97,14 +104,17 @@ export function validateBookingSlot(opts: {
   if (duration !== SESSION_MINUTES) return fail(400, "Durée de séance non valide.");
 
   const p = algiersParts(start);
-  if (p.seconds !== 0 || p.minutes % SLOT_STEP_MIN !== 0) return fail(400, "Créneau non valide.");
+  const step = opts.therapistApproved ? APPROVED_STEP_MIN : SLOT_STEP_MIN;
+  if (p.seconds !== 0 || p.minutes % step !== 0) return fail(400, "Créneau non valide.");
 
   const cs = { ...DEFAULT_CLINIC_SETTINGS, ...(opts.psychologist.clinic_settings ?? {}) };
-  if (cs.vacationMode) return fail(409, "Ce psychologue est actuellement en congé.");
-  if (!cs.workingDays.includes(DAY_KEYS[p.dow])) return fail(409, "Ce psychologue ne consulte pas ce jour-là.");
-  if (p.minutes < hm(cs.startHour) || p.minutes + duration > hm(cs.endHour)) return fail(409, "Ce créneau est en dehors des horaires du psychologue.");
+  if (!opts.therapistApproved) {
+    if (cs.vacationMode) return fail(409, "Ce psychologue est actuellement en congé.");
+    if (!cs.workingDays.includes(DAY_KEYS[p.dow])) return fail(409, "Ce psychologue ne consulte pas ce jour-là.");
+    if (p.minutes < hm(cs.startHour) || p.minutes + duration > hm(cs.endHour)) return fail(409, "Ce créneau est en dehors des horaires du psychologue.");
+  }
 
-  const buffer = cs.bufferMinutes ?? 0;
+  const buffer = opts.therapistApproved ? 0 : cs.bufferMinutes ?? 0;
   const s = start.getTime();
   const e = s + duration * 60000;
   for (const b of opts.existing) {
@@ -114,7 +124,9 @@ export function validateBookingSlot(opts: {
     const be = bs + (b.duration_minutes ?? SESSION_MINUTES) * 60000;
     // The same patient re-opening checkout for the exact slot they already reserved is fine.
     if (bs === s && b.patient_id === opts.patientId) continue;
-    if (s < be + buffer * 60000 && e > bs - buffer * 60000) return fail(409, "Ce créneau n'est plus disponible.");
+    if (s < be + buffer * 60000 && e > bs - buffer * 60000) {
+      return fail(409, opts.therapistApproved ? "Le psychologue a déjà une séance à ce moment-là." : "Ce créneau n'est plus disponible.");
+    }
   }
 
   return { ok: true, start, duration };

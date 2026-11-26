@@ -206,6 +206,29 @@ async function closeEndedSessions(db: any) {
   return out;
 }
 
+/**
+ * Reschedule requests nobody answered in time: the proposed time has passed or
+ * the original session already started. The patient is told the session stays
+ * where it was.
+ */
+async function expireRescheduleRequests(db: any) {
+  const { data: open } = await db.from("reschedule_requests")
+    .select("id, patient_id, proposed_at, original_booked_at").eq("status", "pending").limit(500);
+  let n = 0;
+  for (const r of open ?? []) {
+    const due = Math.min(new Date(r.proposed_at).getTime(), new Date(r.original_booked_at).getTime());
+    if (due > Date.now()) continue;
+    const { data } = await db.from("reschedule_requests").update({ status: "expired", responded_at: nowIso() })
+      .eq("id", r.id).eq("status", "pending").select("id");
+    if (!data || data.length === 0) continue;
+    n++;
+    await notify(db, r.patient_id, "Demande de changement expirée",
+      `Votre psychologue n'a pas pu répondre à temps. Votre séance reste prévue le ${formatAlgiersLong(r.original_booked_at)}.`,
+      "/mon-espace?page=sessions");
+  }
+  return n;
+}
+
 // ── push-cron ──────────────────────────────────────────────────────────────────
 // Vercel Hobby only allows a daily cron. Each step is idempotent, so the same URL
 // can additionally be called hourly by any external scheduler with CRON_SECRET
@@ -222,9 +245,10 @@ export const pushCronHandler = async (req: any, res: any) => {
     const reminders = await sendReminders(db);
     const sessions = await closeEndedSessions(db);
     await db.rpc("expire_immediate_requests");
+    const expiredReschedules = await expireRescheduleRequests(db);
     const { data: closedRooms } = await db.from("audio_rooms").update({ is_live: false }).eq("is_live", true).lt("ends_at", nowIso()).select("id");
     const pushes = await flushPushes(db, undefined, 1000);
-    res.json({ success: true, payments, releasedReservations, reminders, sessions, closedAudioRooms: closedRooms?.length ?? 0, pushes });
+    res.json({ success: true, payments, releasedReservations, reminders, sessions, closedAudioRooms: closedRooms?.length ?? 0, expiredReschedules, pushes });
   } catch (err: any) {
     console.error("Push cron error:", err);
     res.status(500).json({ error: "Cron failed" });
