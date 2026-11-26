@@ -897,6 +897,9 @@ const translations: Record<string, Record<Lang, string>> = {
   "space.crisis.civil": { fr: "Protection civile — urgences médicales", ar: "الحماية المدنية — الاستعجالات الطبية" },
   "space.crisis.police": { fr: "Police secours", ar: "النجدة (الشرطة)" },
   "space.crisis.gendarmerie": { fr: "Numéro vert de la Gendarmerie", ar: "الرقم الأخضر للدرك الوطني" },
+  "editor.prices.title": { fr: "Tarifs par type de séance (DA)", ar: "الأسعار حسب نوع الجلسة (دج)" },
+  "editor.prices.hint": { fr: "Laissez vide pour ne pas proposer ce type de séance. Seuls les types renseignés sont réservables.", ar: "اتركه فارغاً إذا كنت لا تقدم هذا النوع. يمكن حجز الأنواع المحددة فقط." },
+  "space.toast.loadError": { fr: "Impossible de charger vos séances. Vérifiez votre connexion.", ar: "تعذر تحميل جلساتك. تحقق من اتصالك." },
   "space.status.missed.both": { fr: "Non tenue · remboursée", ar: "لم تُعقد · مستردة" },
 };
 

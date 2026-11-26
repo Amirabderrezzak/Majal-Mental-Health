@@ -94,8 +94,8 @@ export default function PsyProfileEditor({
             { label: t("psy.dashboard.profile.yearsExperience"), key: "years_experience", type: "number" },
           ] as const).map((f) => (
             <div key={f.key} className="flex flex-col gap-2">
-              <label htmlFor="psyprofileeditor-f1" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{f.label}</label>
-              <input id="psyprofileeditor-f1"
+              <label htmlFor={`profile-${f.key}`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{f.label}</label>
+              <input id={`profile-${f.key}`}
                 type={f.type}
                 value={profileData[f.key]}
                 onChange={(e) => setProfileData((p) => ({ ...p, [f.key]: f.type === "number" ? parseInt(e.target.value) || 0 : e.target.value }))}
@@ -106,13 +106,13 @@ export default function PsyProfileEditor({
         </div>
 
         <div className="mt-5">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Tarifs par type de séance (DA)</h4>
-          <p className="text-[11px] text-muted-foreground font-sans mb-3">Laissez vide pour ne pas proposer ce type de séance.</p>
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{t("editor.prices.title")}</h4>
+          <p className="text-[11px] text-muted-foreground font-sans mb-3">{t("editor.prices.hint")}</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {priceBands.map((band) => (
               <div key={band.key} className="flex flex-col gap-2">
-                <label htmlFor="psyprofileeditor-f2" className="text-xs font-semibold text-muted-foreground">{band.label}</label>
-                <input id="psyprofileeditor-f2"
+                <label htmlFor={`price-${band.key}`} className="text-xs font-semibold text-muted-foreground">{band.label}</label>
+                <input id={`price-${band.key}`}
                   type="number"
                   min={band.min}
                   max={band.max}

@@ -63,12 +63,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
     // Journal entries, goals and session notes are cached locally for offline
     // use; don't leave a patient's private notes on a shared phone/computer.
-    try {
-      Object.keys(localStorage).filter((k) => k.startsWith("majal_")).forEach((k) => localStorage.removeItem(k));
-    } catch { /* storage unavailable */ }
+    // Cleared first, so it happens even if the network sign-out stalls.
+    const clearPrivateCache = () => {
+      try {
+        Object.keys(localStorage).filter((k) => k.startsWith("majal_")).forEach((k) => localStorage.removeItem(k));
+      } catch { /* storage unavailable */ }
+    };
+    clearPrivateCache();
+    await supabase.auth.signOut().catch((e) => console.warn("signOut:", e));
+    clearPrivateCache(); // anything a still-mounted widget wrote meanwhile
     setUserType(null);
   };
 

@@ -592,25 +592,31 @@ export default function EspacePsy() {
   // Fetch real bookings
   useEffect(() => {
     if (!user) return;
+    // Skeleton only on the first load (refetches after realtime events used to
+    // flash it), and always cleared even if a request throws — a failed fetch
+    // used to leave the page on loading skeletons forever.
+    let firstLoad = true;
     const fetchBookings = async () => {
-      setBookingsLoading(true);
-      const { data: bData } = await (supabase as any)
-        .from("bookings")
-        .select("id, booked_at, status, duration_minutes, patient_id, price, video_room_url")
-        .eq("psychologist_id", user.id)
-        .order("booked_at", { ascending: true });
-        
-      if (bData && bData.length > 0) {
-        const patientIds = [...new Set(bData.map((b: any) => b.patient_id as string))] as string[];
+      if (firstLoad) setBookingsLoading(true);
+      try {
+        const { data: bData, error } = await supabase
+          .from("bookings")
+          .select("id, booked_at, status, duration_minutes, patient_id, price, video_room_url")
+          .eq("psychologist_id", user.id)
+          .order("booked_at", { ascending: true });
+        if (error) throw error;
+        if (!bData || bData.length === 0) { setBookings([]); return; }
+
+        const patientIds = [...new Set(bData.map((b) => b.patient_id))];
         const { data: profiles } = await supabase
           .from("profiles")
           .select("user_id, full_name, avatar_url")
           .in("user_id", patientIds);
-          
+
         // Hide pending reservations: a booking awaiting payment confirmation
         // must not appear on the psychologist's dashboard until actually paid.
-        const mapped = bData
-          .filter((b: any) => b.status !== "pending")
+        setBookings(bData
+          .filter((b) => b.status !== "pending")
           .map((b) => {
             const profile = profiles?.find((p) => p.user_id === b.patient_id);
             return {
@@ -618,10 +624,14 @@ export default function EspacePsy() {
               patient_name: profile?.full_name || "Patient",
               patient_avatar: profile?.avatar_url || undefined,
             } as Booking;
-          });
-        setBookings(mapped);
+          }));
+      } catch (err) {
+        console.error("Failed to load sessions:", err);
+        toast.error("Impossible de charger vos séances. Vérifiez votre connexion.");
+      } finally {
+        firstLoad = false;
+        setBookingsLoading(false);
       }
-      setBookingsLoading(false);
     };
     fetchBookings();
 
@@ -898,7 +908,7 @@ export default function EspacePsy() {
         signOut={signOut}
       />
 
-      <main className={`flex-1 ${dir === "rtl" ? "lg:mr-64" : "lg:ml-64"} min-h-screen flex flex-col`}>
+      <main className={`flex-1 min-w-0 ${dir === "rtl" ? "lg:mr-64" : "lg:ml-64"} min-h-screen flex flex-col`}>
         <PsyTopBar
           title={pageTitle[activePage]}
           setSidebarOpen={setSidebarOpen}

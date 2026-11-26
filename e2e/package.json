@@ -1,0 +1,13 @@
+{
+  "name": "majal-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Local end-to-end stack for Majal: Postgres + a PostgREST/GoTrue-compatible gateway + the real api/ handlers + fake Daily/Resend.",
+  "scripts": {
+    "stack": "node stack/run.mjs",
+    "journey": "node journey.mjs"
+  },
+  "dependencies": {
+    "pg": "8.13.1"
+  }
+}

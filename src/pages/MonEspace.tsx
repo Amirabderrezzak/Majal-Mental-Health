@@ -42,6 +42,8 @@ const formatTimeUntil = (booked_at: string) => {
   const diffMs = start.getTime() - now.getTime();
   if (diffMs <= 0) return "";
   const mins = Math.ceil(diffMs / 60000);
+  // Days for long waits ("30j 21h", not "741h 49min").
+  if (mins >= 24 * 60) return `${Math.floor(mins / 1440)}j${Math.floor((mins % 1440) / 60) > 0 ? ` ${Math.floor((mins % 1440) / 60)}h` : ""}`;
   if (mins >= 60) return `${Math.floor(mins / 60)}h${mins % 60 > 0 ? ` ${mins % 60}min` : ""}`;
   return `${mins}min`;
 };
@@ -149,6 +151,17 @@ export default function MonEspace() {
   useEffect(() => {
     if (!user) return;
     const fetchB = async () => {
+      try {
+        await loadBookings();
+      } catch (err) {
+        // A failed request used to leave the page on skeletons forever.
+        console.error("Failed to load sessions:", err);
+        toast.error(t("space.toast.loadError"));
+      } finally {
+        setBookingsLoading(false);
+      }
+    };
+    const loadBookings = async () => {
       const [{ data }, { data: verifyingPayments }] = await Promise.all([
         supabase.from("bookings").select("id, booked_at, status, duration_minutes, price, psychologist_id, video_room_url, policy_anchor_at, reschedule_count, session_kind, no_show_party")
           .eq("patient_id", user.id).order("booked_at", { ascending: true }),
@@ -189,7 +202,6 @@ export default function MonEspace() {
         const sessionEndTime = new Date(new Date(b.booked_at).getTime() + b.duration_minutes * 60 * 1000);
         return isPastOrCancelledStatus || sessionEndTime < now;
       }).sort((a, b) => new Date(b.booked_at).getTime() - new Date(a.booked_at).getTime()));
-      setBookingsLoading(false);
     };
     fetchB();
 
@@ -384,7 +396,7 @@ export default function MonEspace() {
         profile={profile}
         initials={initials}
       />
-      <main className={`flex-1 ${dir === "rtl" ? "lg:mr-64" : "lg:ml-64"} min-h-screen flex flex-col`}>
+      <main className={`flex-1 min-w-0 ${dir === "rtl" ? "lg:mr-64" : "lg:ml-64"} min-h-screen flex flex-col`}>
         <PatientTopBar title={pageTitle[activePage]} setSidebarOpen={setSidebarOpen} />
         <div className={`flex-1 overflow-auto ${activePage !== "dashboard" ? "pb-20 lg:pb-0" : ""}`}>{renderPage()}</div>
       </main>

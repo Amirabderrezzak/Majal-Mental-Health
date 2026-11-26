@@ -562,7 +562,7 @@ export default function AdminDashboard() {
                   <td className="px-4 py-3 text-muted-foreground">{reasonLabel(r.reason)}{r.note ? <div className="text-xs">{r.note}</div> : null}</td>
                   <td className="px-4 py-3 font-semibold"><bdi>{r.amount.toLocaleString()} DA</bdi> <span className="text-xs text-muted-foreground">({r.refund_percent}%)</span></td>
                   <td className="px-4 py-3"><bdi>{r.compensation_amount.toLocaleString()} DA</bdi></td>
-                  <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full font-medium ${r.status === "due" ? "bg-warning/10 text-warning" : "bg-teal-pale text-primary"}`}>{t(`admin.refunds.status.${r.status}`)}</span></td>
+                  <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${r.status === "due" ? "bg-warning/10 text-warning" : "bg-teal-pale text-primary"}`}>{t(`admin.refunds.status.${r.status}`)}</span></td>
                   <td className="px-4 py-3">
                     {r.status === "due" && (
                       <div className="flex gap-2">

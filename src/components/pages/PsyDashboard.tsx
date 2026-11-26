@@ -32,6 +32,7 @@ const formatRelativeTime = (booked_at: string, now: Date) => {
   }
   if (mins < 1) return "À l'instant";
   if (mins < 60) return `Dans ${mins}min`;
+  if (mins >= 24 * 60) return `Dans ${Math.floor(mins / 1440)}j${Math.floor((mins % 1440) / 60) > 0 ? ` ${Math.floor((mins % 1440) / 60)}h` : ""}`;
   return `Dans ${Math.floor(mins / 60)}h${mins % 60 > 0 ? `${mins % 60}min` : ""}`;
 };
 

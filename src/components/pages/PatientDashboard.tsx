@@ -288,12 +288,8 @@ export default function PatientDashboard({
           <div className="dashboard-card p-5 mb-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-semibold text-foreground">{t("pd.therapy")}</span>
-              <span className="text-xs text-muted-foreground">{totalDone}/20 {t("pd.sessionsWord")}</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex-1 h-2.5 rounded-full bg-muted overflow-hidden">
-                <div className="h-full rounded-full bg-gradient-to-r from-primary to-primary transition-all duration-1000" style={{ width: `${Math.min((totalDone / 20) * 100, 100)}%` }} />
-              </div>
+              {/* No invented target: therapy has no fixed number of sessions. */}
+              <span className="text-xs text-muted-foreground">{totalDone} {t("pd.sessionsWord")}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-2">{totalDone < 5 ? t("pd.progress.low") : totalDone < 10 ? t("pd.progress.mid") : t("pd.progress.high")}</p>
           </div>

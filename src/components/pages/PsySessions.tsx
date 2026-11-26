@@ -24,6 +24,8 @@ const formatTimeUntil = (booked_at: string) => {
   const diffMs = start.getTime() - now.getTime();
   if (diffMs <= 0) return "";
   const mins = Math.ceil(diffMs / 60000);
+  // Days for long waits ("30j 21h", not "741h 49min").
+  if (mins >= 24 * 60) return `${Math.floor(mins / 1440)}j${Math.floor((mins % 1440) / 60) > 0 ? ` ${Math.floor((mins % 1440) / 60)}h` : ""}`;
   if (mins >= 60) return `${Math.floor(mins / 60)}h${mins % 60 > 0 ? ` ${mins % 60}min` : ""}`;
   return `${mins}min`;
 };
