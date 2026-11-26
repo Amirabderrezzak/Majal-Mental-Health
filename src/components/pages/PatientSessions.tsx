@@ -511,7 +511,7 @@ export default function PatientSessions({
                     <div className="font-semibold text-sm text-foreground">{b.psychologist_name}</div>
                     <div className="text-xs text-primary font-medium mt-0.5">{specialtyLabel(b.psychologist_specialty, t, "Psychologue")}</div>
                     <div className="text-xs text-muted-foreground mt-1">{fmt(b.booked_at)} · {fmtT(b.booked_at)} · {b.duration_minutes} {t("space.minutesLabel")}</div>
-                    {b.price && <div className="text-xs text-muted-foreground/80 mt-0.5"><bdi>{b.price.toLocaleString()} {t("space.priceCurrency")}</bdi></div>}
+                    {b.price != null && b.price > 0 && <div className="text-xs text-muted-foreground/80 mt-0.5"><bdi>{b.price.toLocaleString()} {t("space.priceCurrency")}</bdi></div>}
                   </div>
                 </div>
                 <div className="flex sm:flex-col items-end gap-2.5 self-end sm:self-center">
