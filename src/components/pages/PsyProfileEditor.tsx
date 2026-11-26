@@ -25,6 +25,7 @@ interface PsyProfileEditorProps {
     years_experience: number;
     phone: string;
     avatar_url: string;
+    language: string;
   };
   setProfileData: (cb: (prev: any) => any) => void;
   uploadingAvatar: boolean;
@@ -168,8 +169,31 @@ export default function PsyProfileEditor({
             placeholder={t("editor.formationsPlaceholder")}
             className="w-full px-4 py-3 border border-border/70 rounded-xl text-sm text-foreground bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card font-sans transition-all resize-none leading-relaxed"
           />
-          <p className="text-[11px] text-muted-foreground font-sans mt-2">Une formation par ligne (ex: Master en Psychologie — Université Paris Descartes).</p>
+          <p className="text-[11px] text-muted-foreground font-sans mt-2">{t("editor.formationsHint")}</p>
         </div>
+
+        {/* Languages: shown on the directory card and used by its language filter
+            (therapists had no way to set this, so everyone appeared as "fr"). */}
+        <fieldset className="mt-5">
+          <legend className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{t("editor.languages")}</legend>
+          <div className="flex flex-wrap gap-2">
+            {(["Français", "Arabe", "Anglais", "Tamazight"] as const).map((l) => {
+              const current = profileData.language ? profileData.language.split(",").map((x) => x.trim()).filter(Boolean) : [];
+              const on = current.includes(l);
+              return (
+                <button key={l} type="button" aria-pressed={on}
+                  onClick={() => setProfileData((p) => {
+                    const cur: string[] = p.language ? p.language.split(",").map((x: string) => x.trim()).filter(Boolean) : [];
+                    const next = on ? cur.filter((x) => x !== l) : [...cur, l];
+                    return { ...p, language: next.join(", ") };
+                  })}
+                  className={`px-3.5 py-2 rounded-full border text-xs font-medium transition-all cursor-pointer ${on ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-foreground border-border hover:border-primary/30"}`}>
+                  {t(`editor.lang.${l}`)}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
       </div>
 
       <div className="dashboard-card p-6 md:p-8 space-y-5">

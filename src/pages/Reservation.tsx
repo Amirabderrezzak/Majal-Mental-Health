@@ -31,7 +31,6 @@ const Reservation = () => {
   const [docIndividual, setDocIndividual] = useState<number | null>(null);
   const [docCouples, setDocCouples] = useState<number | null>(null);
   const [docAdolescents, setDocAdolescents] = useState<number | null>(null);
-  const [docPricePerSession, setDocPricePerSession] = useState<number | null>(null);
   const [sessionType, setSessionType] = useState<"individual" | "couples" | "adolescents">("individual");
   const [docAvatarUrl, setDocAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(isUUID);
@@ -42,19 +41,20 @@ const Reservation = () => {
       setLoading(true);
       supabase
         .from("psychologist_directory")
-        .select("user_id, full_name, specialty, price_per_session, price_individual, price_couples, price_adolescents, avatar_url, approval_status, clinic_settings")
-        .eq("user_id", id)
-        .single()
+        .select("user_id, full_name, specialty, price_individual, price_couples, price_adolescents, avatar_url, approval_status, clinic_settings")
+        .eq("user_id", id as string)
+        .maybeSingle()
         .then(({ data, error }) => {
           if (error) {
             console.error("Error fetching psychologist profile:", error);
             toast.error(t("res.error.loadProfile"));
-          } else if (data) {
-            if (data.approval_status !== "approved") {
-              toast.error(t("res.error.notAvailable"));
-              navigate("/psychologues");
-              return;
-            }
+          } else if (!data || data.approval_status !== "approved") {
+            // The directory only lists approved therapists: unknown, pending or
+            // rejected ids used to leave an empty booking page behind.
+            toast.error(t("res.error.notAvailable"));
+            navigate("/psychologues");
+            return;
+          } else {
             const individual = data.price_individual ?? null;
             const couples = data.price_couples ?? null;
             const adolescents = data.price_adolescents ?? null;
@@ -63,11 +63,9 @@ const Reservation = () => {
             setDocIndividual(individual);
             setDocCouples(couples);
             setDocAdolescents(adolescents);
-            setDocPricePerSession(data.price_per_session ?? null);
-            // Default the session type to the first offered type. The individual
-            // rate is offered if its own band is set OR a headline price exists.
+            // Default to the first session type the therapist offers.
             const firstOffered =
-              individual != null || data.price_per_session != null ? "individual"
+              individual != null ? "individual"
                 : couples != null ? "couples"
                 : adolescents != null ? "adolescents"
                 : "individual";
@@ -84,13 +82,13 @@ const Reservation = () => {
       toast.error(t("res.error.invalidId"));
       navigate("/psychologues");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isUUID, navigate]);
 
-  // Each type shows its own band. Only the individual rate falls back to the
-  // headline price_per_session; couples/adolescents are offered solely when the
-  // psychologist has set their specific band.
+  // Exactly what checkout charges: each type is offered only if its own band is
+  // set (the old fallback to price_per_session showed types checkout refused).
   const priceForType = (type: "individual" | "couples" | "adolescents") =>
-    type === "individual" ? docIndividual ?? docPricePerSession
+    type === "individual" ? docIndividual
       : type === "couples" ? docCouples
       : docAdolescents;
 
@@ -121,7 +119,7 @@ const Reservation = () => {
     supabase
       .from("psychologist_availability")
       .select("booked_at, duration_minutes")
-      .eq("psychologist_id", id)
+      .eq("psychologist_id", id as string)
       .gte("booked_at", startOfDay)
       .lt("booked_at", endOfDay)
       .then(({ data, error }) => {
@@ -169,7 +167,7 @@ const Reservation = () => {
   const isPast = (d: number) => Date.UTC(viewYear, viewMonth, d) < Date.UTC(ap.y, ap.mo, ap.d);
   const isToday = (d: number) => d === ap.d && viewMonth === ap.mo && viewYear === ap.y;
 
-  const locale = lang === "ar" ? "ar-SA" : "fr-FR";
+  const locale = lang === "ar" ? "ar-DZ" : "fr-FR";
   const selectedDateStr = selectedDay
     ? new Date(viewYear, viewMonth, selectedDay).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })
     : "—";
@@ -194,7 +192,7 @@ const Reservation = () => {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, phone')
         .eq('user_id', user.id)
         .single();
 
@@ -209,9 +207,8 @@ const Reservation = () => {
           booked_at: bookedAt.toISOString(),
           duration_minutes: 60,
           session_type: sessionType,
-          price: docPriceComputed,
           full_name: profile?.full_name || user.email,
-          phone: user.phone || '',
+          phone: profile?.phone || user.phone || '',
         }),
       });
 
@@ -224,7 +221,7 @@ const Reservation = () => {
       }
 
       if (data.mock) {
-        window.location.href = `/payment/mock?booking_id=${data.payment_id}&amount=${docPriceComputed}`;
+        window.location.href = `/payment/mock?payment_id=${data.payment_id}&amount=${data.amount ?? docPriceComputed}`;
       } else if (data.url) {
         window.location.href = data.url;
       } else {
@@ -283,7 +280,7 @@ const Reservation = () => {
                     type="button"
                     disabled={!d || isPast(d)}
                     onClick={() => d && !isPast(d) && (setSelectedDay(d), setSelectedTime(null))}
-                    aria-label={d ? new Date(viewYear, viewMonth, d).toLocaleDateString(lang === "ar" ? "ar-SA" : "fr-FR", { weekday: "long", day: "numeric", month: "long" }) : undefined}
+                    aria-label={d ? new Date(viewYear, viewMonth, d).toLocaleDateString(lang === "ar" ? "ar-DZ" : "fr-FR", { weekday: "long", day: "numeric", month: "long" }) : undefined}
                     aria-pressed={d === selectedDay}
                     className={`aspect-square flex items-center justify-center rounded-md text-sm transition-all border-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none ${
                       !d ? "cursor-default bg-transparent" :

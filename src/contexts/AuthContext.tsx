@@ -32,37 +32,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .from("profiles")
       .select("user_type")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
     setUserType((data?.user_type as UserType) ?? "patient");
     setLoading(false);
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session?.user) {
+    let currentUserId: string | null = null;
+    const apply = (next: Session | null) => {
+      setSession(next);
+      const nextId = next?.user?.id ?? null;
+      if (nextId === currentUserId) return; // token refresh: same user, nothing to reload
+      currentUserId = nextId;
+      if (nextId) {
+        // Only show the full-page loader for a different user. The hourly token
+        // refresh used to flip `loading` on, which unmounted the whole space
+        // (losing open chats, forms and the call-in-progress state).
         setLoading(true);
-        fetchUserType(session.user.id);
+        // Deferred: calling Supabase inside onAuthStateChange can deadlock supabase-js.
+        setTimeout(() => fetchUserType(nextId), 0);
       } else {
         setUserType(null);
         setLoading(false);
       }
-    });
+    };
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        fetchUserType(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
-
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => apply(s));
+    supabase.auth.getSession().then(({ data: { session: s } }) => apply(s));
     return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    // Journal entries, goals and session notes are cached locally for offline
+    // use; don't leave a patient's private notes on a shared phone/computer.
+    try {
+      Object.keys(localStorage).filter((k) => k.startsWith("majal_")).forEach((k) => localStorage.removeItem(k));
+    } catch { /* storage unavailable */ }
     setUserType(null);
   };
 

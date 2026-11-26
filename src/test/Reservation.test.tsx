@@ -27,6 +27,7 @@ vi.mock("@/integrations/supabase/client", () => {
         select: mockSelect,
         eq: mockEq,
         single: mockSingle,
+        maybeSingle: mockSingle,
       }),
     },
   };

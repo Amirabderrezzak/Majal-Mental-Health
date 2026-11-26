@@ -31,7 +31,7 @@ const ResetPassword = () => {
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) {
+    if (password.length < 8) {
       toast.error(t("auth.minChars"));
       return;
     }

@@ -39,16 +39,16 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
   ];
 
   const fetchForumThreads = async () => {
-    const { data: threadsData } = await (supabase as any)
-      .from('forum_threads')
-      .select('id, category, title, content, created_at, author_id')
+    const { data: threadsData } = await supabase
+      .from('forum_threads_public')
+      .select('id, category, title, content, created_at, author_label')
       .order('created_at', { ascending: false });
 
     if (threadsData) {
       const threadIds = threadsData.map((t: any) => t.id);
-      const { data: repliesData } = await (supabase as any)
-        .from('forum_replies')
-        .select('id, thread_id, content, created_at, author_id, profiles(full_name, user_type)')
+      const { data: repliesData } = await supabase
+        .from('forum_replies_public')
+        .select('id, thread_id, content, created_at, author_label')
         .in('thread_id', threadIds)
         .order('created_at', { ascending: true });
 
@@ -58,13 +58,13 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
           id: t.id,
           category: t.category,
           title: t.title,
-          author: "Anonyme",
+          author: t.author_label || "Anonyme",
           content: t.content,
           date: t.created_at,
           replies: repliesForThread.map((r: any) => ({
-            author: r.profiles?.user_type === "psychologue" ? r.profiles?.full_name || "Thérapeute" : "Anonyme",
+            author: r.author_label || "Anonyme",
             content: r.content,
-            isPsy: r.profiles?.user_type === "psychologue",
+            isPsy: !!r.author_label,
             date: r.created_at,
           })),
         };
@@ -113,6 +113,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
       storiesChannel.unsubscribe();
       forumChannel.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only subscriptions
   }, []);
 
   const handlePublishStory = async () => {
@@ -206,9 +207,10 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
     if (!liveRoom) return;
 
     try {
-      const { error } = await (supabase as any)
+      // Ended, not deleted: the row is kept and drops out of the public list.
+      const { error } = await supabase
         .from('audio_rooms')
-        .delete()
+        .update({ is_live: false, ends_at: new Date().toISOString() })
         .eq('id', liveRoom.id);
 
       if (error) {
@@ -234,7 +236,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
         author_id: user.id,
         content: replyText.trim()
       })
-      .select('id, content, created_at, author_id, profiles(full_name, user_type)')
+      .select('id, content, created_at')
       .single();
 
     if (error) {
@@ -243,7 +245,7 @@ export default function ContentCreatorPage({ t, user, profileData, getInitials }
       toast.success("Votre réponse de clinicien a été publiée !");
       setReplyText("");
       const newReply = {
-        author: data.profiles?.full_name || profileData.full_name || "Thérapeute",
+        author: profileData.full_name || "Thérapeute",
         content: data.content,
         isPsy: true,
         date: data.created_at

@@ -8,6 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { apiPost } from "@/lib/sessionApi";
 import { usePsychologists, type PsyProfile } from "@/hooks/use-psychologists";
 import { CATEGORIES, type CategoryId, type SubcategoryId } from "@/lib/categories";
 
@@ -69,7 +70,7 @@ const Psychologues = () => {
     // Language
     const matchLang = !langFilter || d.langs.includes(langFilter);
     // Price
-    const matchPrice = !price || d.price <= parseInt(price);
+    const matchPrice = !price || (d.price != null && d.price <= parseInt(price));
 
     return matchQ && matchCategory && matchLang && matchPrice;
   });
@@ -89,6 +90,39 @@ const Psychologues = () => {
   };
 
   const hasActiveFilters = selectedCategory || selectedSubcategory || langFilter || price || query;
+
+  const startInstantCheckout = async (psyId: string, requestId: string) => {
+    try {
+      const { data: profile } = await supabase.from("profiles").select("full_name, phone").eq("user_id", user!.id).maybeSingle();
+      const { data } = await apiPost<{ url: string; payment_id: string; amount: number; mock?: boolean }>("/api/payments?action=checkout", {
+        psychologist_id: psyId,
+        instant_request_id: requestId,
+        full_name: profile?.full_name || user?.email,
+        phone: profile?.phone || "",
+      });
+      window.location.href = data.mock ? `/payment/mock?payment_id=${data.payment_id}&amount=${data.amount}` : data.url;
+    } catch (err: any) {
+      toast.error(err?.message || t("res.error.paymentRedirect"));
+      setRequestStatus(null);
+      setRequestingPsyId(null);
+      setActiveRequestId(null);
+    }
+  };
+
+  // Closing the waiting dialog withdraws the request, so the therapist isn't
+  // left answering someone who already left.
+  const withdrawRequest = async () => {
+    if (activeRequestId && requestStatus === "pending") {
+      await supabase.from("immediate_session_requests")
+        .update({ status: "expired", responded_at: new Date().toISOString() })
+        .eq("id", activeRequestId).eq("status", "pending");
+    }
+    if (expirationTimerRef.current) clearTimeout(expirationTimerRef.current);
+    if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; }
+    setRequestStatus(null);
+    setRequestingPsyId(null);
+    setActiveRequestId(null);
+  };
 
   const handleImmediateRequest = async (psyId: string) => {
     if (!user) {
@@ -129,13 +163,11 @@ const Psychologues = () => {
         const newStatus = payload.new.status;
         setRequestStatus(newStatus);
         if (newStatus === "accepted") {
-          const roomUrl = payload.new.room_url;
+          // An accepted request is a real, paid session: go to checkout.
           toast.success(t("psy.toast.accepted"));
-          setTimeout(() => {
-            if (roomUrl) {
-              window.open(roomUrl, "_blank");
-            }
-          }, 1000);
+          if (expirationTimerRef.current) clearTimeout(expirationTimerRef.current);
+          startInstantCheckout(psyId, data.id);
+          return;
         } else if (newStatus === "declined") {
           toast.error(t("psy.toast.unavailable"));
         } else if (newStatus === "expired") {
@@ -212,12 +244,12 @@ const Psychologues = () => {
             </div>
             <div className="flex items-center gap-2 text-sm text-foreground">
               <DollarSign className="w-[15px] h-[15px] text-primary" />
-              <bdi>{d.price.toLocaleString()} DZD</bdi> {t("psy.session")}
+              {d.price != null ? <><span>{t("psy.priceFrom")}</span> <bdi>{d.price.toLocaleString()} DZD</bdi> {t("psy.session")}</> : t("psy.priceUnset")}
             </div>
           </div>
           <div className="flex gap-1.5 flex-wrap mb-4">
             {d.langs.map((l) => (
-              <span key={l} className="px-3 py-1 rounded-full bg-teal-pale text-xs text-primary font-medium">{l}</span>
+              <span key={l} className="px-3 py-1 rounded-full bg-teal-pale text-xs text-primary font-medium">{t(`editor.lang.${l}`).startsWith("editor.") ? l : t(`editor.lang.${l}`)}</span>
             ))}
           </div>
           {d.specializations.length > 0 && (
@@ -491,11 +523,7 @@ const Psychologues = () => {
               </>
             )}
             <button
-              onClick={() => {
-                setRequestStatus(null);
-                setRequestingPsyId(null);
-                setActiveRequestId(null);
-              }}
+              onClick={withdrawRequest}
               className="w-full py-2.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-teal-pale transition-colors cursor-pointer"
             >
               {t("psy.requestClose")}

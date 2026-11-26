@@ -8,7 +8,8 @@ export interface PsyProfile {
   specialty: string;
   city: string | null;
   bio: string | null;
-  price: number;
+  /** Cheapest session type offered (what "à partir de" shows); null = no price set yet. */
+  price: number | null;
   exp: number;
   langs: string[];
   dispo: string;
@@ -22,7 +23,7 @@ export interface PsyProfile {
 
 /** Map a Supabase profile row → PsyProfile */
 function mapProfile(row: {
-  user_id: string;
+  user_id: string | null;
   full_name: string | null;
   specialty: string | null;
   city: string | null;
@@ -35,14 +36,16 @@ function mapProfile(row: {
   is_available_now: boolean | null;
 }): PsyProfile {
   return {
-    id: row.user_id,
+    id: row.user_id ?? "",
     name: row.full_name ?? "Psychologue",
     specialty: row.specialty ?? "Psychologie clinique",
     city: row.city,
     bio: row.bio,
-    price: row.price_per_session ?? 3000,
+    // No invented default: the old 3000 DZD fallback was shown for therapists
+    // checkout would then refuse ("type de séance non proposé").
+    price: row.price_per_session ?? null,
     exp: row.years_experience ?? 0,
-    langs: row.language ? [row.language] : ["Français"],
+    langs: row.language ? row.language.split(",").map((l) => l.trim()).filter(Boolean) : ["Français"],
     dispo: row.is_available_now ? "Disponible maintenant" : "Disponibilité sur demande",
     avatar_url: row.avatar_url,
     video_url: row.video_url ?? null,
@@ -77,7 +80,7 @@ export function usePsychologists() {
       const ratingsMap = new Map<string, { avg_rating: number; review_count: number }>();
       if (!ratingsError && ratingsData) {
         for (const r of ratingsData) {
-          ratingsMap.set(r.psychologist_id, {
+          if (r.psychologist_id) ratingsMap.set(r.psychologist_id, {
             avg_rating: Number(r.avg_rating || 0),
             review_count: Number(r.review_count || 0),
           });
@@ -100,12 +103,12 @@ export function usePsychologists() {
 
       return data.map((row) => {
         const profile = mapProfile(row);
-        const ratingInfo = ratingsMap.get(row.user_id);
+        const ratingInfo = ratingsMap.get(row.user_id ?? "");
         if (ratingInfo) {
           profile.rating = ratingInfo.avg_rating;
           profile.reviews = ratingInfo.review_count;
         }
-        profile.specializations = specsMap.get(row.user_id) ?? [];
+        profile.specializations = specsMap.get(row.user_id ?? "") ?? [];
         return profile;
       });
     },

@@ -1,7 +1,7 @@
 import { useEscapeKey } from "@/lib/a11y";
 import { specialtyLabel } from "@/lib/specialty";
 import { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft, Calendar, MessageSquare, Clock, Check, GraduationCap, Award, Star, MapPin, Loader2, Globe, X, User } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -23,7 +23,6 @@ interface PsyProfile {
   years_experience: number | null;
   language: string | null;
   avatar_url: string | null;
-  order_number: string | null;
   video_url: string | null;
   is_available_now: boolean | null;
 }
@@ -33,7 +32,7 @@ interface Review {
   rating: number;
   comment: string | null;
   created_at: string;
-  patient_id: string;
+  is_mine: boolean | null;
 }
 
 interface RatingStats {
@@ -75,7 +74,10 @@ const Profil = () => {
   const [reviewComment, setReviewComment]     = useState("");
   const [reviewHover, setReviewHover]         = useState<number | null>(null);
   const [submittingReview, setSubmittingReview] = useState(false);
-  const [userAlreadyReviewed, setUserAlreadyReviewed] = useState(false);
+  // A review is tied to one completed session (one review per session).
+  const [reviewableBookings, setReviewableBookings] = useState<{ id: string; booked_at: string }[]>([]);
+  const [reviewBookingId, setReviewBookingId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
 
   // ── Fetch real profile ────────────────────────────────────────────────────
   useEffect(() => {
@@ -90,22 +92,30 @@ const Profil = () => {
       supabase
         .from("psychologist_directory")
         .select("user_id, full_name, specialty, city, bio, approach, formations, price_per_session, years_experience, language, avatar_url, video_url, is_available_now, clinic_settings")
-        .eq("user_id", id)
-        .single(),
+        .eq("user_id", id as string)
+        .maybeSingle(),
 
+      // Public view: no reviewer user id (it used to be readable by anyone).
       supabase
-        .from("reviews")
-        .select("id, rating, comment, created_at, patient_id")
-        .eq("psychologist_id", id)
+        .from("reviews_public")
+        .select("id, rating, comment, created_at, is_mine")
+        .eq("psychologist_id", id as string)
         .order("created_at", { ascending: false }),
 
       supabase
         .from("psychologist_ratings")
         .select("avg_rating, review_count")
-        .eq("psychologist_id", id)
+        .eq("psychologist_id", id as string)
         .maybeSingle(),
-    ]).then(([profileRes, reviewsRes, ratingRes]) => {
-      if (profileRes.error) {
+
+      user
+        ? supabase.from("bookings").select("id, booked_at").eq("patient_id", user.id).eq("psychologist_id", id as string).eq("status", "done").order("booked_at", { ascending: false })
+        : Promise.resolve({ data: [] as { id: string; booked_at: string }[] }),
+      user
+        ? supabase.from("reviews").select("booking_id").eq("patient_id", user.id).eq("psychologist_id", id as string)
+        : Promise.resolve({ data: [] as { booking_id: string | null }[] }),
+    ]).then(([profileRes, reviewsRes, ratingRes, doneRes, mineRes]) => {
+      if (profileRes.error || !profileRes.data) {
         console.error("Error fetching psychologist profile:", profileRes.error);
         toast.error(t("prof.toast.loadError"));
         navigate("/psychologues");
@@ -114,10 +124,13 @@ const Profil = () => {
       if (profileRes.data) setPsyProfile(profileRes.data as unknown as PsyProfile);
       if (reviewsRes.data) {
         setReviews(reviewsRes.data as Review[]);
-        if (user) {
-          setUserAlreadyReviewed(reviewsRes.data.some((r: Review) => r.patient_id === user.id));
-        }
       }
+      const reviewed = new Set((mineRes.data ?? []).map((r) => r.booking_id));
+      const open = ((doneRes.data ?? []) as { id: string; booked_at: string }[]).filter((b) => !reviewed.has(b.id));
+      setReviewableBookings(open);
+      const wanted = searchParams.get("review");
+      setReviewBookingId(open.find((b) => b.id === wanted)?.id ?? open[0]?.id ?? null);
+      if (wanted && open.some((b) => b.id === wanted)) { setTab("avis"); setShowReviewModal(true); }
       if (ratingRes.data) {
         setRatingStats(ratingRes.data as RatingStats);
       } else {
@@ -125,6 +138,7 @@ const Profil = () => {
       }
       setLoading(false);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isUUID, user, navigate]);
 
   // ── Derived display values ────────────────────────────────────────────────
@@ -134,9 +148,10 @@ const Profil = () => {
   const bio        = psyProfile?.bio ?? null;
   const approach    = psyProfile?.approach ?? null;
   const formations  = psyProfile?.formations ?? null;
-  const price      = psyProfile?.price_per_session ?? 3000;
+  const price      = psyProfile?.price_per_session ?? null;
   const exp        = psyProfile?.years_experience ?? 0;
-  const langs      = psyProfile?.language ? [psyProfile.language] : ["Français"];
+  const langs      = (psyProfile?.language ? psyProfile.language.split(",").map((l) => l.trim()).filter(Boolean) : ["Français"])
+    .map((l) => (t(`editor.lang.${l}`).startsWith("editor.") ? l : t(`editor.lang.${l}`)));
   const avatarUrl  = psyProfile?.avatar_url ?? null;
 
   // ── Start a conversation with this psychologist ───────────────────────────
@@ -157,7 +172,7 @@ const Profil = () => {
   const reviewCount = ratingStats.review_count ?? 0;
   const bookingId  = id;
 
-  const locale = lang === "ar" ? "ar-SA" : "fr-FR";
+  const locale = lang === "ar" ? "ar-DZ" : "fr-FR";
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(locale, { month: "long", year: "numeric" });
 
@@ -171,13 +186,14 @@ const Profil = () => {
   // ── Submit review ─────────────────────────────────────────────────────────
   const submitReview = async () => {
     if (!user) { navigate("/connexion"); return; }
-    if (!isUUID) { toast.error(t("prof.toast.reviewRestricted")); return; }
+    if (!isUUID || !reviewBookingId) { toast.error(t("prof.reviewOnlyAfterSession")); return; }
     setSubmittingReview(true);
     const { error } = await supabase.from("reviews").insert({
       patient_id: user.id,
       psychologist_id: id!,
+      booking_id: reviewBookingId,
       rating: reviewRating,
-      comment: reviewComment,
+      comment: reviewComment.trim().slice(0, 2000) || null,
     });
     setSubmittingReview(false);
     if (error) {
@@ -185,13 +201,16 @@ const Profil = () => {
     } else {
       toast.success(t("prof.toast.reviewSuccess"));
       setShowReviewModal(false);
-      setUserAlreadyReviewed(true);
+      const remaining = reviewableBookings.filter((b) => b.id !== reviewBookingId);
+      setReviewableBookings(remaining);
+      setReviewBookingId(remaining[0]?.id ?? null);
+      setReviewComment("");
       setReviews(prev => [{
         id: crypto.randomUUID(),
         rating: reviewRating,
         comment: reviewComment,
         created_at: new Date().toISOString(),
-        patient_id: user.id,
+        is_mine: true,
       }, ...prev]);
       setRatingStats(prev => ({
         avg_rating: prev.avg_rating !== null
@@ -250,8 +269,15 @@ const Profil = () => {
                 </div>
               )}
               <div className="bg-card rounded-xl px-6 py-4 text-center w-full mt-1">
-                <div className="font-serif text-[28px] text-primary"><bdi>{price.toLocaleString()} DZD</bdi></div>
-                <div className="text-[13px] text-muted-foreground mt-0.5">{t("prof.session")}</div>
+                {price != null ? (
+                  <>
+                    <div className="text-[12px] text-muted-foreground">{t("psy.priceFrom")}</div>
+                    <div className="font-serif text-[28px] text-primary"><bdi>{price.toLocaleString()} DZD</bdi></div>
+                    <div className="text-[13px] text-muted-foreground mt-0.5">{t("prof.session")}</div>
+                  </>
+                ) : (
+                  <div className="text-sm text-muted-foreground">{t("prof.priceUnset")}</div>
+                )}
               </div>
             </div>
 
@@ -260,7 +286,7 @@ const Profil = () => {
                 <Clock className="w-[18px] h-[18px] text-primary shrink-0 mt-0.5" />
                 <div>
                   <div className="text-xs text-muted-foreground">{t("prof.experience")}</div>
-                  <div className="text-sm font-medium">{exp} ans</div>
+                  <div className="text-sm font-medium">{exp} {t("prof.yearsUnit")}</div>
                 </div>
               </div>
               <div className="flex items-start gap-3 mb-4">
@@ -284,15 +310,6 @@ const Profil = () => {
                   )}
                 </div>
               </div>
-              {psyProfile?.order_number && (
-                <div className="flex items-start gap-3 mb-4">
-                  <Award className="w-[18px] h-[18px] text-primary shrink-0 mt-0.5" />
-                  <div>
-                     <div className="text-xs text-muted-foreground">{t("prof.orderNumber")}</div>
-                    <div className="text-sm font-medium">{psyProfile.order_number}</div>
-                  </div>
-                </div>
-              )}
               <div className="h-px bg-border my-4" />
               <Link to={`/reservation/${bookingId}`}
                 className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-[15px] font-medium no-underline flex items-center justify-center gap-2 hover:bg-teal-mid transition-colors mb-2.5">
@@ -434,7 +451,10 @@ const Profil = () => {
                 </div>
 
                 {/* Leave a review button */}
-                {user && !userAlreadyReviewed && isUUID && (
+                {user && reviewableBookings.length === 0 && (
+                  <p className="text-xs text-muted-foreground mb-6 text-center">{t("prof.reviewOnlyAfterSession")}</p>
+                )}
+                {user && reviewableBookings.length > 0 && isUUID && (
                   <button onClick={() => setShowReviewModal(true)}
                     className="w-full mb-6 py-3 rounded-xl border-2 border-dashed border-teal-light text-primary text-[15px] font-medium bg-transparent cursor-pointer hover:bg-teal-pale transition-colors flex items-center justify-center gap-2">
                     <Star className="w-4 h-4" /> {t("prof.leaveReview")}
@@ -455,10 +475,10 @@ const Profil = () => {
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full bg-teal-pale flex items-center justify-center text-primary font-semibold text-sm">
-                              {r.patient_id === user?.id ? (user?.email?.[0].toUpperCase() ?? "M") : "P"}
+                              {r.is_mine ? (user?.email?.[0].toUpperCase() ?? "M") : "P"}
                             </div>
                             <span className="font-semibold text-sm">
-                              {r.patient_id === user?.id ? t("prof.you") : t("psy.common.patient")}
+                              {r.is_mine ? t("prof.you") : t("psy.common.patient")}
                             </span>
                           </div>
                           <span className="text-xs text-muted-foreground">{formatDate(r.created_at)}</span>
@@ -489,7 +509,15 @@ const Profil = () => {
               </button>
             </div>
 
-            <p className="text-sm text-muted-foreground mb-5">{t("prof.reviewRate")} {name}</p>
+            <p className="text-sm text-muted-foreground mb-3">{t("prof.reviewRate")} {name}</p>
+            {reviewableBookings.length > 1 && (
+              <select aria-label={t("prof.reviewSessionOf")} value={reviewBookingId ?? ""} onChange={(e) => setReviewBookingId(e.target.value)}
+                className="w-full mb-5 p-2.5 border border-border rounded-md text-sm bg-card">
+                {reviewableBookings.map((b) => (
+                  <option key={b.id} value={b.id}>{t("prof.reviewSessionOf")} {new Date(b.booked_at).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Algiers" })}</option>
+                ))}
+              </select>
+            )}
 
             {/* Star picker */}
             <div className="flex gap-2 justify-center mb-6">

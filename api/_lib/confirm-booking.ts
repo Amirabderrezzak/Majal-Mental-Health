@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatAlgiersLong } from "./slots.js";
 import { getPaymentGateway } from "./payment-gateway.js";
 import { sendBookingConfirmation, sendTherapistNewBooking } from "./email.js";
+import { getContact, wantsEmail } from "./db.js";
+import { flushPushes } from "./push.js";
 
 export interface ConfirmResult {
   status: number;
@@ -16,234 +18,174 @@ interface PaymentRow {
   duration_minutes: number;
   price: number;
   status: string;
+  created_at?: string;
   session_type?: string | null;
   sofizpay_transaction_id?: string | null;
+  booking_id?: string | null;
+  instant_request_id?: string | null;
+}
+
+const now = () => new Date().toISOString();
+
+/**
+ * Patient-facing confirm (called from /payment/return): the caller must own the
+ * payment, then the shared finalizer runs.
+ */
+export async function confirmPaymentBooking(db: SupabaseClient, paymentId: string, userId: string): Promise<ConfirmResult> {
+  if (!paymentId) return { status: 400, body: { error: "payment_id is required" } };
+  if (!userId) return { status: 401, body: { error: "Missing authorization" } };
+
+  const { data: payment } = await db.from("payments").select("*").eq("id", paymentId).maybeSingle<PaymentRow>();
+  if (!payment) return { status: 404, body: { error: "Payment not found" } };
+  if (payment.patient_id !== userId) return { status: 403, body: { error: "You do not own this payment" } };
+  return finalizePayment(db, payment);
 }
 
 /**
- * Confirms a payment and creates/updates its booking.
+ * Verifies a payment with the gateway and, if it is paid, confirms its booking.
+ * Used by the patient's return page AND by the scheduled job, which re-checks
+ * payments whose bank capture was still in progress (they used to be marked
+ * "failed" after 30 minutes even when the bank later took the money).
  *
- * Security model:
- *  - The caller MUST be authenticated and MUST own the payment (userId === payment.patient_id).
- *  - The payment is ONLY confirmed after verifying with the payment gateway that the
- *    transaction actually succeeded (gateway.checkStatus). This prevents anyone from
- *    confirming an unpaid payment and getting a free, confirmed booking.
- *
- * Uses the service-role client (db) so it can write beyond RLS.
+ * Never trusts the client: the gateway is always asked.
  */
-export async function confirmPaymentBooking(
-  db: SupabaseClient,
-  paymentId: string,
-  userId: string,
-): Promise<ConfirmResult> {
-  if (!paymentId) {
-    return { status: 400, body: { error: "payment_id is required" } };
-  }
-
-  if (!userId) {
-    return { status: 401, body: { error: "Missing authorization" } };
-  }
-
-  const { data: payment, error: fetchError } = await db
-    .from("payments")
-    .select("*")
-    .eq("id", paymentId)
-    .single<PaymentRow>();
-
-  if (fetchError || !payment) {
-    return { status: 404, body: { error: "Payment not found" } };
-  }
-
-  if (payment.patient_id !== userId) {
-    return { status: 403, body: { error: "You do not own this payment" } };
-  }
-
-  // Idempotent: a payment that is already confirmed has already produced its booking,
-  // and never produces another. We must not look the booking up by slot: it may have
-  // been rescheduled since, and re-creating the original slot would hand out a free
-  // extra session for a single payment.
+export async function finalizePayment(db: SupabaseClient, payment: PaymentRow): Promise<ConfirmResult> {
+  // Idempotent: a confirmed payment has already produced exactly one booking.
   if (payment.status === "confirmed") {
-    const { data: existingBooking } = await db
-      .from("bookings")
-      .select("id")
-      .eq("patient_id", payment.patient_id)
-      .eq("psychologist_id", payment.psychologist_id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    return { status: 200, body: { success: true, booking_id: existingBooking?.id ?? null, already_confirmed: true } };
+    return { status: 200, body: { success: true, booking_id: payment.booking_id ?? null, already_confirmed: true } };
+  }
+  if (payment.status === "failed" || payment.status === "cancelled") {
+    return { status: 400, body: { error: "Payment not confirmed" } };
   }
 
-  let paymentVerified = false;
-  let paymentFailed = false;
-
+  let verified = false;
+  let failed = false;
   if (payment.sofizpay_transaction_id) {
-    const gateway = getPaymentGateway();
-    const statusResult = await gateway.checkStatus(payment.sofizpay_transaction_id);
-    paymentVerified = statusResult.success;
-    paymentFailed = statusResult.failed;
-    console.log(`Payment ${paymentId} status check: ${statusResult.status}`);
+    const result = await getPaymentGateway().checkStatus(payment.sofizpay_transaction_id);
+    verified = result.success;
+    failed = result.failed;
   } else {
-    // No transaction id means the payment was never sent to the gateway.
-    paymentFailed = true;
+    failed = true; // never reached the gateway
   }
 
-  if (!paymentVerified) {
-    // Only release the reserved slot on a *definitive* failure (gateway reports
-    // the transaction failed/cancelled/expired). A "pending" status means the
-    // bank capture is still in flight — keep the booking pending so it isn't
-    // freed for someone else and can be re-checked later.
-    if (paymentFailed) {
-      await db
-        .from("payments")
-        .update({ status: "failed", updated_at: new Date().toISOString() })
-        .eq("id", paymentId);
-
-      await db
-        .from("bookings")
-        .update({ status: "cancelled", updated_at: new Date().toISOString() })
-        .eq("patient_id", payment.patient_id)
-        .eq("psychologist_id", payment.psychologist_id)
-        .eq("booked_at", payment.booked_at)
-        .eq("status", "pending");
-    } else {
-      await db
-        .from("payments")
-        .update({ status: "pending", updated_at: new Date().toISOString() })
-        .eq("id", paymentId);
+  if (!verified) {
+    if (failed) {
+      await db.from("payments").update({ status: "failed", updated_at: now() }).eq("id", payment.id).in("status", ["initiated", "pending"]);
+      if (payment.booking_id) {
+        await db.from("bookings").update({ status: "cancelled", cancelled_by: "system", updated_at: now() }).eq("id", payment.booking_id).eq("status", "pending");
+      }
+      return { status: 400, body: { error: "Payment not confirmed" } };
     }
-
-    return {
-      status: paymentFailed ? 400 : 202,
-      body: { error: paymentFailed ? "Payment not confirmed" : "Payment pending" },
-    };
+    await db.from("payments").update({ status: "pending", updated_at: now() }).eq("id", payment.id).eq("status", "initiated");
+    return { status: 202, body: { error: "Payment pending", pending: true } };
   }
 
-  // Find the reservation created at checkout (status "pending") or any existing
-  // booking for this exact slot. Scope by psychologist so a different patient
-  // can never hijack or duplicate the slot.
-  const { data: existingBooking } = await db
-    .from("bookings")
-    .select("id, patient_id, status")
-    .eq("psychologist_id", payment.psychologist_id)
-    .eq("booked_at", payment.booked_at)
-    .neq("status", "cancelled")
-    .maybeSingle();
+  // Paid. Promote our reservation, or (if it was released meanwhile) re-create it
+  // when the slot is still free.
+  let bookingId: string | null = null;
+  if (payment.booking_id) {
+    // The patient cancelled the reservation themselves while the bank was still
+    // capturing: honour the cancellation and refund in full.
+    const { data: held } = await db.from("bookings").select("status, cancelled_by").eq("id", payment.booking_id).maybeSingle();
+    if (held?.status === "cancelled" && held.cancelled_by && held.cancelled_by !== "system") {
+      await db.from("payments").update({ status: "failed", updated_at: now() }).eq("id", payment.id);
+      await db.from("refunds").insert({
+        payment_id: payment.id, patient_id: payment.patient_id, psychologist_id: payment.psychologist_id,
+        amount: payment.price, refund_percent: 100, compensation_amount: 0, reason: "paid_without_booking",
+        note: "Réservation annulée avant la fin du paiement.",
+      });
+      return { status: 409, body: { error: "Cette réservation a été annulée. Votre paiement sera intégralement remboursé." } };
+    }
+  }
+  if (payment.booking_id) {
+    const { data: updated } = await db.from("bookings")
+      .update({ status: "confirmed", price: payment.price, duration_minutes: payment.duration_minutes, session_type: payment.session_type ?? "individual", updated_at: now() })
+      .eq("id", payment.booking_id).in("status", ["pending", "cancelled"])
+      .or("status.eq.pending,cancelled_by.eq.system")
+      .select("id").maybeSingle();
+    if (updated) bookingId = updated.id;
+    else {
+      const { data: current } = await db.from("bookings").select("id, status").eq("id", payment.booking_id).maybeSingle();
+      if (current && current.status !== "pending" && current.status !== "cancelled") bookingId = current.id; // a concurrent confirm won
+    }
+  }
 
-  let bookingId = "";
+  // A second payment for a reservation that another payment already paid (the
+  // patient reopened checkout while the first capture was in flight): don't keep
+  // both — record a full refund for this one.
+  if (bookingId) {
+    const { data: other } = await db.from("payments").select("id")
+      .eq("booking_id", bookingId).eq("status", "confirmed").neq("id", payment.id).limit(1);
+    if (other && other.length > 0) {
+      await db.from("payments").update({ status: "failed", updated_at: now() }).eq("id", payment.id);
+      await db.from("refunds").insert({
+        payment_id: payment.id, patient_id: payment.patient_id, psychologist_id: payment.psychologist_id,
+        amount: payment.price, refund_percent: 100, compensation_amount: 0, reason: "paid_without_booking",
+        note: "Doublon : cette séance était déjà payée par un autre paiement.",
+      });
+      return { status: 409, body: { error: "Cette séance était déjà payée. Ce second paiement sera intégralement remboursé." } };
+    }
+  }
 
-  if (existingBooking) {
-    if (existingBooking.patient_id !== payment.patient_id) {
-      await db
-        .from("payments")
-        .update({ status: "failed", updated_at: new Date().toISOString() })
-        .eq("id", paymentId);
-      return { status: 409, body: { error: "Ce créneau est déjà réservé par un autre patient." } };
-    }
-    if (existingBooking.status !== "pending") {
-      // Already confirmed/done (e.g. a concurrent confirm won the race): nothing to promote.
-      bookingId = existingBooking.id;
-    } else {
-    // Our reservation — promote pending → confirmed.
-    const { data: updated, error: updErr } = await db
-      .from("bookings")
-      .update({
-        status: "confirmed",
-        price: payment.price,
-        duration_minutes: payment.duration_minutes,
-        session_type: payment.session_type,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", existingBooking.id)
-      .eq("status", "pending")
-      .select()
-      .single();
-    if (updErr || !updated) {
-      console.error("Booking confirm error:", updErr);
-      return { status: 500, body: { error: "Failed to confirm booking" } };
-    }
-    bookingId = updated.id;
-    }
-  } else {
-    // Fallback: no reservation row (payment created before reservations were
-    // reserved at checkout). Create the confirmed booking now.
-    const { data: booking, error: bookingError } = await db
-      .from("bookings")
-      .insert({
+  if (!bookingId) {
+    const { data: booking, error } = await db.from("bookings").insert({
+      patient_id: payment.patient_id,
+      psychologist_id: payment.psychologist_id,
+      booked_at: payment.booked_at,
+      duration_minutes: payment.duration_minutes,
+      status: "confirmed",
+      price: payment.price,
+      session_type: payment.session_type ?? "individual",
+      session_kind: payment.instant_request_id ? "instant" : "scheduled",
+      instant_request_id: payment.instant_request_id ?? null,
+    }).select("id").single();
+
+    if (error || !booking) {
+      // The slot went to someone else while the bank was capturing. The patient
+      // paid, so record a full refund for an admin to process.
+      await db.from("payments").update({ status: "failed", updated_at: now() }).eq("id", payment.id);
+      await db.from("refunds").insert({
+        payment_id: payment.id,
         patient_id: payment.patient_id,
         psychologist_id: payment.psychologist_id,
-        booked_at: payment.booked_at,
-        duration_minutes: payment.duration_minutes,
-        status: "confirmed",
-        price: payment.price,
-        session_type: payment.session_type ?? "individual",
-      })
-      .select()
-      .single();
-    if (bookingError || !booking) {
-      // 23505 = unique_violation. idx_unique_active_booking(psychologist_id,
-      // booked_at) is the DB-level backstop for the TOCTOU window between the
-      // existingBooking SELECT above and this INSERT: two concurrent confirms
-      // for the same slot (different patients, no prior reservation row) can
-      // both pass that SELECT before either writes. The loser hits this
-      // constraint instead of silently double-booking the slot.
-      if (bookingError?.code === "23505") {
-        await db
-          .from("payments")
-          .update({ status: "failed", updated_at: new Date().toISOString() })
-          .eq("id", paymentId);
-        return { status: 409, body: { error: "Ce créneau est déjà réservé par un autre patient." } };
-      }
-      console.error("Booking creation error:", bookingError);
-      return { status: 500, body: { error: "Failed to create booking after payment" } };
+        amount: payment.price,
+        refund_percent: 100,
+        compensation_amount: 0,
+        reason: "paid_without_booking",
+        note: "Paiement capturé après la libération du créneau.",
+      });
+      return { status: 409, body: { error: "Ce créneau a été réservé entre-temps. Votre paiement sera intégralement remboursé." } };
     }
     bookingId = booking.id;
   }
 
-  await db
-    .from("payments")
-    .update({ status: "confirmed", updated_at: new Date().toISOString() })
-    .eq("id", paymentId);
+  // The reservation row may be a re-created one, so a 23505 on the conditional
+  // update above is impossible here; mark the payment last.
+  await db.from("payments").update({ status: "confirmed", booking_id: bookingId, updated_at: now() }).eq("id", payment.id);
 
-  const { data: patientProfile } = await db
-    .from("profiles")
-    .select("full_name")
-    .eq("user_id", payment.patient_id)
-    .single();
-
-  const { data: patientAuth } = await db.auth.admin.getUserById(payment.patient_id);
-
-  const { data: therapistProfile } = await db
-    .from("profiles")
-    .select("full_name")
-    .eq("user_id", payment.psychologist_id)
-    .single();
-
-  const { data: therapistAuth } = await db.auth.admin.getUserById(payment.psychologist_id);
-
+  const [patient, therapist] = await Promise.all([getContact(db, payment.patient_id), getContact(db, payment.psychologist_id)]);
   const dateStr = formatAlgiersLong(payment.booked_at);
-
-  if (patientAuth?.user?.email && patientProfile) {
+  if (patient.email) {
     await sendBookingConfirmation({
-      patientEmail: patientAuth.user.email,
-      patientName: patientProfile.full_name || "Patient",
-      therapistName: therapistProfile?.full_name || "Thérapeute",
+      patientEmail: patient.email,
+      patientName: patient.name || "Patient",
+      therapistName: therapist.name || "Thérapeute",
       date: dateStr,
       duration: payment.duration_minutes,
       price: payment.price,
-      bookingId,
+      bookingId: bookingId as string,
     }).catch(console.error);
   }
-
-  if (therapistAuth?.user?.email && therapistProfile) {
+  if (therapist.email && wantsEmail(therapist, "newBookings")) {
     await sendTherapistNewBooking({
-      therapistEmail: therapistAuth.user.email,
-      therapistName: therapistProfile.full_name || "Thérapeute",
-      patientName: patientProfile?.full_name || "Patient",
+      therapistEmail: therapist.email,
+      therapistName: therapist.name || "Thérapeute",
+      patientName: patient.name || "Patient",
       date: dateStr,
       duration: payment.duration_minutes,
     }).catch(console.error);
   }
+  await flushPushes(db, [payment.patient_id, payment.psychologist_id]).catch(console.error);
 
   return { status: 200, body: { success: true, booking_id: bookingId } };
 }

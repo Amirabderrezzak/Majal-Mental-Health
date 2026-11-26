@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-const VAPID_KEY = "BGfH7txiGVGr7ZCAFQAlh8qjwGDqLAgIPztMM33NeeOsvnI3tj3Fe2fg5mDzJDHcLv_btn8ITCiIduvwoU5O0zc";
+// Must match the server's key pair (api/_lib/push.ts reads the same env var).
+// The hard-coded fallback is the current production public key.
+const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "BGfH7txiGVGr7ZCAFQAlh8qjwGDqLAgIPztMM33NeeOsvnI3tj3Fe2fg5mDzJDHcLv_btn8ITCiIduvwoU5O0zc";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -35,10 +37,13 @@ export function usePushNotifications(userId: string | null) {
       const [sub, pref] = await Promise.all([checkSubscription(), fetchPreference()]);
       setPrefsLoaded(true);
       // If preference says on but no browser subscription, subscribe once on initial load
-      if (pref && !sub) {
+      // Re-subscribe silently only if permission was already granted: asking for
+      // permission on page load (no user gesture) gets the site blocked.
+      if (pref && !sub && Notification.permission === "granted") {
         await doSubscribe();
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per user
   }, [userId, isSupported]);
 
   const fetchPreference = async (): Promise<boolean> => {
@@ -94,6 +99,7 @@ export function usePushNotifications(userId: string | null) {
   };
 
   const doSubscribe = async () => {
+    if (!userId) return false;
     try {
       const permissionResult = await Notification.requestPermission();
       setPermission(permissionResult);
@@ -170,6 +176,7 @@ export function usePushNotifications(userId: string | null) {
     }
     setLoading(false);
     return false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- helpers close over the same userId
   }, [userId, preferenceEnabled, isSupported]);
 
   return {

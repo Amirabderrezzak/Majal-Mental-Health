@@ -392,7 +392,7 @@ export default function PsyDashboard({
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className={`text-[11px] ${isActive ? "text-primary font-semibold" : "text-muted-foreground"} flex items-center gap-1`}>
                             <Clock className="w-3 h-3" />
-                            {isActive ? "En direct" : timeState === "upcoming" ? formatRelativeTime(s.booked_at, now) : new Date(s.booked_at).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}
+                            {isActive ? "En direct" : timeState === "upcoming" ? formatRelativeTime(s.booked_at, now) : new Date(s.booked_at).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", timeZone: "Africa/Algiers" })}
                           </span>
                           <span className="text-[10px] text-muted-foreground/60">· {s.duration_minutes}min</span>
                         </div>

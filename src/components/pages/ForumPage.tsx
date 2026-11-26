@@ -9,7 +9,7 @@ import { toast } from "sonner";
 export default function ForumPage() {
   const { t, lang, dir } = useLanguage();
   const { user } = useAuth();
-  const locale = lang === "ar" ? "ar-SA" : "fr-FR";
+  const locale = lang === "ar" ? "ar-DZ" : "fr-FR";
   const [forumThreads, setForumThreads] = useState<{ id: string; category: string; title: string; author: string; content: string; date: string; replies: { author: string; content: string; isPsy?: boolean; date: string }[] }[]>([]);
   const [selectedThread, setSelectedThread] = useState<any | null>(null);
   const [forumCategory, setForumCategory] = useState("all");
@@ -20,16 +20,18 @@ export default function ForumPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchForumThreads = async () => {
-    const { data: threadsData } = await (supabase as any)
-      .from("forum_threads")
-      .select("id, category, title, content, created_at, author_id")
+    // Public views: no author ids (posting "anonymously" used to expose the
+    // author's user id to everyone), only a name for approved therapists.
+    const { data: threadsData } = await supabase
+      .from("forum_threads_public")
+      .select("id, category, title, content, created_at, author_label")
       .order("created_at", { ascending: false });
 
     if (threadsData) {
       const threadIds = threadsData.map((t: any) => t.id);
-      const { data: repliesData } = await (supabase as any)
-        .from("forum_replies")
-        .select("id, thread_id, content, created_at, author_id, profiles(full_name, user_type)")
+      const { data: repliesData } = await supabase
+        .from("forum_replies_public")
+        .select("id, thread_id, content, created_at, author_label")
         .in("thread_id", threadIds)
         .order("created_at", { ascending: true });
 
@@ -39,13 +41,13 @@ export default function ForumPage() {
           id: t.id,
           category: t.category,
           title: t.title,
-          author: "Anonyme",
+          author: t.author_label || "Anonyme",
           content: t.content,
           date: t.created_at,
           replies: repliesForThread.map((r: any) => ({
-            author: r.profiles?.user_type === "psychologue" ? r.profiles?.full_name || "Thérapeute" : "Anonyme",
+            author: r.author_label || "Anonyme",
             content: r.content,
-            isPsy: r.profiles?.user_type === "psychologue",
+            isPsy: !!r.author_label,
             date: r.created_at,
           })),
         };
@@ -115,7 +117,7 @@ export default function ForumPage() {
         author_id: user?.id,
         content: commentText.trim()
       })
-      .select('id, content, created_at, author_id, profiles(full_name, user_type)')
+      .select('id')
       .single();
 
     if (error) {
@@ -123,11 +125,12 @@ export default function ForumPage() {
     } else if (data) {
       toast.success("Votre réponse a été publiée !");
       setCommentText("");
+      const { data: mine } = await supabase.from("forum_replies_public").select("content, created_at, author_label").eq("id", data.id).maybeSingle();
       const newReply = {
-        author: data.profiles?.user_type === 'psychologue' ? data.profiles?.full_name || "Thérapeute" : "Anonyme",
-        content: data.content,
-        isPsy: data.profiles?.user_type === 'psychologue',
-        date: data.created_at
+        author: mine?.author_label || "Anonyme",
+        content: mine?.content ?? commentText.trim(),
+        isPsy: !!mine?.author_label,
+        date: mine?.created_at ?? new Date().toISOString(),
       };
       const updatedReplies = [...selectedThread.replies, newReply];
       setSelectedThread({ ...selectedThread, replies: updatedReplies });

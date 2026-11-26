@@ -1,6 +1,20 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Created lazily: `new Resend(undefined)` throws, which used to crash every API
+// function that imported this file whenever RESEND_API_KEY was not set.
+let client: Resend | null = null;
+const resend = {
+  emails: {
+    send: async (payload: Parameters<Resend['emails']['send']>[0]) => {
+      if (!process.env.RESEND_API_KEY) {
+        console.warn(`[email] RESEND_API_KEY not set — skipped "${(payload as any).subject}" to ${(payload as any).to}`);
+        return { data: null, error: null };
+      }
+      client ??= new Resend(process.env.RESEND_API_KEY);
+      return client.emails.send(payload);
+    },
+  },
+};
 const FROM = process.env.EMAIL_FROM || 'Majal <noreply@majal.dz>';
 const SITE = process.env.FRONTEND_URL || 'https://majalpsy.com';
 
@@ -68,7 +82,7 @@ export async function sendBookingConfirmation(opts: {
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0;margin-bottom:24px;">
         <tr><td style="padding:20px 24px;">
           <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>👨‍⚕️ Thérapeute :</strong> ${escapeHtml(opts.therapistName)}</p>
-          <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>📅 Date & Heure :</strong> ${opts.date}</p>
+          <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>📅 Date & Heure :</strong> ${escapeHtml(opts.date)}</p>
           <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>⏱ Durée :</strong> ${opts.duration} minutes</p>
           <p style="margin:0;font-size:14px;color:#374151;"><strong>💳 Montant payé :</strong> ${opts.price.toLocaleString('fr-DZ')} DA</p>
         </td></tr>
@@ -97,7 +111,7 @@ export async function sendTherapistNewBooking(opts: {
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border-radius:10px;border:1px solid #bfdbfe;margin-bottom:24px;">
         <tr><td style="padding:20px 24px;">
           <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>👤 Patient :</strong> ${escapeHtml(opts.patientName)}</p>
-          <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>📅 Date & Heure :</strong> ${opts.date}</p>
+          <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>📅 Date & Heure :</strong> ${escapeHtml(opts.date)}</p>
           <p style="margin:0;font-size:14px;color:#374151;"><strong>⏱ Durée :</strong> ${opts.duration} minutes</p>
         </td></tr>
       </table>
@@ -346,20 +360,40 @@ export async function sendContactFormEmail(opts: {
   });
 }
 
-// ── 10. No-Show Notification ──────────────────────────────────────────────────
+// ── 10. Missed session (attendance check) ─────────────────────────────────────
+// `absent` says who did not join the video room. A therapist who never showed up
+// used to be reported to the patient as the patient's own "absence non justifiée".
 export async function sendNoShowNotification(opts: {
   recipientEmail: string;
   recipientName: string;
   partnerName: string;
   date: string;
   userType: 'patient' | 'psychologue';
+  absent: 'patient' | 'psychologist' | 'both';
+  refundPercent: number;
   compensationPercent: number;
 }) {
   const isPatient = opts.userType === 'patient';
-  const heading = isPatient ? 'Absence non justifiée' : 'Patient absent à la séance';
-  const bodyText = isPatient
-    ? `Vous n'avez pas assisté à votre séance avec le <strong>Dr. ${escapeHtml(opts.partnerName)}</strong> du <strong>${escapeHtml(opts.date)}</strong>.<br><br>Conformément à notre politique d'annulation, aucun remboursement ne sera effectué.`
-    : `Le patient <strong>${escapeHtml(opts.partnerName)}</strong> ne s'est pas présenté à la séance du <strong>${escapeHtml(opts.date)}</strong>.<br><br>Vous recevrez une compensation de <strong>${opts.compensationPercent}%</strong>.`;
+  const partner = escapeHtml(opts.partnerName);
+  const date = escapeHtml(opts.date);
+  let heading: string;
+  let bodyText: string;
+  if (opts.absent === 'patient') {
+    heading = isPatient ? 'Séance manquée' : 'Patient absent à la séance';
+    bodyText = isPatient
+      ? `Vous n'avez pas rejoint votre séance avec le <strong>Dr. ${partner}</strong> du <strong>${date}</strong>.<br><br>Conformément à notre politique d'annulation, aucun remboursement ne sera effectué.`
+      : `Le patient <strong>${partner}</strong> ne s'est pas présenté à la séance du <strong>${date}</strong>.<br><br>Vous recevrez une compensation de <strong>${opts.compensationPercent}%</strong>.`;
+  } else if (opts.absent === 'psychologist') {
+    heading = isPatient ? 'Votre thérapeute n\'a pas pu assurer la séance' : 'Séance manquée';
+    bodyText = isPatient
+      ? `Votre thérapeute, le <strong>Dr. ${partner}</strong>, n'a pas rejoint la séance du <strong>${date}</strong>. Nous en sommes désolés.<br><br>Vous serez remboursé(e) à <strong>${opts.refundPercent}%</strong>.`
+      : `Vous n'avez pas rejoint la séance du <strong>${date}</strong> avec <strong>${partner}</strong>. Le patient est remboursé intégralement et aucune compensation n'est due.`;
+  } else {
+    heading = 'Séance non tenue';
+    bodyText = isPatient
+      ? `Ni vous ni votre thérapeute n'avez rejoint la séance du <strong>${date}</strong>. Vous serez remboursé(e) à <strong>${opts.refundPercent}%</strong>.`
+      : `Ni vous ni le patient <strong>${partner}</strong> n'avez rejoint la séance du <strong>${date}</strong>. Le patient est remboursé.`;
+  }
 
   const redirectLink = isPatient
     ? `${SITE}/mon-espace?page=sessions`
@@ -368,7 +402,7 @@ export async function sendNoShowNotification(opts: {
   return resend.emails.send({
     from: FROM,
     to: opts.recipientEmail,
-    subject: '⚠️ Absence non justifiée — Majal',
+    subject: `⚠️ ${heading} — Majal`,
     html: wrap(`
       <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">${heading}</h2>
       <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Bonjour <strong>${escapeHtml(opts.recipientName)}</strong>,</p>
@@ -377,4 +411,3 @@ export async function sendNoShowNotification(opts: {
     `),
   });
 }
-

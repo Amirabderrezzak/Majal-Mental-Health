@@ -8,6 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useNow } from "@/hooks/useNow";
 import { SessionCardSkeleton } from "@/components/LoadingSkeletons";
 import GoalsWidget from "./GoalsWidget";
+import { joinSession } from "@/lib/sessionApi";
 import CrisisHelpline from "./CrisisHelpline";
 
 const SESSION_OPEN_MINUTES = 15;
@@ -94,33 +95,35 @@ export default function PatientDashboard({
 
   const activeSession = upcoming.find(b => getSessionTimeStateFromProps(b.booked_at, b.duration_minutes) === "active");
 
+  // Joining asks the server for a personal, token-protected link. Either party
+  // can open the room, so the patient is no longer stuck waiting for the
+  // therapist to click "start".
+  const [joining, setJoining] = useState(false);
+  const join = useCallback(async (b: Booking) => {
+    const state = getSessionTimeStateFromProps(b.booked_at, b.duration_minutes);
+    if (state === "upcoming") { toast.info(t("space.dashboard.toast.notOpen")); return; }
+    if (state === "ended") { toast.info(t("space.dashboard.toast.ended")); return; }
+    setJoining(true);
+    try {
+      await joinSession(b.id);
+    } catch (err: any) {
+      toast.error(err?.message || t("space.dashboard.toast.roomNotStarted"));
+    } finally {
+      setJoining(false);
+    }
+  }, [getSessionTimeStateFromProps, t]);
+
   const handleDoubleTap = useCallback(() => {
     const time = Date.now();
-    if (time - lastTapRef.current < 300) {
-      if (nextSession?.video_room_url) {
-        window.open(nextSession.video_room_url, "_blank");
-      } else {
-        toast.info(t("space.dashboard.toast.roomNotStarted"));
-      }
-    }
+    if (time - lastTapRef.current < 300 && nextSession) join(nextSession);
     lastTapRef.current = time;
-  }, [nextSession]);
+  }, [nextSession, join]);
 
   const joinNextSession = useCallback(() => {
-    if (nextSession?.video_room_url) window.open(nextSession.video_room_url, "_blank");
-    else toast.info(t("space.dashboard.toast.roomNotStarted"));
-  }, [nextSession]);
+    if (nextSession) join(nextSession);
+  }, [nextSession, join]);
 
-  const handleJoinClick = useCallback((b: Booking) => {
-    const state = getSessionTimeStateFromProps(b.booked_at, b.duration_minutes);
-    if (state !== "active") {
-      if (state === "upcoming") toast.info(t("space.dashboard.toast.notOpen"));
-      else toast.info(t("space.dashboard.toast.ended"));
-      return;
-    }
-    if (b.video_room_url) window.open(b.video_room_url, "_blank");
-    else toast.info(t("space.dashboard.toast.roomNotStarted"));
-  }, [getSessionTimeStateFromProps]);
+  const handleJoinClick = join;
 
   const timeStateBorder = (state: "upcoming" | "active" | "ended") => {
     if (state === "active") return "border-s-4 border-s-primary bg-gradient-to-r from-teal-pale to-transparent";
@@ -220,14 +223,13 @@ export default function PatientDashboard({
                     <h4 className="font-semibold text-sm text-foreground">{t("pd.prepSession")}</h4>
                     <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                       {t("pd.prepStart")} <strong>{nextSession.psychologist_name}</strong> {t("pd.prepEnd")}
-                      {nextSession.video_room_url
-                        ? t("pd.prepRoomReady")
-                        : t("pd.prepLinkLater")}
+                      {t("pd.prepLinkLater")}
                     </p>
                     <div className="flex gap-2.5 mt-3">
-                      {nextSession.video_room_url && (
+                      {getSessionTimeStateFromProps(nextSession.booked_at, nextSession.duration_minutes) === "active" && (
                         <button
-                          onClick={() => window.open(nextSession.video_room_url!, "_blank")}
+                          onClick={() => join(nextSession)}
+                          disabled={joining}
                           className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold border-none cursor-pointer hover:bg-teal-mid transition-all active:scale-95"
                         >
                            <Video className="w-3.5 h-3.5" /> {t("pd.accessRoom")}

@@ -28,12 +28,11 @@ const Index = () => {
 
   useEffect(() => {
     const fetchStats = async () => {
-      const [psyRes, sessRes] = await Promise.all([
-        supabase.from("profiles").select("user_id", { count: "exact", head: true })
-          .eq("user_type", "psychologue").eq("approval_status", "approved"),
-        supabase.from("bookings").select("id", { count: "exact", head: true })
-          .eq("status", "done"),
-      ]);
+      // Anonymous visitors cannot count rows under RLS (the counters always read
+      // 0); a definer function returns just the two public numbers.
+      const { data } = await supabase.rpc("public_stats");
+      const psyRes = { count: (data as { psychologists?: number } | null)?.psychologists ?? 0 };
+      const sessRes = { count: (data as { sessions?: number } | null)?.sessions ?? 0 };
       setStats({
         psychologists: psyRes.count ?? 0,
         sessions: sessRes.count ?? 0,

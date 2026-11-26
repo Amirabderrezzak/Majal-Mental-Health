@@ -73,7 +73,11 @@ export default function PatientProfilePage({
   const saveProfile = async () => {
     if (!user) return;
     setSaving(true);
-    const { error } = await supabase.from("profiles").upsert({ user_id: user.id, ...profile });
+    // update, not upsert: an upsert without onConflict tried to INSERT a second
+    // row for this user (user_id is UNIQUE), so saving the profile always failed.
+    const { error } = await supabase.from("profiles").update({
+      full_name: profile.full_name, phone: profile.phone, language: profile.language, avatar_url: profile.avatar_url,
+    }).eq("user_id", user.id);
     setSaving(false);
     if (error) toast.error("Erreur lors de la sauvegarde.");
     else toast.success("Profil mis à jour !");
@@ -81,8 +85,8 @@ export default function PatientProfilePage({
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 6) {
-      toast.error("Le mot de passe doit contenir au moins 6 caractères.");
+    if (newPassword.length < 8) {
+      toast.error("Le mot de passe doit contenir au moins 8 caractères.");
       return;
     }
     setChangingPassword(true);
@@ -159,9 +163,9 @@ export default function PatientProfilePage({
                 onChange={e => setProfile((p: any) => ({ ...p, language: e.target.value }))}
                 className="px-4 py-3 border border-border/70 rounded-xl text-sm bg-teal-hero/30 outline-none hover:border-primary/30 focus:border-primary focus:bg-card transition-all font-sans cursor-pointer"
               >
-                <option>{t("space.lang.french")}</option>
-                <option>{t("space.lang.arabic")}</option>
-                <option>{t("space.lang.english")}</option>
+                <option value="Français">{t("space.lang.french")}</option>
+                <option value="Arabe">{t("space.lang.arabic")}</option>
+                <option value="Anglais">{t("space.lang.english")}</option>
               </select>
             </div>
           </div>

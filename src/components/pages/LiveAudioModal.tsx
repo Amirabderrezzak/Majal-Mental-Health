@@ -34,7 +34,7 @@ export default function LiveAudioModal({ roomUrl, title, onClose }: LiveAudioMod
 
       <div className="flex-1 relative bg-black">
         <iframe
-          src={`${roomUrl}?embedMode=iframe`}
+          src={`${roomUrl}${roomUrl.includes("?") ? "&" : "?"}embedMode=iframe`}
           className="w-full h-full flex-1 border-0 absolute inset-0"
           allow="camera; microphone; fullscreen; speaker; autoplay"
           title={title || "Live audio room"}

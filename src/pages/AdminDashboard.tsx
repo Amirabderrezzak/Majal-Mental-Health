@@ -3,14 +3,30 @@ import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Users, Calendar, Star, Shield,
   LogOut, Menu, X, Check, XCircle, Crown, Trash2,
-  TrendingUp, UserCheck, AlertCircle, Ban,
+  TrendingUp, UserCheck, AlertCircle, Ban, Banknote,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-type Tab = "dashboard" | "users" | "bookings" | "reviews" | "admins" | "cancellations";
+type Tab = "dashboard" | "users" | "bookings" | "reviews" | "admins" | "cancellations" | "refunds";
+
+interface Refund {
+  id: string;
+  booking_id: string | null;
+  patient_id: string;
+  psychologist_id: string;
+  amount: number;
+  refund_percent: number;
+  compensation_amount: number;
+  reason: string;
+  status: "due" | "processed" | "waived";
+  note: string | null;
+  created_at: string;
+  patient_name?: string;
+  psychologist_name?: string;
+}
 
 interface Stats {
   totalPatients: number;
@@ -30,6 +46,8 @@ interface UserProfile {
   created_at: string;
   city: string;
   specialty: string;
+  order_number: string | null;
+  phone: string | null;
 }
 
 interface Booking {
@@ -87,6 +105,7 @@ const UsersTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{re
 const BookingsTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
 const ReviewsTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
 const AdminsTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
+const RefundsTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
 const CancellationsTabWrapper = ({ render }: { render: () => React.ReactNode }) => <>{render()}</>;
 
 export default function AdminDashboard() {
@@ -99,6 +118,7 @@ export default function AdminDashboard() {
   const [users, setUsers]       = useState<UserProfile[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [reviews, setReviews]   = useState<Review[]>([]);
+  const [refunds, setRefunds]   = useState<Refund[]>([]);
   const [loading, setLoading]   = useState(false);
   const [userFilter, setUserFilter] = useState<"all" | "patient" | "psychologue" | "pending">("all");
 
@@ -107,6 +127,7 @@ export default function AdminDashboard() {
     { id: "users",         label: t("admin.nav.users"),         icon: <Users className="w-4 h-4" /> },
     { id: "bookings",      label: t("admin.nav.bookings"),      icon: <Calendar className="w-4 h-4" /> },
     { id: "cancellations", label: t("admin.nav.cancellations"), icon: <Ban className="w-4 h-4" /> },
+    { id: "refunds",       label: t("admin.nav.refunds"),       icon: <Banknote className="w-4 h-4" /> },
     { id: "reviews",       label: t("admin.nav.reviews"),       icon: <Star className="w-4 h-4" /> },
     { id: "admins",        label: t("admin.nav.admins"),        icon: <Shield className="w-4 h-4" /> },
   ];
@@ -123,7 +144,9 @@ export default function AdminDashboard() {
             supabase.from("profiles").select("*", { count: "exact", head: true }).eq("user_type", "psychologue").eq("approval_status", "pending"),
             supabase.from("bookings").select("*", { count: "exact", head: true }),
             supabase.from("bookings").select("*", { count: "exact", head: true }).eq("status", "confirmed"),
-            supabase.from("bookings").select("price").eq("status", "confirmed"),
+            // Paid sessions: confirmed AND held ones (revenue used to drop as soon
+            // as a session was marked done).
+            supabase.from("bookings").select("price").in("status", ["confirmed", "done", "no-show"]),
           ]);
           
           const totalRevenue = (revenue.data ?? []).reduce((s: number, b: any) => s + (b.price || 0), 0);
@@ -137,7 +160,7 @@ export default function AdminDashboard() {
           });
         } else if (tab === "users" || tab === "admins") {
           const { data, error } = await supabase.from("profiles")
-            .select("user_id, full_name, user_type, approval_status, is_admin, created_at, city, specialty")
+            .select("user_id, full_name, user_type, approval_status, is_admin, created_at, city, specialty, order_number, phone")
             .order("created_at", { ascending: false });
           if (error) { toast.error(t("admin.toast.errorUsers")); return; }
           setUsers((data ?? []) as UserProfile[]);
@@ -155,6 +178,13 @@ export default function AdminDashboard() {
           if (error) { toast.error(t("admin.toast.errorReviews")); return; }
           const enriched = await enrichWithNames(data ?? [], "patient_id", "psychologist_id");
           setReviews(enriched as Review[]);
+        } else if (tab === "refunds") {
+          const { data, error } = await supabase.from("refunds")
+            .select("id, booking_id, patient_id, psychologist_id, amount, refund_percent, compensation_amount, reason, status, note, created_at")
+            .order("created_at", { ascending: false });
+          if (error) { toast.error(t("admin.toast.errorRefunds")); return; }
+          const enriched = await enrichWithNames(data ?? [], "patient_id", "psychologist_id");
+          setRefunds(enriched as Refund[]);
         } else if (tab === "cancellations") {
           const { data, error } = await supabase.from("bookings")
             .select("id, booked_at, status, duration_minutes, price, patient_id, psychologist_id")
@@ -175,6 +205,7 @@ export default function AdminDashboard() {
     };
 
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   const updateStatus = async (userId: string, status: string) => {
@@ -194,6 +225,15 @@ export default function AdminDashboard() {
         body: JSON.stringify({ therapist_id: userId, action: status }),
       }).then(async (r) => { if (!r.ok) { console.error('notify-therapist failed', r.status, await r.text()); toast.warning(t("admin.toast.emailFailed")); } }).catch(console.error);
     }
+  };
+
+  const setRefundStatus = async (id: string, status: "processed" | "waived") => {
+    const { error } = await supabase.from("refunds")
+      .update({ status, processed_at: new Date().toISOString(), processed_by: user?.id })
+      .eq("id", id);
+    if (error) { toast.error(t("admin.toast.updateFailed")); return; }
+    setRefunds(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+    toast.success(t("admin.refunds.updated"));
   };
 
   const toggleAdmin = async (userId: string, current: boolean) => {
@@ -303,7 +343,17 @@ export default function AdminDashboard() {
             <tbody>
               {filteredUsers.map(u => (
                 <tr key={u.user_id} className="border-b border-border hover:bg-background transition-colors">
-                  <td className="px-5 py-3.5 font-medium text-foreground">{u.full_name || "—"} {u.is_admin && <span className="ms-1 text-[10px] bg-teal-pale text-primary px-1.5 py-0.5 rounded-full font-semibold">Admin</span>}</td>
+                  <td className="px-5 py-3.5 font-medium text-foreground">
+                    {u.full_name || "—"} {u.is_admin && <span className="ms-1 text-[10px] bg-teal-pale text-primary px-1.5 py-0.5 rounded-full font-semibold">Admin</span>}
+                    {u.user_type === "psychologue" && (
+                      // What the admin needs to verify before approving (it was not shown at all).
+                      <div className="text-xs text-muted-foreground font-normal mt-1 space-y-0.5">
+                        <div>{t("admin.users.orderNumber")}: <span className="font-mono text-foreground">{u.order_number || "—"}</span></div>
+                        {u.specialty && <div>{u.specialty}</div>}
+                        {u.phone && <div><bdi>{u.phone}</bdi></div>}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-5 py-3.5 capitalize text-muted-foreground">{u.user_type === "psychologue" ? t("admin.users.typePsy") : t("admin.users.typePatient")}</td>
                   <td className="px-5 py-3.5"><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusBadge[u.approval_status] || ""}`}>{u.approval_status}</span></td>
                   <td className="px-5 py-3.5 text-muted-foreground">{u.city || "—"}</td>
@@ -490,6 +540,47 @@ export default function AdminDashboard() {
   );
   };
 
+  const reasonLabel = (r: string) => t(`admin.refunds.reason.${r}`);
+  const RefundsTab = () => (
+    <div>
+      <h1 className="text-2xl font-bold text-foreground mb-1">{t("admin.refunds.title")}</h1>
+      <p className="text-muted-foreground text-sm mb-6">{t("admin.refunds.desc")}</p>
+      {loading ? <Loader /> : (
+        <div className="bg-white rounded-2xl border border-border shadow-sm overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-background border-b border-border">
+              <tr>{[t("admin.refunds.col.date"), t("admin.refunds.col.patient"), t("admin.refunds.col.therapist"), t("admin.refunds.col.reason"), t("admin.refunds.col.amount"), t("admin.refunds.col.compensation"), t("admin.users.col.status"), t("admin.users.col.actions")].map(h => (
+                <th key={h} className="text-start px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{h}</th>
+              ))}</tr>
+            </thead>
+            <tbody>
+              {refunds.map(r => (
+                <tr key={r.id} className="border-b border-border">
+                  <td className="px-4 py-3 text-muted-foreground">{new Date(r.created_at).toLocaleDateString("fr-FR", { timeZone: "Africa/Algiers" })}</td>
+                  <td className="px-4 py-3">{r.patient_name}</td>
+                  <td className="px-4 py-3">{r.psychologist_name}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{reasonLabel(r.reason)}{r.note ? <div className="text-xs">{r.note}</div> : null}</td>
+                  <td className="px-4 py-3 font-semibold"><bdi>{r.amount.toLocaleString()} DA</bdi> <span className="text-xs text-muted-foreground">({r.refund_percent}%)</span></td>
+                  <td className="px-4 py-3"><bdi>{r.compensation_amount.toLocaleString()} DA</bdi></td>
+                  <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full font-medium ${r.status === "due" ? "bg-warning/10 text-warning" : "bg-teal-pale text-primary"}`}>{t(`admin.refunds.status.${r.status}`)}</span></td>
+                  <td className="px-4 py-3">
+                    {r.status === "due" && (
+                      <div className="flex gap-2">
+                        <button onClick={() => setRefundStatus(r.id, "processed")} className="text-xs bg-teal-pale text-primary px-2 py-1 rounded-lg cursor-pointer border-none">{t("admin.refunds.markProcessed")}</button>
+                        <button onClick={() => setRefundStatus(r.id, "waived")} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-lg cursor-pointer border-none">{t("admin.refunds.markWaived")}</button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {refunds.length === 0 && <tr><td colSpan={8} className="text-center py-10 text-muted-foreground text-sm">{t("admin.refunds.empty")}</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
   const tabMap: Record<Tab, React.ReactNode> = {
     dashboard:     <DashboardTabWrapper render={DashboardTab} />,
     users:         <UsersTabWrapper render={UsersTab} />,
@@ -497,6 +588,7 @@ export default function AdminDashboard() {
     cancellations: <CancellationsTabWrapper render={CancellationsTab} />,
     reviews:       <ReviewsTabWrapper render={ReviewsTab} />,
     admins:        <AdminsTabWrapper render={AdminsTab} />,
+    refunds:       <RefundsTabWrapper render={RefundsTab} />,
   };
 
   return (

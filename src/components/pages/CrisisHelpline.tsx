@@ -17,10 +17,13 @@ export default function CrisisHelpline() {
       </div>
 
       <div className="space-y-2.5 font-sans pt-2 border-t border-destructive/30">
+        <p className="text-xs text-destructive leading-relaxed">{t("space.crisis.guidance")}</p>
+        {/* Medical emergency first: for someone at risk of harming themselves the
+            first call should reach an ambulance, not the police. */}
         {[
-          { label: "Numéro Vert National (Gendarmerie)", number: "1055" },
-          { label: "Protection Civile", number: "14" },
-          { label: "Police Secours", number: "1548" },
+          { label: t("space.crisis.civil"), number: "14" },
+          { label: t("space.crisis.police"), number: "1548" },
+          { label: t("space.crisis.gendarmerie"), number: "1055" },
         ].map((h) => (
           <a
             key={h.number}

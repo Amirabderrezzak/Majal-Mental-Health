@@ -21,6 +21,10 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // `any` is still used at untyped boundaries (Vercel req/res, Supabase
+      // payloads). Reported as a warning so new code is nudged towards types
+      // without blocking CI on the existing backlog.
+      "@typescript-eslint/no-explicit-any": "warn",
     },
   },
 );

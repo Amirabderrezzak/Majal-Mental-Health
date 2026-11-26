@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export interface Notification {
@@ -16,19 +17,21 @@ export interface Notification {
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
+  // Follows the signed-in user (it used to read the session once at mount, so a
+  // different account on the same tab kept the previous user's feed).
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
   useEffect(() => {
     let channel: any;
+    setNotifications([]);
 
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
+      if (!userId) {
         setLoading(false);
         return;
       }
-      const uId = session.user.id;
-      setUserId(uId);
+      const uId = userId;
 
       // 1. Fetch initial notifications
       const { data, error } = await supabase
@@ -46,7 +49,7 @@ export function useNotifications() {
 
       // 2. Subscribe to realtime changes filtered by user_id
       channel = supabase
-        .channel(`public:notifications:user:${uId}`)
+        .channel(`notifications:${uId}:${Math.random().toString(36).slice(2)}`)
         .on(
           "postgres_changes",
           {
@@ -80,11 +83,9 @@ export function useNotifications() {
     init();
 
     return () => {
-      if (channel) {
-        channel.unsubscribe();
-      }
+      if (channel) supabase.removeChannel(channel);
     };
-  }, []);
+  }, [userId]);
 
   const markAsRead = async (id: string) => {
     // Optimistic update
@@ -103,7 +104,7 @@ export function useNotifications() {
       const { data } = await supabase
         .from("notifications")
         .select("*")
-        .eq("user_id", userId)
+        .eq("user_id", userId as string)
         .order("created_at", { ascending: false });
       if (data) setNotifications(data as Notification[]);
     }
@@ -127,7 +128,7 @@ export function useNotifications() {
       const { data } = await supabase
         .from("notifications")
         .select("*")
-        .eq("user_id", userId)
+        .eq("user_id", userId as string)
         .order("created_at", { ascending: false });
       if (data) setNotifications(data as Notification[]);
     }
@@ -148,7 +149,7 @@ export function useNotifications() {
       const { data } = await supabase
         .from("notifications")
         .select("*")
-        .eq("user_id", userId)
+        .eq("user_id", userId as string)
         .order("created_at", { ascending: false });
       if (data) setNotifications(data as Notification[]);
     }

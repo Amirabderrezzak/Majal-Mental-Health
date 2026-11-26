@@ -1,113 +1,87 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createClient } from "@supabase/supabase-js";
 import { sendNewMessageNotification } from "./_lib/email.js";
 import { rateLimit } from "./_lib/rate-limit.js";
+import { getDb, getCaller, cors, getContact, wantsEmail } from "./_lib/db.js";
+import { flushPushes } from "./_lib/push.js";
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-let supabase: any = null;
-try {
-  if (supabaseUrl && supabaseKey) {
-    supabase = createClient(supabaseUrl, supabaseKey);
-  }
-} catch (e) {
-  console.error("Failed to create Supabase client in messages/send:", e);
-}
-
-function cors(res: VercelResponse) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-}
+const MAX_CONTENT = 5000;
+const EMAIL_QUIET_MS = 15 * 60 * 1000;
 
 export const sendHandler = async (req: VercelRequest, res: VercelResponse) => {
   cors(res);
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  const db = getDb();
+  if (!db) return res.status(500).json({ error: "Database not configured" });
+  const user = await getCaller(db, req);
+  if (!user) return res.status(401).json({ error: "Invalid token" });
 
-  if (!supabase) {
-    return res.status(500).json({ error: "Database not configured" });
-  }
-
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Missing token" });
-
-  const token = authHeader.slice(7);
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !user) return res.status(401).json({ error: "Invalid token" });
-
-  // Abuse protection: messaging has no relationship restriction (a patient can
-  // legitimately message a psychologist before ever booking, to ask a
-  // question — see Profil.tsx), so rate limiting is the main spam guard.
+  // Messaging has no relationship restriction (a patient may ask a question
+  // before booking), so rate limiting is the main spam guard.
   const limit = rateLimit(req, { key: "send-message", windowMs: 10 * 60 * 1000, max: 60, id: user.id });
   if (!limit.ok) {
     res.setHeader("Retry-After", String(limit.retryAfter ?? 60));
     return res.status(429).json({ error: "Too many messages, please slow down." });
   }
 
-  const { receiver_id, content, file_url, file_type, file_name } = req.body;
-  if (!receiver_id) return res.status(400).json({ error: "receiver_id is required" });
+  const { receiver_id, content, file_url, file_type, file_name } = req.body || {};
+  if (!receiver_id || typeof receiver_id !== "string") return res.status(400).json({ error: "receiver_id is required" });
   if (receiver_id === user.id) return res.status(400).json({ error: "You cannot message yourself" });
+  const text = typeof content === "string" ? content.trim() : "";
+  if (!text && !file_url) return res.status(400).json({ error: "content or file_url is required" });
+  if (text.length > MAX_CONTENT) return res.status(400).json({ error: `Message trop long (${MAX_CONTENT} caractères maximum).` });
 
-  if (!content && !file_url) return res.status(400).json({ error: "content or file_url is required" });
-
-  const { data: receiverProfile, error: receiverError } = await supabase
-    .from("profiles")
-    .select("user_id")
-    .eq("user_id", receiver_id)
-    .maybeSingle();
-  if (receiverError || !receiverProfile) {
-    return res.status(404).json({ error: "Recipient not found" });
+  // An attachment must be a file the sender uploaded to their own folder. A
+  // free-form value let a sender point a message at anyone's storage path (the
+  // storage read policy trusts paths referenced by the reader's messages).
+  if (file_url != null) {
+    if (typeof file_url !== "string" || !file_url.startsWith(`${user.id}/`) || file_url.includes("..") || /[:?#\\]/.test(file_url)) {
+      return res.status(400).json({ error: "Pièce jointe invalide." });
+    }
   }
 
-  const { data: message, error: insertError } = await supabase.from("messages").insert({
+  const { data: receiver } = await db.from("profiles").select("user_id").eq("user_id", receiver_id).maybeSingle();
+  if (!receiver) return res.status(404).json({ error: "Recipient not found" });
+
+  // Before the insert, so the quiet-period check below doesn't see this message.
+  const { data: recent } = await db.from("messages").select("id")
+    .eq("sender_id", user.id).eq("receiver_id", receiver_id)
+    .gte("created_at", new Date(Date.now() - EMAIL_QUIET_MS).toISOString()).limit(1);
+
+  const { data: message, error: insertError } = await db.from("messages").insert({
     sender_id: user.id,
     receiver_id,
-    content: content || null,
+    content: text || null,
     file_url: file_url || null,
-    file_type: file_type || null,
-    file_name: file_name || null,
+    file_type: typeof file_type === "string" ? file_type.slice(0, 100) : null,
+    file_name: typeof file_name === "string" ? file_name.slice(0, 200) : null,
   }).select().single();
-
   if (insertError) {
     console.error("Failed to insert message:", insertError);
     return res.status(500).json({ error: "Failed to send message" });
   }
 
-  // Fetch sender and recipient names + email
-  const [senderProfile, recipientProfile] = await Promise.all([
-    supabase.from("profiles").select("full_name").eq("user_id", user.id).single(),
-    supabase.from("profiles").select("full_name, user_type").eq("user_id", receiver_id).single(),
-  ]);
-  const [recipientAuth] = await Promise.all([
-    supabase.auth.admin.getUserById(receiver_id),
-  ]);
-
-  const senderName = senderProfile.data?.full_name || "Utilisateur";
-  const recipientName = recipientProfile.data?.full_name || "Utilisateur";
-  const recipientEmail = recipientAuth?.data?.user?.email;
-  const recipientType = recipientProfile.data?.user_type || "patient";
-
-  // Send email notification asynchronously (don't block the response)
-  if (recipientEmail) {
-    sendNewMessageNotification({
-      recipientEmail,
-      recipientName,
-      senderName,
-      userType: recipientType === "psychologue" ? "psychologue" : "patient",
-    }).catch(console.error);
+  // One e-mail per conversation burst, not one per message, and only if the
+  // recipient wants message e-mails.
+  if (!recent || recent.length === 0) {
+    const [sender, recipient] = await Promise.all([getContact(db, user.id), getContact(db, receiver_id)]);
+    if (recipient.email && wantsEmail(recipient, "messages")) {
+      sendNewMessageNotification({
+        recipientEmail: recipient.email,
+        recipientName: recipient.name || "Utilisateur",
+        senderName: sender.name || "Utilisateur",
+        userType: recipient.userType === "psychologue" ? "psychologue" : "patient",
+      }).catch(console.error);
+    }
   }
+  await flushPushes(db, [receiver_id]).catch(console.error);
 
   return res.status(200).json(message);
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const action = (req.query.action as string) || "send";
-
-  switch (action) {
-    case "send":
-      return sendHandler(req, res);
-    default:
-      return res.status(400).json({ error: "Unknown or missing action" });
+  switch ((req.query.action as string) || "send") {
+    case "send": return sendHandler(req, res);
+    default: return res.status(400).json({ error: "Unknown or missing action" });
   }
 }

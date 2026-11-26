@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useSearchParams } from "react-router-dom";
+import { joinSession, apiPost, fmtDate } from "@/lib/sessionApi";
 import PsySidebar, { type Page } from "@/components/pages/PsySidebar";
 import PsyTopBar from "@/components/pages/PsyTopBar";
 import PsyDashboard from "@/components/pages/PsyDashboard";
@@ -37,7 +39,17 @@ export default function EspacePsy() {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const { isSupported: pushSupported, preferenceEnabled: pushSubscribed, loading: pushLoading, togglePreference: pushToggle } = usePushNotifications(user?.id ?? null);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
-  const [activePage, setActivePage] = useState<Page>("dashboard");
+  const [searchParams] = useSearchParams();
+  const PAGES: Page[] = ["dashboard", "sessions", "patients", "messages", "content", "earnings", "profile", "settings"];
+  const initialPage = searchParams.get("page") as Page | null;
+  // E-mail / push links use ?page=sessions etc.; they used to be ignored.
+  const [activePage, setActivePageState] = useState<Page>(initialPage && PAGES.includes(initialPage) ? initialPage : "dashboard");
+  const setActivePage = (p: string) => { if (PAGES.includes(p as Page)) setActivePageState(p as Page); };
+  useEffect(() => {
+    const p = searchParams.get("page") as Page | null;
+    if (p && PAGES.includes(p)) setActivePageState(p);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -80,29 +92,10 @@ export default function EspacePsy() {
       return;
     }
 
-    if (booking.video_room_url) {
-      window.open(booking.video_room_url, "_blank");
-      return;
-    }
-
     setStartingCall(bookingId);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch("/api/calls?action=room", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token}`
-        },
-        body: JSON.stringify({ booking_id: bookingId })
-      });
-      const data = await res.json();
-      if (res.ok && data.url) {
-        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, video_room_url: data.url } : b));
-        window.open(data.url, "_blank");
-      } else {
-        throw new Error(data.error || "Erreur lors de la création du salon.");
-      }
+      // Private room + personal token; the patient can join on their own too.
+      await joinSession(bookingId);
     } catch (err: any) {
       console.error("Start call error:", err);
       toast.error(err.message || "Impossible de lancer le salon vidéo.");
@@ -113,8 +106,8 @@ export default function EspacePsy() {
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 6) {
-      toast.error("Le mot de passe doit contenir au moins 6 caractères.");
+    if (newPassword.length < 8) {
+      toast.error("Le mot de passe doit contenir au moins 8 caractères.");
       return;
     }
     setChangingPassword(true);
@@ -130,7 +123,6 @@ export default function EspacePsy() {
   // Clinic and Patient Notes configurations
   const [clinicSettings, setClinicSettings] = useState({
     vacationMode: false,
-    autoConfirm: false,
     acceptingNew: true,
     // Same defaults the booking page and the server apply when nothing is saved,
     // so a new therapist sees exactly the hours patients are offered.
@@ -144,7 +136,6 @@ export default function EspacePsy() {
     newBookings: true,
     reminders: true,
     messages: false,
-    payments: true,
   });
 
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -173,10 +164,10 @@ export default function EspacePsy() {
           setVideoPreviewUrl(data.video_url);
         }
         if (data.clinic_settings) {
-          setClinicSettings(prev => ({ ...prev, ...data.clinic_settings }));
+          setClinicSettings(prev => ({ ...prev, ...(data.clinic_settings as Record<string, unknown>) }));
         }
         if (data.notification_preferences) {
-          setNotificationPreferences(prev => ({ ...prev, ...data.notification_preferences }));
+          setNotificationPreferences(prev => ({ ...prev, ...(data.notification_preferences as Record<string, boolean>) }));
         }
       }
     };
@@ -354,29 +345,14 @@ export default function EspacePsy() {
     setRespondingToRequest(requestId);
     if (accept) {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const res = await fetch("/api/calls?action=instant-room", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({
-            psychologist_id: user?.id,
-            request_id: requestId,
-          }),
-        });
-        const data = await res.json();
-        if (res.ok && data.url) {
-          setImmediateRequests((prev) => prev.filter((r) => r.id !== requestId));
-          toast.success("Session ouverte !");
-          window.open(data.url, "_blank");
-        } else {
-          toast.error(data.error || "Erreur lors de la création du salon.");
-        }
+        // Accepting no longer opens a free call: the patient is sent to payment,
+        // and the session then appears in "Séances" like any booking.
+        await apiPost("/api/calls?action=instant-accept", { request_id: requestId });
+        setImmediateRequests((prev) => prev.filter((r) => r.id !== requestId));
+        toast.success("Demande acceptée. Le patient finalise le paiement ; la séance apparaîtra dans vos séances.");
       } catch (err: any) {
         console.error("[Video] Accept error:", err);
-        toast.error(err.message || "Impossible de créer la session.");
+        toast.error(err.message || "Impossible d'accepter la demande.");
       }
     } else {
       try {
@@ -434,23 +410,26 @@ export default function EspacePsy() {
         }
       }
     } catch (e) {
-      toast.error("Veuillez exécuter la migration SQL des spécialisations.");
+      toast.error("Impossible d'enregistrer la spécialisation. Réessayez.");
     }
     setSavingSpecs(false);
   };
 
+  const clinicSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notifSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const updateClinicSetting = (key: string, value: any) => {
     const updated = { ...clinicSettings, [key]: value };
     setClinicSettings(updated);
     if (!user) return;
-    setTimeout(async () => {
+    if (clinicSaveTimer.current) clearTimeout(clinicSaveTimer.current);
+    clinicSaveTimer.current = setTimeout(async () => {
       const { error } = await supabase
         .from("profiles")
         .update({ clinic_settings: updated })
         .eq("user_id", user.id);
       if (error) {
         console.error("Failed to update clinic settings:", error);
-        toast.error("Erreur lors de la mise à jour. Veuillez exécuter la migration SQL d'abord.");
+        toast.error("Erreur lors de l'enregistrement. Réessayez.");
       }
     }, 500);
   };
@@ -459,14 +438,15 @@ export default function EspacePsy() {
     const updated = { ...notificationPreferences, [key]: value };
     setNotificationPreferences(updated);
     if (!user) return;
-    setTimeout(async () => {
+    if (notifSaveTimer.current) clearTimeout(notifSaveTimer.current);
+    notifSaveTimer.current = setTimeout(async () => {
       const { error } = await supabase
         .from("profiles")
         .update({ notification_preferences: updated })
         .eq("user_id", user.id);
       if (error) {
         console.error("Failed to update notification preferences:", error);
-        toast.error("Erreur lors de la mise à jour. Veuillez exécuter la migration SQL d'abord.");
+        toast.error("Erreur lors de l'enregistrement. Réessayez.");
       }
     }, 500);
   };
@@ -536,6 +516,7 @@ export default function EspacePsy() {
     years_experience: 0,
     phone: "",
     avatar_url: "",
+    language: "Français",
   });
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -580,7 +561,7 @@ export default function EspacePsy() {
     if (!user) return;
       supabase
         .from("profiles")
-        .select("full_name, specialty, bio, approach, formations, city, price_per_session, price_individual, price_couples, price_adolescents, years_experience, phone, approval_status, avatar_url")
+        .select("full_name, specialty, bio, approach, formations, city, price_per_session, price_individual, price_couples, price_adolescents, years_experience, phone, approval_status, avatar_url, language")
         .eq("user_id", user.id)
         .single()
         .then(({ data }) => {
@@ -599,6 +580,7 @@ export default function EspacePsy() {
               years_experience: data.years_experience ?? 0,
               phone: data.phone ?? "",
               avatar_url: data.avatar_url ?? "",
+              language: data.language ?? "Français",
             });
           if (data.approval_status) {
             setApprovalStatus(data.approval_status);
@@ -670,8 +652,11 @@ export default function EspacePsy() {
   const earningsThisMonth = bookings
     .filter(b => (b.status === "confirmed" || b.status === "done") && b.booked_at >= monthStart)
     .reduce((sum, b) => sum + (b.price || 0), 0);
+  // Confirmed sessions not yet held: earned once they take place. (The old
+  // "pending payments" figure summed unpaid reservations, which this page
+  // filters out, so it was always 0.)
   const pendingPayments = bookings
-    .filter(b => b.status === "pending")
+    .filter(b => b.status === "confirmed" && new Date(b.booked_at) > now)
     .reduce((sum, b) => sum + (b.price || 0), 0);
 
   const dayLabels = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
@@ -679,8 +664,8 @@ export default function EspacePsy() {
     day,
     amount: bookings
       .filter(b => {
-        const d = new Date(b.booked_at);
-        return d.getDay() === i && b.booked_at >= weekAgo &&
+        const d = new Date(new Date(b.booked_at).getTime() + 60 * 60000); // Algiers wall clock
+        return d.getUTCDay() === i && b.booked_at >= weekAgo &&
           (b.status === "confirmed" || b.status === "done");
       })
       .reduce((sum, b) => sum + (b.price || 0), 0),
@@ -702,7 +687,7 @@ export default function EspacePsy() {
     name: d.name,
     initials: d.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase(),
     sessions: d.sessions,
-    lastSeen: new Date(d.lastSeen).toLocaleDateString("fr-FR"),
+    lastSeen: fmtDate(d.lastSeen, lang === "ar" ? "ar-DZ" : "fr-FR", { day: "numeric", month: "short", year: "numeric" }),
   }));
 
   const saveProfile = async () => {
@@ -711,16 +696,12 @@ export default function EspacePsy() {
     // Always filter by user_id (the unique column) so the existing profile row
     // is updated in place. An upsert without onConflict would generate a new
     // primary key and violate the user_id UNIQUE constraint, silently failing.
-    const { bio, approach, formations, ...rest } = profileData;
+    // price_per_session is derived in the database (cheapest offered type).
+    const { bio, approach, formations, price_per_session: _headline, ...rest } = profileData;
     const { error } = await supabase
       .from("profiles")
       .update({
         ...rest,
-        // Headline price shown to clients is the individual rate. Per-type bands
-        // (couples/adolescents) are stored separately and preserved via `rest`.
-        price_per_session:
-          profileData.price_individual ??
-          profileData.price_per_session,
         bio: (bio ?? "").trim().slice(0, BIO_MAX_LENGTH),
         approach: (approach ?? "").trim().slice(0, BIO_MAX_LENGTH),
         formations: (formations ?? "").trim().slice(0, BIO_MAX_LENGTH),
@@ -728,7 +709,8 @@ export default function EspacePsy() {
       .eq("user_id", user.id);
     setSaving(false);
     if (error) {
-      toast.error("Erreur lors de la sauvegarde.");
+      // 23514 = a price outside its band (DB CHECK constraint).
+      toast.error((error as any).code === "23514" ? "Un tarif est en dehors de la fourchette autorisée." : "Erreur lors de la sauvegarde.");
     } else {
       toast.success("Profil mis à jour !");
     }

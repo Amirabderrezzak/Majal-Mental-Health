@@ -3,6 +3,7 @@ import { X, Heart, Wind, HandHeart, Radio, Send, Sparkles, Quote, Users } from "
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { joinAudioRoom } from "@/lib/sessionApi";
 import { toast } from "sonner";
 import { getInitials } from "@/lib/utils";
 import LiveAudioModal from "./LiveAudioModal";
@@ -60,40 +61,24 @@ export default function ExplorePage() {
         }))
       );
     } else {
-      const defGrats = [
-        { id: "1", text: "Reconnaissant d'avoir un espace sécurisé pour m'exprimer.", color: "bg-teal-pale/50", rotation: -2 },
-        { id: "2", text: "Ma séance d'aujourd'hui m'a fait énormément de bien !", color: "bg-warning/10", rotation: 3 },
-        { id: "3", text: "Le chant des oiseaux ce matin m'a calmé l'esprit.", color: "bg-teal-pale/50", rotation: -1 },
-        { id: "4", text: "J'ai réussi à affronter ma phobie aujourd'hui.", color: "bg-destructive/10", rotation: 1.5 },
-      ];
-      setGratitudes(defGrats);
+      // No invented patient testimonials: an empty wall shows its empty state.
+      setGratitudes([]);
     }
   };
 
   const fetchDbStories = async () => {
+    // Platform tips are credited to the Majal team — not to therapists who
+    // don't exist (the list used to feature made-up "Dr." profiles).
     const defaultStories = [
       {
-        name: "Dr. Sofia Ben",
+        name: "L'équipe Majal",
         avatar: undefined,
         stories: [
-          { text: "« N'oubliez pas : Prendre soin de soi n'est pas égoïste, c'est indispensable. »", bg: "from-teal-mid to-teal-dark" },
-          { text: "« Respirez profondément. Le stress de cette journée ne définit pas votre avenir. »", bg: "bg-teal" }
-        ]
+          { text: "« Prendre soin de soi n'est pas égoïste, c'est indispensable. »", bg: "from-teal-mid to-teal-dark" },
+          { text: "« Vos émotions sont légitimes. Les écouter est un premier pas. »", bg: "bg-teal-cta" },
+          { text: "« La guérison n'est pas linéaire. Soyez patient(e) avec vous-même. »", bg: "from-primary to-teal-dark" },
+        ],
       },
-      {
-        name: "Dr. Yacine K.",
-        avatar: undefined,
-        stories: [
-          { text: "« Vos sentiments actuels sont valides. Ne les refoulez pas, écoutez-les. »", bg: "bg-teal-cta" }
-        ]
-      },
-      {
-        name: "Dr. Amina R.",
-        avatar: undefined,
-        stories: [
-          { text: "« La guérison est un chemin non linéaire. Soyez patient avec vous-même. »", bg: "from-primary to-teal-dark" }
-        ]
-      }
     ];
 
     try {
@@ -105,7 +90,7 @@ export default function ExplorePage() {
       if (dbStoriesData && dbStoriesData.length > 0) {
         const authorIds = [...new Set(dbStoriesData.map((s: any) => s.author_id as string))] as string[];
         const { data: profiles } = await supabase
-          .from('profiles')
+          .from('psychologist_cards')
           .select('user_id, full_name, avatar_url')
           .in('user_id', authorIds);
 
@@ -292,13 +277,13 @@ export default function ExplorePage() {
                     <button
                       onClick={async () => {
                         if (!user) return;
-                        const { data: url, error } = await (supabase as any)
-                          .rpc("get_audio_room_url", { room_id: room.id });
-                        if (error || !url) {
-                          toast.error("Impossible de rejoindre le salon pour le moment.");
-                          return;
+                        try {
+                          // Private room: the server hands out a personal listener token.
+                          const url = await joinAudioRoom(room.id);
+                          setSelectedRoom({ url, title: room.title });
+                        } catch (err: any) {
+                          toast.error(err?.message || "Impossible de rejoindre le salon pour le moment.");
                         }
-                        setSelectedRoom({ url, title: room.title });
                       }}
                       className="btn btn-primary shrink-0 self-end sm:self-auto"
                     >

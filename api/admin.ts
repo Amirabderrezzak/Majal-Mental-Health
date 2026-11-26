@@ -1,19 +1,10 @@
-import { createClient } from "@supabase/supabase-js";
 import { sendTherapistApproved, sendTherapistRejected } from "./_lib/email.js";
-
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-let supabase: any;
-try {
-  if (supabaseUrl && supabaseKey) {
-    supabase = createClient(supabaseUrl, supabaseKey);
-  }
-} catch (e) {
-  console.error("Failed to initialize Supabase client in notify-therapist:", e);
-}
+import { getDb, cors } from "./_lib/db.js";
 
 export const notifyTherapistHandler = async (req: any, res: any) => {
+  cors(res);
+  if (req.method === "OPTIONS") return res.status(200).end();
+  const supabase: any = getDb();
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -47,7 +38,7 @@ export const notifyTherapistHandler = async (req: any, res: any) => {
   }
 
   try {
-    const { therapist_id, action } = req.body;
+    const { therapist_id, action } = req.body || {};
 
     if (!therapist_id || !["approved", "rejected"].includes(action)) {
       return res.status(400).json({ error: "therapist_id and action (approved|rejected) are required" });

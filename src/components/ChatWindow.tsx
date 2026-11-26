@@ -241,7 +241,7 @@ export default function ChatWindow({ otherUserId, otherUserName }: ChatWindowPro
                   {msg.content && <p className="break-words">{msg.content}</p>}
                   {msg.file_url && renderAttachment(msg)}
                   <div className={`text-[10px] mt-1 opacity-60 text-end ${!isMe && "text-muted-foreground"}`}>
-                    {new Date(msg.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(msg.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Algiers" })}
                   </div>
                 </div>
               </div>

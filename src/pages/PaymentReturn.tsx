@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { CheckCircle2, XCircle, Loader2, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,7 @@ export default function PaymentReturn() {
   const [params] = useSearchParams();
   const [status, setStatus] = useState<Status>("processing");
   const [errorMsg, setErrorMsg] = useState("");
+  const attempts = useRef(0);
 
   useEffect(() => {
     const payment_id = params.get("payment_id");
@@ -20,9 +21,10 @@ export default function PaymentReturn() {
     }
 
     confirmPayment(payment_id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const confirmPayment = async (payment_id: string) => {
+  const confirmPayment = async (payment_id: string): Promise<void> => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -49,10 +51,12 @@ export default function PaymentReturn() {
         return;
       }
 
-      // 202 = payment not yet captured by the bank; the booking stays pending
-      // and will be confirmed once the gateway reports success.
+      // 202 = the bank capture is still in progress. Keep checking for a few
+      // minutes; after that the scheduled job finishes it and the session shows
+      // up in "Mes séances" (it used to be marked failed after 30 minutes).
       if (res.status === 202) {
         setStatus("pending");
+        if (attempts.current++ < 18) setTimeout(() => confirmPayment(payment_id), 10_000);
         return;
       }
 
@@ -86,7 +90,7 @@ export default function PaymentReturn() {
               Votre séance a été confirmée. Vous recevrez un email de confirmation avec tous les détails.
             </p>
             <Link
-              to="/mon-espace"
+              to="/mon-espace?page=sessions"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold no-underline hover:bg-teal-mid transition-all active:scale-95"
             >
               Voir mes réservations <ArrowRight className="w-4 h-4 rtl:rotate-180" />
@@ -101,7 +105,7 @@ export default function PaymentReturn() {
             </div>
             <h1 className="font-serif text-2xl text-foreground mb-2">Paiement en cours de vérification</h1>
             <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
-              Votre paiement a été initié et la capture bancaire est en cours. Votre séance sera confirmée dès que le paiement sera validé. Aucun montant n'est prélevé tant que la confirmation n'est pas effectuée.
+              Votre banque n'a pas encore confirmé le paiement. Cette page vérifie automatiquement ; vous pouvez aussi la fermer : la séance apparaîtra dans « Mes séances » dès la confirmation, et si le créneau ne peut pas être honoré vous serez intégralement remboursé(e).
             </p>
             <Link
               to="/mon-espace"

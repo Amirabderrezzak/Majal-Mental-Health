@@ -1,7 +1,10 @@
 import { useEscapeKey } from "@/lib/a11y";
 import { specialtyLabel } from "@/lib/specialty";
 import { useState, useEffect } from "react";
-import { Calendar, Clock, Check, X, Loader2, ChevronRight } from "lucide-react";
+import { Calendar, Clock, Check, X, Loader2, ChevronRight, Video, Star } from "lucide-react";
+import { toast } from "sonner";
+import { useNow } from "@/hooks/useNow";
+import { joinSession } from "@/lib/sessionApi";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SessionCalendar } from "@/components/SessionCalendar";
@@ -24,6 +27,10 @@ interface Booking {
   psychologist_avatar?: string;
   psychologist_specialty?: string;
   video_room_url?: string | null;
+  reschedule_count?: number;
+  session_kind?: string;
+  no_show_party?: string | null;
+  verifying?: boolean;
 }
 
 interface PatientSessionsProps {
@@ -54,6 +61,22 @@ export default function PatientSessions({
   const { t, dir } = useLanguage();
   const rtl = dir === "rtl";
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const now = useNow(30_000);
+  const [joiningId, setJoiningId] = useState<string | null>(null);
+  const sessionOpen = (b: Booking) => {
+    const start = new Date(b.booked_at).getTime();
+    return now.getTime() >= start - 15 * 60000 && now.getTime() <= start + (b.duration_minutes || 60) * 60000;
+  };
+  // Mirrors the server rules (api/bookings.ts): confirmed, scheduled, ≥ 2 h away, at most 2 moves.
+  const canReschedule = (b: Booking) =>
+    b.status === "confirmed" && b.session_kind !== "instant" && (b.reschedule_count ?? 0) < 2 &&
+    new Date(b.booked_at).getTime() - now.getTime() >= 2 * 3600 * 1000;
+  const onJoin = async (b: Booking) => {
+    setJoiningId(b.id);
+    try { await joinSession(b.id); }
+    catch (err: any) { toast.error(err?.message || t("space.dashboard.toast.roomNotStarted")); }
+    finally { setJoiningId(null); }
+  };
   const [selectedCalDate, setSelectedCalDate] = useState<Date | undefined>(undefined);
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
   const [rescheduleStep, setRescheduleStep] = useState(1);
@@ -103,7 +126,8 @@ export default function PatientSessions({
           (data || []).filter((b: any) => new Date(b.booked_at).toISOString() !== new Date(rescheduleBooking.booked_at).toISOString())
         );
       });
-  }, [rescheduleBooking, rescheduleDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the booking id/slot, not the object identity
+  }, [rescheduleBooking?.id, rescheduleBooking?.booked_at, rescheduleDate]);
 
   const availableRescheduleSlots = rescheduleDate
     ? getAvailableSlots(new Date(ymd(rescheduleDate).y, ymd(rescheduleDate).mo, ymd(rescheduleDate).d), rescheduleClinicSettings, rescheduleDayBookings, rescheduleBooking?.duration_minutes)
@@ -146,8 +170,8 @@ export default function PatientSessions({
 
           {rescheduleStep === 1 && (
             <div className="space-y-4">
-              <h3 className="font-serif text-lg font-semibold text-foreground">Reporter cette séance</h3>
-              <p className="text-sm text-muted-foreground">Vous allez reporter votre séance avec :</p>
+              <h3 className="font-serif text-lg font-semibold text-foreground">{t("space.reschedule.title")}</h3>
+              <p className="text-sm text-muted-foreground">{t("space.reschedule.intro")}</p>
               <div className="p-4 rounded-2xl border border-border/50 bg-teal-hero/10 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-full bg-teal-pale flex items-center justify-center text-primary font-bold text-sm shrink-0">
                   {getInitials(rescheduleBooking.psychologist_name)}
@@ -163,14 +187,14 @@ export default function PatientSessions({
                 onClick={() => setRescheduleStep(2)}
                 className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid transition-all"
               >
-                Choisir un nouveau créneau
+                {t("space.reschedule.pickSlot")}
               </button>
             </div>
           )}
 
           {rescheduleStep === 2 && (
             <div className="space-y-4">
-              <h3 className="font-serif text-lg font-semibold text-foreground">Choisir une nouvelle date</h3>
+              <h3 className="font-serif text-lg font-semibold text-foreground">{t("space.reschedule.pickDate")}</h3>
               <input
                 type="date"
                 value={rescheduleDate}
@@ -179,13 +203,13 @@ export default function PatientSessions({
                 className="w-full px-4 py-3 border border-border/70 rounded-xl text-sm bg-teal-hero/30 outline-none focus:border-primary focus:bg-card transition-all font-sans"
               />
               <div className="flex gap-3">
-                <button onClick={() => setRescheduleStep(1)} className="px-4 py-3 border border-border/50 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer hover:bg-accent/40 transition-all">Retour</button>
+                <button onClick={() => setRescheduleStep(1)} className="px-4 py-3 border border-border/50 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer hover:bg-accent/40 transition-all">{t("common.back")}</button>
                 <button
                   onClick={() => rescheduleDate && setRescheduleStep(3)}
                   disabled={!rescheduleDate}
                   className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid transition-all disabled:opacity-50"
                 >
-                  Continuer
+                  {t("common.continue")}
                 </button>
               </div>
             </div>
@@ -193,8 +217,8 @@ export default function PatientSessions({
 
           {rescheduleStep === 3 && (
             <div className="space-y-4">
-              <h3 className="font-serif text-lg font-semibold text-foreground">Choisir un horaire</h3>
-              <p className="text-xs text-muted-foreground">{new Date(rescheduleDate).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</p>
+              <h3 className="font-serif text-lg font-semibold text-foreground">{t("space.reschedule.pickTime")}</h3>
+              <p className="text-xs text-muted-foreground">{new Date(`${rescheduleDate}T12:00:00Z`).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</p>
               {availableRescheduleSlots.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">{t("res.noSlotsThisDay") || "Aucun créneau disponible ce jour-là."}</p>
               ) : (
@@ -215,13 +239,13 @@ export default function PatientSessions({
                 </div>
               )}
               <div className="flex gap-3">
-                <button onClick={() => setRescheduleStep(2)} className="px-4 py-3 border border-border/50 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer hover:bg-accent/40 transition-all">Retour</button>
+                <button onClick={() => setRescheduleStep(2)} className="px-4 py-3 border border-border/50 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer hover:bg-accent/40 transition-all">{t("common.back")}</button>
                 <button
                   onClick={() => rescheduleTime && setRescheduleStep(4)}
                   disabled={!rescheduleTime}
                   className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid transition-all disabled:opacity-50"
                 >
-                  Confirmer
+                  {t("common.confirm")}
                 </button>
               </div>
             </div>
@@ -229,7 +253,7 @@ export default function PatientSessions({
 
           {rescheduleStep === 4 && (
             <div className="space-y-4">
-              <h3 className="font-serif text-lg font-semibold text-foreground">Confirmer le report</h3>
+              <h3 className="font-serif text-lg font-semibold text-foreground">{t("space.reschedule.confirmTitle")}</h3>
               <div className="p-5 rounded-2xl border border-border/50 bg-teal-hero/10 space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-teal-pale flex items-center justify-center text-primary font-bold text-sm shrink-0">
@@ -237,13 +261,13 @@ export default function PatientSessions({
                   </div>
                   <div>
                     <div className="font-semibold text-sm text-foreground">{rescheduleBooking.psychologist_name}</div>
-                    <div className="text-xs text-muted-foreground">Psychologue</div>
+                    <div className="text-xs text-muted-foreground">{t("space.defaultPsy")}</div>
                   </div>
                 </div>
                 <div className="border-t border-border/30 pt-3 space-y-1.5">
                   <div className="flex items-center gap-2 text-sm text-foreground">
                     <Calendar className="w-4 h-4 text-primary shrink-0" />
-                    <span className="font-semibold">{new Date(rescheduleDate).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</span>
+                    <span className="font-semibold">{new Date(`${rescheduleDate}T12:00:00Z`).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-foreground">
                     <Clock className="w-4 h-4 text-primary shrink-0" />
@@ -252,16 +276,16 @@ export default function PatientSessions({
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground text-center">Un email de confirmation sera envoyé au thérapeute.</p>
+              <p className="text-xs text-muted-foreground text-center">{t("space.reschedule.emailNote")}</p>
               <div className="flex gap-3">
-                <button onClick={() => setRescheduleStep(3)} className="px-4 py-3 border border-border/50 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer hover:bg-accent/40 transition-all">Retour</button>
+                <button onClick={() => setRescheduleStep(3)} className="px-4 py-3 border border-border/50 rounded-xl text-xs font-semibold text-muted-foreground bg-transparent cursor-pointer hover:bg-accent/40 transition-all">{t("common.back")}</button>
                 <button
                   onClick={handleConfirmReschedule}
                   disabled={rescheduling}
                   className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold border-none cursor-pointer hover:bg-teal-mid transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {rescheduling && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {rescheduling ? "Report en cours..." : "Confirmer le report"}
+                  {rescheduling ? t("space.reschedule.saving") : t("space.reschedule.confirmTitle")}
                 </button>
               </div>
             </div>
@@ -311,7 +335,7 @@ export default function PatientSessions({
           {selectedCalDate && (
             <div className="dashboard-card p-6">
               <h3 className="font-serif text-lg font-semibold text-foreground mb-4 pb-4 border-b border-border/40">
-                {selectedCalDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+                {selectedCalDate.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })}
                 <span className="text-sm font-normal text-muted-foreground ms-2">
                   ({allBookings.filter(b => isSameDay(new Date(b.booked_at), selectedCalDate)).length} séance(s))
                 </span>
@@ -393,9 +417,20 @@ export default function PatientSessions({
                   </div>
                 </div>
                 <div className="flex sm:flex-col items-end gap-2.5 self-end sm:self-center">
-                  <span className={`badge-pill ${b.status === "confirmed" ? "badge-pill-confirmed" : b.status === "no-show" ? "badge-pill-cancelled" : "badge-pill-pending"}`}>
-                    {b.status === "confirmed" ? t("space.status.confirmed") : b.status === "no-show" ? "Absent" : t("space.status.pending")}
+                  <span className={`badge-pill ${b.status === "confirmed" ? "badge-pill-confirmed" : "badge-pill-pending"}`}>
+                    {b.verifying ? t("space.status.verifying") : b.status === "confirmed" ? t("space.status.confirmed") : t("space.status.pending")}
                   </span>
+                  {b.status === "confirmed" && sessionOpen(b) && (
+                    <button
+                      onClick={() => onJoin(b)}
+                      disabled={joiningId === b.id}
+                      className="text-xs text-primary-foreground bg-primary border-none rounded-lg px-3 py-1.5 cursor-pointer hover:bg-teal-mid font-semibold flex items-center gap-1 disabled:opacity-60"
+                    >
+                      {joiningId === b.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Video className="w-3 h-3" />}
+                      {t("pd.joinNow")}
+                    </button>
+                  )}
+                  {!b.verifying && (
                   <button 
                     onClick={() => handleCancelBooking(b.id)}
                     disabled={cancelling === b.id}
@@ -404,6 +439,8 @@ export default function PatientSessions({
                     {cancelling === b.id ? <Loader2 className="w-3 h-3 animate-spin"/> : null} 
                     {t("space.cancelSessionBtn")}
                   </button>
+                  )}
+                  {canReschedule(b) && (
                   <button
                     onClick={() => {
                       setRescheduleBooking(b);
@@ -414,8 +451,9 @@ export default function PatientSessions({
                     className="text-xs text-primary bg-transparent border-none cursor-pointer hover:underline hover:text-teal-mid font-semibold flex items-center gap-1"
                   >
                     <Calendar className="w-3 h-3" />
-                    Reporter
+                    {t("space.reschedule.btn")}
                   </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -464,9 +502,16 @@ export default function PatientSessions({
                         <div className="text-xs text-muted-foreground mt-0.5">{fmt(b.booked_at)} · {fmtT(b.booked_at)}</div>
                       </div>
                     </div>
-                    <span className={`badge-pill ${done ? "badge-pill-done" : missed ? "badge-pill-cancelled" : "badge-pill-cancelled"}`}>
-                      {done ? t("space.status.done") : missed ? "Absent" : t("space.status.cancelled")}
-                    </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className={`badge-pill ${done ? "badge-pill-done" : "badge-pill-cancelled"}`}>
+                        {done ? t("space.status.done") : missed ? t(`space.status.missed.${b.no_show_party || "patient"}`) : t("space.status.cancelled")}
+                      </span>
+                      {done && (
+                        <Link to={`/profil/${b.psychologist_id}?review=${b.id}`} className="text-xs text-primary font-semibold hover:underline flex items-center gap-1">
+                          <Star className="w-3 h-3" /> {t("space.review.leave")}
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

@@ -9,7 +9,7 @@ export default function PaymentMock() {
   const { t } = useLanguage();
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const booking_id = params.get("booking_id");
+  const payment_id = params.get("payment_id") ?? params.get("booking_id");
   const amount = params.get("amount");
   const [paying, setPaying] = useState(false);
 
@@ -27,15 +27,18 @@ export default function PaymentMock() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ payment_id: booking_id }),
+        body: JSON.stringify({ payment_id }),
       });
 
-      if (!res.ok) throw new Error("Webhook failed");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || t("pay.failed"));
+      }
 
       toast.success(t("pay.success"));
-      navigate("/mon-espace");
-    } catch (err) {
-      toast.error(t("pay.failed"));
+      navigate("/mon-espace?page=sessions");
+    } catch (err: any) {
+      toast.error(err?.message || t("pay.failed"));
     } finally {
       setPaying(false);
     }

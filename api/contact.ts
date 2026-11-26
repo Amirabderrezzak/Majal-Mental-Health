@@ -28,6 +28,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: "Tous les champs sont requis." });
   }
 
+  if ([name, email, subject, message].some((v) => typeof v !== "string")) {
+    return res.status(400).json({ error: "Tous les champs sont requis." });
+  }
+  if (name.length > 100 || email.length > 200 || subject.length > 200 || message.length > 5000) {
+    return res.status(400).json({ error: "Un des champs est trop long." });
+  }
+
   if (typeof email !== "string" || !EMAIL_RE.test(email)) {
     return res.status(400).json({ error: "Adresse email invalide." });
   }

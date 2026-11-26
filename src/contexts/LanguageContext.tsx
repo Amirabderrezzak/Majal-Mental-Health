@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
 
 type Lang = "fr" | "ar";
 
@@ -93,7 +93,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "psy.requestPending": { fr: "Demande envoyée", ar: "تم إرسال الطلب" },
   "psy.requestPendingDesc": { fr: "En attente de la réponse du psychologue... (90s)", ar: "في انتظار رد الأخصائي... (90 ثانية)" },
   "psy.requestAccepted": { fr: "Demande acceptée !", ar: "تم قبول الطلب!" },
-  "psy.requestAcceptedDesc": { fr: "Redirection vers votre session...", ar: "جارٍ التحويل إلى جلستك..." },
+  "psy.requestAcceptedDesc": { fr: "Redirection vers le paiement sécurisé… La séance s'ouvrira dès le paiement confirmé.", ar: "جارٍ التحويل إلى الدفع الآمن… ستبدأ الجلسة فور تأكيد الدفع." },
   "psy.requestDeclined": { fr: "Demande refusée", ar: "تم رفض الطلب" },
   "psy.requestDeclinedDesc": { fr: "Le psychologue n'est pas disponible pour le moment.", ar: "الأخصائي غير متاح في الوقت الحالي." },
   "psy.requestExpired": { fr: "Demande expirée", ar: "انتهت مهلة الطلب" },
@@ -159,8 +159,8 @@ const translations: Record<string, Record<Lang, string>> = {
   "psy.dashboard.selectPatientMsg": { fr: "Sélectionnez un patient pour voir les détails de son suivi.", ar: "اختر مريضاً لعرض تفاصيل متابعته." },
   "psy.earnings.thisMonth": { fr: "Revenus du mois", ar: "أرباح الشهر" },
   "psy.earnings.sessionsMonth": { fr: "Séances payées", ar: "الجلسات المدفوعة" },
-  "psy.earnings.pending": { fr: "En attente", ar: "قيد الانتظار" },
-  "psy.earnings.sessionsPending": { fr: "Séances en attente", ar: "جلسات قيد الانتظار" },
+  "psy.earnings.pending": { fr: "À venir", ar: "قادمة" },
+  "psy.earnings.sessionsPending": { fr: "séances confirmées à venir", ar: "جلسات مؤكدة قادمة" },
   "psy.earnings.avgPerSession": { fr: "Moyenne par séance", ar: "متوسط الجلسة" },
   "psy.earnings.dailyChart": { fr: "Historique quotidien des revenus", ar: "سجل الأرباح اليومي" },
   "psy.earnings.recentTx": { fr: "Transactions récentes", ar: "المعاملات الأخيرة" },
@@ -358,7 +358,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "auth.other": { fr: "Autre", ar: "أخرى" },
   "auth.cityLabel": { fr: "Ville d'exercice", ar: "مدينة العمل" },
   "auth.cityPlaceholder": { fr: "Ex: Casablanca", ar: "مثال: الدار البيضاء" },
-  "auth.minChars": { fr: "Minimum 6 caractères", ar: "6 أحرف على الأقل" },
+  "auth.minChars": { fr: "Minimum 8 caractères", ar: "8 أحرف على الأقل" },
   "auth.signupBtn": { fr: "S'inscrire", ar: "إنشاء حساب" },
   "auth.signingUp": { fr: "Inscription...", ar: "جاري الإنشاء..." },
   "auth.hasAccount": { fr: "Déjà un compte ?", ar: "لديك حساب بالفعل؟" },
@@ -584,7 +584,7 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // ----- Psychologues page -----
   "psy.toast.requestError": { fr: "Erreur lors de l'envoi de la demande.", ar: "خطأ أثناء إرسال الطلب." },
-  "psy.toast.accepted": { fr: "Le psychologue a accepté ! Ouverture de la session...", ar: "وافق الأخصائي النفسي! جارٍ فتح الجلسة..." },
+  "psy.toast.accepted": { fr: "Le psychologue a accepté ! Finalisez le paiement pour commencer.", ar: "وافق الأخصائي النفسي! أكمل الدفع للبدء." },
   "psy.toast.unavailable": { fr: "Le psychologue n'est pas disponible pour le moment.", ar: "الأخصائي النفسي غير متاح في الوقت الحالي." },
   "psy.toast.expired": { fr: "La demande a expiré. Le psychologue n'a pas répondu.", ar: "انتهت صلاحية الطلب. لم يرد الأخصائي النفسي." },
 
@@ -617,7 +617,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "space.goals.toast.added": { fr: "Nouvel objectif ajouté !", ar: "تمت إضافة هدف جديد!" },
 
   // ----- Patient dashboard / Psy dashboard / patients -----
-  "space.dashboard.toast.roomNotStarted": { fr: "Le salon vidéo n'a pas encore été lancé par votre thérapeute.", ar: "لم يطلق معالجك صالون الفيديو بعد." },
+  "space.dashboard.toast.roomNotStarted": { fr: "Impossible d'ouvrir le salon vidéo pour le moment. Réessayez dans un instant.", ar: "تعذر فتح غرفة الفيديو حالياً. حاول مرة أخرى بعد قليل." },
   "space.dashboard.toast.notOpen": { fr: "Cette séance n'est pas encore ouverte. Vous pourrez la rejoindre 15 minutes avant.", ar: "هذه الجلسة ليست مفتوحة بعد. يمكنك الانضمام إليها قبل 15 دقيقة." },
   "space.dashboard.toast.ended": { fr: "Cette séance est terminée.", ar: "هذه الجلسة منتهية." },
   "psy.dashboard.toast.saveError": { fr: "Erreur lors de la sauvegarde.", ar: "خطأ أثناء الحفظ." },
@@ -655,10 +655,10 @@ const translations: Record<string, Record<Lang, string>> = {
   "space.defaultPsy": { fr: "Un Psychologue", ar: "أخصائي نفسي" },
   "space.badge.pioneer": { fr: "Pionnier Majal", ar: "رائد مجال" },
   "space.badge.pioneerDesc": { fr: "Création de compte complétée.", ar: "اكتمال إنشاء الحساب." },
-  "space.badge.zen": { fr: "Esprit Zen", ar: "روح هادئة" },
-  "space.badge.zenDesc": { fr: "A complété 5 exercices de respiration.", ar: "أكمل 5 تمارين تنفس." },
-  "space.badge.explorer": { fr: "Explorateur", ar: "مستكشف" },
-  "space.badge.explorerDesc": { fr: "A lu 3 réflexions de thérapeutes.", ar: "قرأ 3 تأملات من المعالجين." },
+  "space.badge.zen": { fr: "Premier pas", ar: "الخطوة الأولى" },
+  "space.badge.zenDesc": { fr: "Première séance terminée.", ar: "أول جلسة مكتملة." },
+  "space.badge.explorer": { fr: "Plume régulière", ar: "قلم منتظم" },
+  "space.badge.explorerDesc": { fr: "3 entrées de journal écrites.", ar: "3 مدخلات في اليوميات." },
 
   // ----- Patient Dashboard -----
   "pd.mySession": { fr: "Ma séance", ar: "جلستي" },
@@ -673,7 +673,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "pd.prepStart": { fr: "Votre séance avec", ar: "جلسة مع" },
   "pd.prepEnd": { fr: "commence dans moins de 24h.", ar: "تبدأ خلال أقل من 24 ساعة." },
   "pd.prepRoomReady": { fr: " Le salon vidéo est déjà prêt.", ar: " الغرفة جاهزة بالفعل." },
-  "pd.prepLinkLater": { fr: " Le lien de la salle sera disponible 15 minutes avant.", ar: " سيكون رابط الغرفة متاحاً قبل 15 دقيقة." },
+  "pd.prepLinkLater": { fr: " Vous pourrez rejoindre le salon vidéo 15 minutes avant le début.", ar: " يمكنك الانضمام إلى غرفة الفيديو قبل 15 دقيقة من البداية." },
   "pd.accessRoom": { fr: "Accéder au salon", ar: "الدخول إلى الغرفة" },
   "pd.viewNotes": { fr: "Voir mes notes", ar: "عرض ملاحظاتي" },
   "pd.noSessions": { fr: "Aucune séance programmée", ar: "لا توجد جلسة مجدولة" },
@@ -841,6 +841,63 @@ const translations: Record<string, Record<Lang, string>> = {
   "contact.responseText": { fr: "Nous nous engageons à répondre à toutes les demandes dans un délai de 24 heures ouvrées. Pour les urgences, appelez-nous directement.", ar: "نلتزم بالرد على جميع الطلبات خلال 24 ساعة عمل. للطوارئ، اتصل بنا مباشرة." },
   "contact.faqTitle": { fr: "Consultez aussi notre", ar: "اطلع أيضاً على" },
   "contact.faqLink": { fr: "Centre de questions fréquentes (FAQ)", ar: "مركز الأسئلة الشائعة (FAQ)" },
+  // ── Audit fixes (2026-11) ──────────────────────────────────────────────────
+  "common.back": { fr: "Retour", ar: "رجوع" },
+  "common.confirm": { fr: "Confirmer", ar: "تأكيد" },
+  "common.continue": { fr: "Continuer", ar: "متابعة" },
+  "space.reschedule.btn": { fr: "Reporter", ar: "تأجيل" },
+  "space.reschedule.intro": { fr: "Vous allez reporter votre séance avec :", ar: "ستقوم بتأجيل جلستك مع:" },
+  "space.reschedule.pickSlot": { fr: "Choisir un nouveau créneau", ar: "اختيار موعد جديد" },
+  "space.reschedule.pickDate": { fr: "Choisir une nouvelle date", ar: "اختيار تاريخ جديد" },
+  "space.reschedule.pickTime": { fr: "Choisir un horaire", ar: "اختيار الساعة" },
+  "space.reschedule.confirmTitle": { fr: "Confirmer le report", ar: "تأكيد التأجيل" },
+  "space.reschedule.emailNote": { fr: "Votre psychologue sera prévenu(e) par e-mail. Une séance peut être reportée 2 fois au maximum ; le remboursement en cas d'annulation reste calculé sur la date initiale.", ar: "سيتم إعلام أخصائيك بالبريد الإلكتروني. يمكن تأجيل الجلسة مرتين كحد أقصى، ويُحسب الاسترداد عند الإلغاء من التاريخ الأصلي." },
+  "space.reschedule.saving": { fr: "Report en cours…", ar: "جارٍ التأجيل…" },
+  "space.review.leave": { fr: "Laisser un avis", ar: "اترك تقييماً" },
+  "space.status.verifying": { fr: "Paiement en vérification", ar: "الدفع قيد التحقق" },
+  "space.status.missed.patient": { fr: "Séance manquée", ar: "جلسة فائتة" },
+  "space.status.missed.psychologist": { fr: "Non assurée · remboursée", ar: "لم تُعقد · مستردة" },
+  "psy.sessions.cancelConfirm": { fr: "Annuler cette séance ? Le patient sera intégralement remboursé et prévenu par e-mail.", ar: "إلغاء هذه الجلسة؟ سيتم استرداد كامل المبلغ للمريض وإعلامه بالبريد الإلكتروني." },
+  "editor.formationsHint": { fr: "Une formation par ligne (ex : Master en psychologie clinique — Université d'Alger 2).", ar: "تكوين واحد في كل سطر (مثال: ماستر في علم النفس العيادي — جامعة الجزائر 2)." },
+  "editor.languages": { fr: "Langues de consultation", ar: "لغات الاستشارة" },
+  "editor.lang.Français": { fr: "Français", ar: "الفرنسية" },
+  "editor.lang.Arabe": { fr: "Arabe", ar: "العربية" },
+  "editor.lang.Anglais": { fr: "Anglais", ar: "الإنجليزية" },
+  "editor.lang.Tamazight": { fr: "Tamazight", ar: "الأمازيغية" },
+  "psy.priceFrom": { fr: "À partir de", ar: "ابتداءً من" },
+  "psy.priceUnset": { fr: "Tarif bientôt disponible", ar: "السعر قريباً" },
+  "prof.yearsUnit": { fr: "ans", ar: "سنوات" },
+  "prof.priceUnset": { fr: "Tarif non communiqué", ar: "السعر غير محدد" },
+  "prof.reviewOnlyAfterSession": { fr: "Les avis sont réservés aux patients ayant terminé une séance avec ce psychologue.", ar: "التقييمات متاحة فقط للمرضى الذين أكملوا جلسة مع هذا الأخصائي." },
+  "prof.reviewSessionOf": { fr: "Séance du", ar: "جلسة" },
+  "admin.nav.refunds": { fr: "Remboursements", ar: "المبالغ المستردة" },
+  "admin.toast.errorRefunds": { fr: "Impossible de charger les remboursements.", ar: "تعذر تحميل المبالغ المستردة." },
+  "admin.refunds.title": { fr: "Remboursements & compensations", ar: "المبالغ المستردة والتعويضات" },
+  "admin.refunds.desc": { fr: "Montants dus après une annulation, une séance non assurée ou un paiement arrivé trop tard. À traiter manuellement auprès de SofizPay puis marquer comme effectué.", ar: "المبالغ المستحقة بعد إلغاء أو جلسة لم تُعقد أو دفع متأخر. تتم معالجتها يدوياً عبر SofizPay ثم تُعلَّم كمنجزة." },
+  "admin.refunds.col.date": { fr: "Date", ar: "التاريخ" },
+  "admin.refunds.col.patient": { fr: "Patient", ar: "المريض" },
+  "admin.refunds.col.therapist": { fr: "Psychologue", ar: "الأخصائي" },
+  "admin.refunds.col.reason": { fr: "Motif", ar: "السبب" },
+  "admin.refunds.col.amount": { fr: "À rembourser", ar: "للاسترداد" },
+  "admin.refunds.col.compensation": { fr: "Compensation psy", ar: "تعويض الأخصائي" },
+  "admin.refunds.status.due": { fr: "À traiter", ar: "قيد المعالجة" },
+  "admin.refunds.status.processed": { fr: "Effectué", ar: "منجز" },
+  "admin.refunds.status.waived": { fr: "Annulé", ar: "ملغى" },
+  "admin.refunds.markProcessed": { fr: "Marquer effectué", ar: "تعليم كمنجز" },
+  "admin.refunds.markWaived": { fr: "Ne pas rembourser", ar: "عدم الاسترداد" },
+  "admin.refunds.updated": { fr: "Remboursement mis à jour", ar: "تم تحديث الاسترداد" },
+  "admin.refunds.empty": { fr: "Aucun remboursement.", ar: "لا توجد مبالغ مستردة." },
+  "admin.refunds.reason.patient_cancel": { fr: "Annulation / absence patient", ar: "إلغاء أو غياب المريض" },
+  "admin.refunds.reason.therapist_cancel": { fr: "Annulation par le psychologue", ar: "إلغاء من الأخصائي" },
+  "admin.refunds.reason.therapist_no_show": { fr: "Psychologue absent", ar: "غياب الأخصائي" },
+  "admin.refunds.reason.both_absent": { fr: "Séance non tenue", ar: "جلسة لم تُعقد" },
+  "admin.refunds.reason.paid_without_booking": { fr: "Payé sans séance", ar: "دفع بدون جلسة" },
+  "admin.users.orderNumber": { fr: "N° d'ordre", ar: "رقم التسجيل" },
+  "space.crisis.guidance": { fr: "Si vous pensez à vous faire du mal ou êtes en danger immédiat, appelez le 14 ou rendez-vous aux urgences de l'hôpital le plus proche. Vous n'êtes pas seul(e) — prévenez aussi une personne de confiance.", ar: "إذا كنت تفكر في إيذاء نفسك أو كنت في خطر مباشر، اتصل بالرقم 14 أو توجّه إلى مصلحة الاستعجالات في أقرب مستشفى. لست وحدك — أخبر أيضاً شخصاً تثق به." },
+  "space.crisis.civil": { fr: "Protection civile — urgences médicales", ar: "الحماية المدنية — الاستعجالات الطبية" },
+  "space.crisis.police": { fr: "Police secours", ar: "النجدة (الشرطة)" },
+  "space.crisis.gendarmerie": { fr: "Numéro vert de la Gendarmerie", ar: "الرقم الأخضر للدرك الوطني" },
+  "space.status.missed.both": { fr: "Non tenue · remboursée", ar: "لم تُعقد · مستردة" },
 };
 
 const LanguageContext = createContext<LanguageContextType>({
@@ -862,9 +919,17 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem("majal-lang", l);
   };
 
-  const t = (key: string): string => {
-    return translations[key]?.[lang] || key;
-  };
+  // Stable per language (effects can depend on it without re-running every
+  // render). A missing Arabic string falls back to French rather than showing
+  // the raw key.
+  const t = useCallback((key: string): string => {
+    const entry = translations[key];
+    if (!entry) {
+      if (import.meta.env.DEV) console.warn(`[i18n] missing key: ${key}`);
+      return key;
+    }
+    return entry[lang] || entry.fr || key;
+  }, [lang]);
 
   const dir = lang === "ar" ? "rtl" : "ltr";
 

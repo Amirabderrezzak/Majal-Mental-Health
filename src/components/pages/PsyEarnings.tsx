@@ -61,7 +61,7 @@ function ReceiptModal({
               <span className="text-muted-foreground">{t("psy.earnings.receipt.invoiceNum")}</span>
               <span className="font-semibold text-end text-foreground">INV-2026-{b.id.slice(0, 5).toUpperCase()}</span>
               <span className="text-muted-foreground">{t("psy.earnings.receipt.date")}</span>
-              <span className="font-semibold text-end text-foreground">{new Date(b.booked_at).toLocaleDateString("fr-FR")}</span>
+              <span className="font-semibold text-end text-foreground">{new Date(b.booked_at).toLocaleDateString("fr-FR", { timeZone: "Africa/Algiers" })}</span>
             </div>
           </div>
 
@@ -128,7 +128,7 @@ export default function PsyEarnings({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
           { label: t("psy.earnings.thisMonth"),    value: `⁦${earningsThisMonth.toLocaleString()} DA⁩`,                                                              sub: `${sessionsThisMonth} ${t("psy.earnings.sessionsMonth")}` },
-          { label: t("psy.earnings.pending"),       value: `⁦${pendingPayments.toLocaleString()} DA⁩`,                                                               sub: `${bookings.filter(b => b.status === "pending").length} ${t("psy.earnings.sessionsPending")}` },
+          { label: t("psy.earnings.pending"),       value: `⁦${pendingPayments.toLocaleString()} DA⁩`,                                                               sub: `${bookings.filter(b => b.status === "confirmed" && new Date(b.booked_at) > new Date()).length} ${t("psy.earnings.sessionsPending")}` },
           { label: t("psy.earnings.avgPerSession"), value: sessionsThisMonth > 0 ? `⁦${Math.round(earningsThisMonth / sessionsThisMonth).toLocaleString()} DA⁩` : "—", sub: `${sessionsThisMonth} ${t("psy.earnings.sessionsMonth")}` },
         ].map((c) => (
           <div key={c.label} className="dashboard-card p-6 flex flex-col justify-between">
@@ -185,7 +185,7 @@ export default function PsyEarnings({
                 </div>
                 <div>
                   <div className="font-semibold text-sm text-foreground">{b.patient_name}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{new Date(b.booked_at).toLocaleDateString("fr-FR")}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{new Date(b.booked_at).toLocaleDateString("fr-FR", { timeZone: "Africa/Algiers" })}</div>
                 </div>
               </div>
               <div className="flex items-center gap-3">

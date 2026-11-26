@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { getInitials } from "@/lib/utils";
 import { getRefundTier } from "@/lib/cancellationPolicy";
+import { fmtDate, fmtTime } from "@/lib/sessionApi";
 
 import PatientSidebar, { type Page } from "@/components/pages/PatientSidebar";
 import PatientTopBar from "@/components/pages/PatientTopBar";
@@ -56,6 +57,25 @@ interface Booking {
   psychologist_avatar?: string;
   psychologist_specialty?: string;
   video_room_url?: string | null;
+  policy_anchor_at?: string | null;
+  reschedule_count?: number;
+  session_kind?: string;
+  no_show_party?: string | null;
+  /** pending booking whose bank capture is still being verified */
+  verifying?: boolean;
+}
+
+const PAGES: Page[] = ["dashboard", "sessions", "messages", "explore", "forum", "journal", "coping", "profil", "notifications"];
+
+/** Consecutive days (ending today or yesterday) with at least one journal entry. */
+function journalStreak(dates: string[]): number {
+  const days = new Set(dates.map((d) => new Date(d).toLocaleDateString("en-CA", { timeZone: "Africa/Algiers" })));
+  const cursor = new Date();
+  const key = () => cursor.toLocaleDateString("en-CA", { timeZone: "Africa/Algiers" });
+  if (!days.has(key())) cursor.setDate(cursor.getDate() - 1);
+  let n = 0;
+  while (days.has(key())) { n++; cursor.setDate(cursor.getDate() - 1); }
+  return n;
 }
 
 interface Profile {
@@ -70,7 +90,11 @@ export default function MonEspace() {
   const [searchParams] = useSearchParams();
   const { t, lang, dir } = useLanguage();
   const { isSupported: pushSupported, preferenceEnabled: pushSubscribed, loading: pushLoading, togglePreference: pushToggle } = usePushNotifications(user?.id ?? null);
-  const [activePage, setActivePage] = useState<Page>("dashboard");
+  // E-mails and push notifications link to ?page=sessions / ?page=messages;
+  // only "messages" used to be honoured.
+  const initialPage = searchParams.get("page");
+  const [activePage, setActivePageState] = useState<Page>(PAGES.includes(initialPage as Page) ? (initialPage as Page) : "dashboard");
+  const setActivePage = (p: string) => { if (PAGES.includes(p as Page)) setActivePageState(p as Page); };
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [profile, setProfile] = useState<Profile>({ full_name: "", phone: "", language: "Français", avatar_url: "" });
@@ -85,12 +109,12 @@ export default function MonEspace() {
   const [activeChatUserId, setActiveChatUserId] = useState<string | null>(null);
   const [activeChatUserName, setActiveChatUserName] = useState<string>("");
 
-  const [wellnessStreak, setWellnessStreak] = useState(5);
+  const [wellnessStreak, setWellnessStreak] = useState(0);
   const [unlockedBadges, setUnlockedBadges] = useState<{ id: string; name: string; desc: string }[]>([]);
 
-  const locale = lang === "ar" ? "ar-SA" : "fr-FR";
-  const fmt  = (iso: string) => new Date(iso).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" });
-  const fmtT = (iso: string) => new Date(iso).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  const locale = lang === "ar" ? "ar-DZ" : "fr-FR";
+  const fmt  = (iso: string) => fmtDate(iso, locale);
+  const fmtT = (iso: string) => fmtTime(iso, locale);
 
   useEffect(() => {
     if (!user) return;
@@ -101,32 +125,44 @@ export default function MonEspace() {
       });
   }, [user]);
 
+  // The streak and badges used to be hard-coded (every new patient had a 5-day
+  // streak and three "unlocked" badges). They now come from real activity.
   useEffect(() => {
     if (!user) return;
-    const storedStreak = localStorage.getItem(`majal_streak_${user.id}`);
-    if (storedStreak) {
-      setWellnessStreak(parseInt(storedStreak));
-    } else {
-      localStorage.setItem(`majal_streak_${user.id}`, "5");
-    }
-    setUnlockedBadges([
-      { id: "1", name: t("space.badge.pioneer"), desc: t("space.badge.pioneerDesc") },
-      { id: "2", name: t("space.badge.zen"), desc: t("space.badge.zenDesc") },
-      { id: "3", name: t("space.badge.explorer"), desc: t("space.badge.explorerDesc") }
-    ]);
-  }, [user]);
+    let cancelled = false;
+    (async () => {
+      const [{ data: entries }, { count: doneCount }] = await Promise.all([
+        supabase.from("journal_entries").select("created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(400),
+        supabase.from("bookings").select("id", { count: "exact", head: true }).eq("patient_id", user.id).eq("status", "done"),
+      ]);
+      if (cancelled) return;
+      const dates = (entries ?? []).map((e) => e.created_at as string);
+      setWellnessStreak(journalStreak(dates));
+      const badges = [{ id: "1", name: t("space.badge.pioneer"), desc: t("space.badge.pioneerDesc") }];
+      if ((doneCount ?? 0) > 0) badges.push({ id: "2", name: t("space.badge.zen"), desc: t("space.badge.zenDesc") });
+      if (dates.length >= 3) badges.push({ id: "3", name: t("space.badge.explorer"), desc: t("space.badge.explorerDesc") });
+      setUnlockedBadges(badges);
+    })();
+    return () => { cancelled = true; };
+  }, [user, t]);
 
   useEffect(() => {
     if (!user) return;
     const fetchB = async () => {
-      const { data } = await (supabase as any).from("bookings").select("id, booked_at, status, duration_minutes, price, psychologist_id, video_room_url")
-        .eq("patient_id", user.id).order("booked_at", { ascending: true });
+      const [{ data }, { data: verifyingPayments }] = await Promise.all([
+        supabase.from("bookings").select("id, booked_at, status, duration_minutes, price, psychologist_id, video_room_url, policy_anchor_at, reschedule_count, session_kind, no_show_party")
+          .eq("patient_id", user.id).order("booked_at", { ascending: true }),
+        supabase.from("payments").select("booking_id").eq("patient_id", user.id).eq("status", "pending"),
+      ]);
+      const verifyingIds = new Set((verifyingPayments ?? []).map((p) => p.booking_id).filter(Boolean));
 
-      const all: Booking[] = data ? (data as Booking[]) : [];
+      const all: Booking[] = ((data ?? []) as Booking[]).map((b) => ({ ...b, verifying: b.status === "pending" && verifyingIds.has(b.id) }));
 
       if (all.length > 0) {
         const psyIds = [...new Set(all.map(b => b.psychologist_id))];
-        const { data: psyProfiles } = await supabase.from("profiles").select("user_id, full_name, avatar_url, specialty").in("user_id", psyIds);
+        // Therapist rows of `profiles` are not readable by patients (PII); the
+        // cards view exposes only name/avatar/specialty.
+        const { data: psyProfiles } = await supabase.from("psychologist_cards").select("user_id, full_name, avatar_url, specialty").in("user_id", psyIds);
 
         all.forEach(b => {
           const p = psyProfiles?.find(x => x.user_id === b.psychologist_id);
@@ -141,11 +177,14 @@ export default function MonEspace() {
         // Only show confirmed bookings to the patient. A "pending" row is a
         // reservation awaiting payment confirmation and must not appear as a
         // real booking until the gateway verifies payment.
-        const isActiveStatus = b.status === "confirmed";
+        // A pending reservation is shown only while its bank payment is being
+        // verified, clearly labelled, so a patient who paid isn't left wondering.
+        const isActiveStatus = b.status === "confirmed" || !!b.verifying;
         const sessionEndTime = new Date(new Date(b.booked_at).getTime() + b.duration_minutes * 60 * 1000);
         return isActiveStatus && sessionEndTime >= now;
       }));
       setPast(all.filter(b => {
+        if (b.status === "pending") return false;
         const isPastOrCancelledStatus = b.status === "done" || b.status === "cancelled" || b.status === "no-show";
         const sessionEndTime = new Date(new Date(b.booked_at).getTime() + b.duration_minutes * 60 * 1000);
         return isPastOrCancelledStatus || sessionEndTime < now;
@@ -164,7 +203,7 @@ export default function MonEspace() {
     return () => {
       bookingsChannel.unsubscribe();
     };
-  }, [user]);
+  }, [user, t]);
 
   const requestCancelBooking = (id: string) => setPendingCancelId(id);
   useEscapeKey(pendingCancelId !== null, () => setPendingCancelId(null));
@@ -191,7 +230,7 @@ export default function MonEspace() {
         toast.error(data.error || t("space.toast.cancelError"));
       } else {
         const cancelledBooking = upcoming.find(b => b.id === id);
-        const refund = cancelledBooking ? getRefundTier(new Date(cancelledBooking.booked_at)).refundPercent : null;
+        const refund = typeof data.refund_percent === "number" ? data.refund_percent : null;
         toast.success(refund === null ? t("space.toast.cancelled") : `${t("space.toast.cancelled")} — ${t("space.cancel.refundLine").replace("{pct}", String(refund))}`);
         if (cancelledBooking) {
           setUpcoming(prev => prev.filter(b => b.id !== id));
@@ -232,7 +271,7 @@ export default function MonEspace() {
         toast.success(t("space.toast.rescheduled"));
         setUpcoming(prev => prev.map(b =>
           b.id === booking.id
-            ? { ...b, booked_at: newDateTime }
+            ? { ...b, booked_at: newDateTime, reschedule_count: (b.reschedule_count ?? 0) + 1, policy_anchor_at: b.policy_anchor_at ?? b.booked_at }
             : b
         ));
       }
@@ -241,19 +280,19 @@ export default function MonEspace() {
     }
   };
 
-  // ── Deep-link: ?page=messages&psy=<id>&name=<name> from a profile ───────────
+  // ── Deep-link: ?page=<page>&psy=<id>&name=<name> ───────────────────────────
   useEffect(() => {
     if (!user) return;
     const page = searchParams.get("page");
+    if (page && PAGES.includes(page as Page)) setActivePageState(page as Page);
     if (page !== "messages") return;
-    setActivePage("messages");
     const psy = searchParams.get("psy");
     if (psy) {
       setActiveChatUserId(psy);
       const decodedName = searchParams.get("name");
       setActiveChatUserName(decodedName ? decodeURIComponent(decodedName) : t("prof.defaultName"));
     }
-  }, [user, searchParams]);
+  }, [user, searchParams, t]);
 
   const initials = getInitials(profile.full_name || user?.email || "?");
 
@@ -356,7 +395,10 @@ export default function MonEspace() {
       {pendingCancelId && (() => {
         const b = upcoming.find(x => x.id === pendingCancelId);
         if (!b) return null;
-        const { tier, refundPercent } = getRefundTier(new Date(b.booked_at));
+        // Measured from the first date the session was booked for: rescheduling
+        // does not reset the cancellation clock.
+        const basis = b.policy_anchor_at && new Date(b.policy_anchor_at) < new Date(b.booked_at) ? b.policy_anchor_at : b.booked_at;
+        const { tier, refundPercent } = b.status === "pending" ? { tier: "full-refund" as const, refundPercent: 100 } : getRefundTier(new Date(basis));
         return (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="cancel-dialog-title">
             <div className="absolute inset-0 bg-foreground/40" onClick={() => setPendingCancelId(null)} />

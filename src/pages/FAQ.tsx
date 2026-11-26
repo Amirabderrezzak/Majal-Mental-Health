@@ -15,7 +15,7 @@ const faqs = [
   },
   {
     q: "Mes données sont-elles protégées ?",
-    a: "Absolument. Toutes les données échangées sur Majal sont chiffrées et protégées. Nous ne vendons jamais vos informations personnelles à des tiers. Consultez notre politique de confidentialité pour plus de détails.",
+    a: "Oui. Les échanges avec Majal sont chiffrés en transit (HTTPS) et vos données sont stockées chez notre hébergeur avec un accès limité par compte : seul votre psychologue voit vos séances, et vos messages ne sont lisibles que par vous et votre interlocuteur. Les séances vidéo se déroulent dans des salons privés accessibles uniquement avec un lien personnel. Nous ne vendons jamais vos informations personnelles. Consultez notre politique de confidentialité pour plus de détails.",
   },
   {
     q: "Comment annuler une réservation ?",

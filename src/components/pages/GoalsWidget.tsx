@@ -5,7 +5,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-const MIGRATION_ERROR = "Erreur de sauvegarde. Veuillez exécuter la migration SQL.";
+const SAVE_ERROR = "Erreur de sauvegarde. Vérifiez votre connexion et réessayez.";
+// Suggested goals and freshly added ones only get a database id once saved;
+// sending their temporary id to the uuid column used to fail on every click.
+const isUuid = (id: string) => /^[0-9a-f-]{36}$/i.test(id);
 
 type GoalRow = { id: string; text: string; completed: boolean };
 
@@ -82,12 +85,28 @@ export default function GoalsWidget() {
   }, [user]);
 
   const toggleGoal = (id: string) => {
+    if (!user) return;
     const target = goals.find(g => g.id === id);
     const updated = goals.map(g => g.id === id ? { ...g, completed: !g.completed } : g);
     setGoals(updated);
     localStorage.setItem(`majal_goals_${user.id}`, JSON.stringify(updated));
 
-    if (target) {
+    if (target && !isUuid(id)) {
+      // A suggestion the patient engages with becomes a real goal.
+      supabase
+        .from("goals")
+        .insert({ user_id: user.id, text: target.text, completed: !target.completed })
+        .select("id")
+        .single()
+        .then(({ data, error }) => {
+          if (error || !data) { console.error(error); toast.error(SAVE_ERROR); return; }
+          setGoals(prev => {
+            const next = prev.map(g => g.id === id ? { ...g, id: data.id } : g);
+            localStorage.setItem(`majal_goals_${user.id}`, JSON.stringify(next));
+            return next;
+          });
+        });
+    } else if (target) {
       supabase
         .from("goals")
         .update({ completed: !target.completed })
@@ -96,7 +115,7 @@ export default function GoalsWidget() {
         .then(({ error }) => {
           if (error) {
             console.error(error);
-            toast.error(MIGRATION_ERROR);
+            toast.error(SAVE_ERROR);
           }
         });
     }
@@ -104,6 +123,7 @@ export default function GoalsWidget() {
 
   const addGoal = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     if (!newGoalText.trim()) return;
     const newGoal = {
       id: Date.now().toString(),
@@ -119,18 +139,28 @@ export default function GoalsWidget() {
     supabase
       .from("goals")
       .insert({ user_id: user.id, text: newGoal.text, completed: false })
-      .then(({ error }) => {
-        if (error) {
+      .select("id")
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data) {
           console.error(error);
-          toast.error(MIGRATION_ERROR);
+          toast.error(SAVE_ERROR);
+          return;
         }
+        setGoals(prev => {
+          const next = prev.map(g => g.id === newGoal.id ? { ...g, id: data.id } : g);
+          localStorage.setItem(`majal_goals_${user.id}`, JSON.stringify(next));
+          return next;
+        });
       });
   };
 
   const deleteGoal = (id: string) => {
+    if (!user) return;
     const updated = goals.filter(g => g.id !== id);
     setGoals(updated);
     localStorage.setItem(`majal_goals_${user.id}`, JSON.stringify(updated));
+    if (!isUuid(id)) return;
 
     supabase
       .from("goals")
@@ -140,12 +170,13 @@ export default function GoalsWidget() {
       .then(({ error }) => {
         if (error) {
           console.error(error);
-          toast.error(MIGRATION_ERROR);
+          toast.error(SAVE_ERROR);
         }
       });
   };
 
   const savePrepNotes = (val: string) => {
+    if (!user) return;
     setPrepNotes(val);
     localStorage.setItem(`majal_prep_notes_${user.id}`, val);
     supabase
@@ -155,7 +186,7 @@ export default function GoalsWidget() {
       .then(({ error }) => {
         if (error) {
           console.error(error);
-          toast.error(MIGRATION_ERROR);
+          toast.error(SAVE_ERROR);
         }
       });
   };

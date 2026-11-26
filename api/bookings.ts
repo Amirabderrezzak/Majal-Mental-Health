@@ -1,333 +1,216 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createClient } from "@supabase/supabase-js";
-import { sendPushToUser } from "./notifications.js";
-import { sendRescheduleConfirmation } from "./_lib/email.js";
-import { sendBookingStatusUpdate, sendCancellationConfirmation } from "./_lib/email.js";
+import { sendRescheduleConfirmation, sendBookingStatusUpdate, sendCancellationConfirmation } from "./_lib/email.js";
 import { calculateRefund } from "./_lib/cancellation-policy.js";
-import { validateBookingSlot, fetchConflictCandidates, formatAlgiers, formatAlgiersLong } from "./_lib/slots.js";
+import { validateBookingSlot, fetchConflictCandidates, formatAlgiersLong } from "./_lib/slots.js";
+import { getDb, getCaller, cors, getContact } from "./_lib/db.js";
+import { flushPushes, notify } from "./_lib/push.js";
+import { recordRefund, refundBasis } from "./_lib/refunds.js";
+import { attendance } from "./_lib/daily.js";
 
 const RESCHEDULE_MIN_NOTICE_MS = 2 * 3600 * 1000;
-
-function cors(res: VercelResponse) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-}
+const MAX_RESCHEDULES = 2;
+const nowIso = () => new Date().toISOString();
 
 // ── reschedule ─────────────────────────────────────────────────────────────────
-const rescheduleSupabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export const rescheduleHandler = async (req: VercelRequest, res: VercelResponse) => {
   cors(res);
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  const db = getDb();
+  if (!db) return res.status(500).json({ error: "Database client not configured" });
+  const user = await getCaller(db, req);
+  if (!user) return res.status(401).json({ error: "Invalid token" });
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Missing token" });
+  const { booking_id, new_booked_at } = req.body || {};
+  if (!booking_id || !new_booked_at) return res.status(400).json({ error: "booking_id and new_booked_at are required" });
 
-  const token = authHeader.slice(7);
-  const { data: { user }, error: authError } = await rescheduleSupabase.auth.getUser(token);
-  if (authError || !user) return res.status(401).json({ error: "Invalid token" });
-
-  const { booking_id, new_booked_at } = req.body;
-  if (!booking_id || !new_booked_at) {
-    return res.status(400).json({ error: "booking_id and new_booked_at are required" });
-  }
-
-  // Verify the booking belongs to this user
-  const { data: booking, error: fetchError } = await rescheduleSupabase
-    .from("bookings")
-    .select("id, patient_id, psychologist_id, status, booked_at")
-    .eq("id", booking_id)
-    .single();
-
-  if (fetchError || !booking) {
-    return res.status(404).json({ error: "Booking not found" });
-  }
-
-  if (booking.patient_id !== user.id) {
-    return res.status(403).json({ error: "Not authorized" });
-  }
-
-  if (booking.status !== "confirmed") {
-    return res.status(400).json({ error: "Seules les séances confirmées peuvent être reportées." });
-  }
-
-  // The current slot must be at least 2h away, otherwise it can no longer be moved.
+  const { data: booking } = await db.from("bookings")
+    .select("id, patient_id, psychologist_id, status, booked_at, policy_anchor_at, reschedule_count, session_kind")
+    .eq("id", booking_id).maybeSingle();
+  if (!booking) return res.status(404).json({ error: "Booking not found" });
+  if (booking.patient_id !== user.id) return res.status(403).json({ error: "Not authorized" });
+  if (booking.status !== "confirmed") return res.status(400).json({ error: "Seules les séances confirmées peuvent être reportées." });
+  if (booking.session_kind === "instant") return res.status(400).json({ error: "Une séance immédiate ne peut pas être reportée." });
   if (new Date(booking.booked_at).getTime() - Date.now() < RESCHEDULE_MIN_NOTICE_MS) {
     return res.status(400).json({ error: "Une séance ne peut plus être reportée moins de 2 heures avant son début." });
   }
+  // Unlimited moves let a patient hold a therapist's calendar indefinitely.
+  if ((booking.reschedule_count ?? 0) >= MAX_RESCHEDULES) {
+    return res.status(400).json({ error: `Cette séance a déjà été reportée ${MAX_RESCHEDULES} fois. Annulez-la puis réservez un nouveau créneau.` });
+  }
 
-  const { data: psy } = await rescheduleSupabase
-    .from("profiles")
-    .select("user_type, approval_status, clinic_settings")
-    .eq("user_id", booking.psychologist_id)
-    .maybeSingle();
-
-  const candidates = await fetchConflictCandidates(rescheduleSupabase, booking.psychologist_id, new Date(String(new_booked_at)));
+  const { data: psy } = await db.from("profiles").select("user_type, approval_status, clinic_settings").eq("user_id", booking.psychologist_id).maybeSingle();
+  const target = new Date(String(new_booked_at));
   const check = validateBookingSlot({
     bookedAt: new_booked_at,
     patientId: user.id,
     psychologistId: booking.psychologist_id,
     psychologist: psy as any,
-    existing: candidates,
+    existing: Number.isNaN(target.getTime()) ? [] : await fetchConflictCandidates(db, booking.psychologist_id, target),
     ignoreBookingId: booking.id,
   });
   if (!check.ok) return res.status(check.status).json({ error: check.error });
 
   const newBookedAt = check.start.toISOString();
-
-  // Save old date for email notifications
   const oldBookedAt = booking.booked_at;
+  const anchor = new Date(Math.min(
+    refundBasis(booking).getTime(),
+    new Date(oldBookedAt).getTime(),
+    check.start.getTime(),
+  )).toISOString();
 
-  // Update the booking (a new slot needs a fresh video room)
-  const { error: updateError } = await rescheduleSupabase
-    .from("bookings")
-    .update({ booked_at: newBookedAt, video_room_url: null, updated_at: new Date().toISOString() })
-    .eq("id", booking_id);
-
+  const { data: updated, error: updateError } = await db.from("bookings")
+    .update({
+      booked_at: newBookedAt,
+      video_room_url: null, // a new slot gets a fresh room
+      policy_anchor_at: anchor,
+      reschedule_count: (booking.reschedule_count ?? 0) + 1,
+      reminder_sent_at: null,
+      updated_at: nowIso(),
+    })
+    .eq("id", booking_id).eq("status", "confirmed").eq("booked_at", oldBookedAt)
+    .select("id");
   if (updateError) {
-    if ((updateError as any).code === "23505") {
-      return res.status(409).json({ error: "Ce créneau n'est plus disponible." });
-    }
+    if ((updateError as any).code === "23505") return res.status(409).json({ error: "Ce créneau n'est plus disponible." });
     console.error("Reschedule update error:", updateError);
     return res.status(500).json({ error: "Failed to reschedule" });
   }
+  if (!updated || updated.length === 0) return res.status(409).json({ error: "La séance a changé entre-temps. Rechargez la page." });
 
-  // Create in-app notification for the therapist
-  await rescheduleSupabase.from("notifications").insert({
-    user_id: booking.psychologist_id,
-    type: "booking",
-    title: "Séance reportée",
-    content: `Le patient a reporté la séance au ${formatAlgiersLong(newBookedAt)}.`,
-    link: "/espace-psy?page=sessions"
-  });
-
-  // Send push notification
   const newDateStr = formatAlgiersLong(newBookedAt);
   const oldDateStr = formatAlgiersLong(oldBookedAt);
-  sendPushToUser(booking.psychologist_id, "Séance reportée", `Votre patient a reporté la séance au ${newDateStr}.`, "/espace-psy").catch(console.error);
+  const [patient, therapist] = await Promise.all([getContact(db, booking.patient_id), getContact(db, booking.psychologist_id)]);
 
-  // Fetch profile info for emails
-  const [patientProfile, psyProfile] = await Promise.all([
-    rescheduleSupabase.from("profiles").select("full_name").eq("user_id", booking.patient_id).single(),
-    rescheduleSupabase.from("profiles").select("full_name").eq("user_id", booking.psychologist_id).single(),
-  ]);
-  const [patientAuth, psyAuth] = await Promise.all([
-    rescheduleSupabase.auth.admin.getUserById(booking.patient_id),
-    rescheduleSupabase.auth.admin.getUserById(booking.psychologist_id),
-  ]);
+  await notify(db, booking.psychologist_id, "Séance reportée",
+    `${patient.name || "Le patient"} a reporté la séance du ${oldDateStr} au ${newDateStr}.`, "/espace-psy?page=sessions");
+  await flushPushes(db, [booking.psychologist_id]).catch(console.error);
 
-  const patientEmail = patientAuth?.data?.user?.email;
-  const psyEmail = psyAuth?.data?.user?.email;
-  const patientName = patientProfile?.data?.full_name || "Patient";
-  const psyName = psyProfile?.data?.full_name || "Thérapeute";
-
-  // Send confirmation email to patient
-  if (patientEmail) {
-    sendRescheduleConfirmation({
-      recipientEmail: patientEmail,
-      recipientName: patientName,
-      partnerName: psyName,
-      oldDate: oldDateStr,
-      newDate: newDateStr,
-      userType: "patient",
-    }).catch(console.error);
+  if (patient.email) {
+    sendRescheduleConfirmation({ recipientEmail: patient.email, recipientName: patient.name || "Patient", partnerName: therapist.name || "Thérapeute", oldDate: oldDateStr, newDate: newDateStr, userType: "patient" }).catch(console.error);
   }
-
-  // Send notification email to therapist
-  if (psyEmail) {
-    sendRescheduleConfirmation({
-      recipientEmail: psyEmail,
-      recipientName: psyName,
-      partnerName: patientName,
-      oldDate: oldDateStr,
-      newDate: newDateStr,
-      userType: "psychologue",
-    }).catch(console.error);
+  if (therapist.email) {
+    sendRescheduleConfirmation({ recipientEmail: therapist.email, recipientName: therapist.name || "Thérapeute", partnerName: patient.name || "Patient", oldDate: oldDateStr, newDate: newDateStr, userType: "psychologue" }).catch(console.error);
   }
-
-  return res.status(200).json({ success: true });
+  return res.status(200).json({ success: true, booked_at: newBookedAt, reschedules_left: MAX_RESCHEDULES - (booking.reschedule_count ?? 0) - 1 });
 };
 
-// ── update-status ────────────────────────────────────────────────────────────────
-const updateStatusSupabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const updateStatusSupabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-let updateStatusSupabase: any;
-try {
-  if (updateStatusSupabaseUrl && updateStatusSupabaseKey) {
-    updateStatusSupabase = createClient(updateStatusSupabaseUrl, updateStatusSupabaseKey);
-  }
-} catch (e) {
-  console.error("Failed to initialize Supabase client in update-status:", e);
-}
-
+// ── update-status ──────────────────────────────────────────────────────────────
 export const updateStatusHandler = async (req: any, res: any) => {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  if (!updateStatusSupabase) {
-    console.error("Supabase client is not initialized in update-status.");
-    return res.status(500).json({ error: "Database client configuration error" });
-  }
-
-  // 1. Authenticate caller using JWT token
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Unauthorized: Missing or invalid authorization header" });
-  }
-
-  const token = authHeader.split(" ")[1];
-  const { data: { user }, error: authError } = await updateStatusSupabase.auth.getUser(token);
-
-  if (authError || !user) {
-    return res.status(401).json({ error: "Unauthorized: Invalid token" });
-  }
-
-  const callerId = user.id;
+  cors(res);
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  const db = getDb();
+  if (!db) return res.status(500).json({ error: "Database client configuration error" });
+  const user = await getCaller(db, req);
+  if (!user) return res.status(401).json({ error: "Unauthorized: Invalid token" });
 
   try {
-    const { booking_id, status } = req.body;
+    const { booking_id, status } = req.body || {};
+    if (!booking_id || !status) return res.status(400).json({ error: "booking_id and status are required" });
+    if (!["confirmed", "cancelled", "done"].includes(status)) return res.status(400).json({ error: "Invalid status" });
 
-    if (!booking_id || !status) {
-      return res.status(400).json({ error: "booking_id and status are required" });
-    }
+    const { data: booking } = await db.from("bookings")
+      .select("id, booked_at, duration_minutes, status, patient_id, psychologist_id, price, policy_anchor_at, video_room_url")
+      .eq("id", booking_id).maybeSingle();
+    if (!booking) return res.status(404).json({ error: "Booking not found" });
 
-    if (!["confirmed", "cancelled", "done"].includes(status)) {
-      return res.status(400).json({ error: "Invalid status" });
-    }
+    const isPatient = booking.patient_id === user.id;
+    const isTherapist = booking.psychologist_id === user.id;
+    if (!isPatient && !isTherapist) return res.status(403).json({ error: "Forbidden: You do not have permission to modify this booking" });
+    if (isPatient && status !== "cancelled") return res.status(400).json({ error: "Patients are only allowed to cancel bookings" });
 
-    // 2. Fetch booking details to verify authorization
-    const { data: booking, error: bookingError } = await updateStatusSupabase
-      .from("bookings")
-      .select("id, booked_at, status, patient_id, psychologist_id")
-      .eq("id", booking_id)
-      .single();
+    // "confirmed" is only ever reached through a verified payment.
+    if (status === "confirmed") return res.status(400).json({ error: "Une réservation est confirmée automatiquement après paiement." });
+    if (booking.status === "cancelled") return res.status(400).json({ error: "Cette séance est déjà annulée." });
+    if (booking.status === "done" || booking.status === "no-show") return res.status(400).json({ error: "Cette séance est déjà terminée." });
 
-    if (bookingError || !booking) {
-      return res.status(404).json({ error: "Booking not found" });
-    }
-
-    const isPatient = booking.patient_id === callerId;
-    const isTherapist = booking.psychologist_id === callerId;
-
-    if (!isPatient && !isTherapist) {
-      return res.status(403).json({ error: "Forbidden: You do not have permission to modify this booking" });
-    }
-
-    // Patients can only cancel booking
-    if (isPatient && status !== "cancelled") {
-      return res.status(400).json({ error: "Patients are only allowed to cancel bookings" });
-    }
-
-    // Transition rules. "confirmed" is only ever reached through a verified payment
-    // (payments.confirm), never by a client call: otherwise a therapist could confirm
-    // an unpaid reservation and a cancelled slot could be resurrected.
-    if (status === "confirmed") {
-      return res.status(400).json({ error: "Une réservation est confirmée automatiquement après paiement." });
-    }
-    if (booking.status === "cancelled") {
-      return res.status(400).json({ error: "Cette séance est déjà annulée." });
-    }
-    if (booking.status === "done") {
-      return res.status(400).json({ error: "Cette séance est déjà terminée." });
-    }
-    if (status === "done" && (booking.status !== "confirmed" || new Date(booking.booked_at).getTime() > Date.now())) {
+    const start = new Date(booking.booked_at).getTime();
+    const end = start + (booking.duration_minutes || 60) * 60000;
+    if (status === "done" && (booking.status !== "confirmed" || start > Date.now())) {
       return res.status(400).json({ error: "Une séance ne peut être terminée qu'après son début." });
     }
-
-    // Update booking in database
-    const { error: updateError } = await updateStatusSupabase
-      .from("bookings")
-      .update({ status })
-      .eq("id", booking_id);
-
-    if (updateError) {
-      return res.status(500).json({ error: updateError.message });
+    if (status === "done") {
+      // "Done" settles the money in the therapist's favour, so it requires the
+      // patient to have actually been in the room (otherwise a therapist who
+      // never showed up could close the session and avoid the refund).
+      const present = booking.video_room_url
+        ? await attendance(booking.video_room_url, start - 30 * 60000, end + 30 * 60000, [booking.patient_id, booking.psychologist_id])
+        : { [booking.patient_id]: false, [booking.psychologist_id]: false };
+      if (present && !(present[booking.patient_id] && present[booking.psychologist_id])) {
+        return res.status(400).json({ error: "La présence des deux participants n'est pas confirmée dans le salon vidéo. La séance sera clôturée automatiquement." });
+      }
     }
-
-    // Determine recipient and partner names for notifications
-    const recipientId = isPatient ? booking.psychologist_id : booking.patient_id;
-    const senderId = callerId;
-
-    // Fetch details of both parties to send proper email
-    const { data: recipientProfile } = await updateStatusSupabase
-      .from("profiles")
-      .select("full_name")
-      .eq("user_id", recipientId)
-      .single();
-
-    const { data: senderProfile } = await updateStatusSupabase
-      .from("profiles")
-      .select("full_name")
-      .eq("user_id", senderId)
-      .single();
-
-    const { data: recipientAuth } = await updateStatusSupabase.auth.admin.getUserById(recipientId);
-
-    const recipientEmail = recipientAuth?.user?.email;
-    const recipientName = recipientProfile?.full_name || "Utilisateur";
-    const partnerName = senderProfile?.full_name || "Utilisateur";
-
-    const dateStr = formatAlgiersLong(booking.booked_at);
-
-    if (recipientEmail) {
-      if (status === "cancelled") {
-        // A therapist-initiated cancellation always refunds the patient in full.
-        const policy = isTherapist
-          ? { refundPercent: 100, compensationPercent: 0 }
-          : calculateRefund(new Date(booking.booked_at), new Date());
-        await sendCancellationConfirmation({
-          recipientEmail,
-          recipientName,
-          partnerName,
-          date: dateStr,
-          refundPercent: policy.refundPercent,
-          compensationPercent: policy.compensationPercent,
-          userType: isPatient ? "patient" : "psychologue"
-        }).catch(console.error);
-      } else {
-        await sendBookingStatusUpdate({
-          recipientEmail,
-          recipientName,
-          partnerName,
-          date: dateStr,
-          status,
-          userType: isPatient ? "psychologue" : "patient"
-        }).catch(console.error);
+    if (status === "cancelled") {
+      // Cancelling after the start is a missed session, handled by the
+      // attendance check — not a cancellation with a refund tier.
+      if (isPatient && booking.status === "confirmed" && start <= Date.now()) {
+        return res.status(400).json({ error: "La séance a déjà commencé et ne peut plus être annulée." });
+      }
+      if (isTherapist && end <= Date.now()) {
+        return res.status(400).json({ error: "Cette séance est déjà passée." });
       }
     }
 
-    // Send push notification to recipient
-    const pushTitle = status === "cancelled" ? "Session annulée" : status === "confirmed" ? "Session confirmée" : "Mise à jour de session";
-    const pushBody = status === "cancelled"
-      ? `La session du ${dateStr} a été annulée par ${partnerName}.`
-      : status === "confirmed"
-      ? `Votre session du ${dateStr} avec ${partnerName} a été confirmée.`
-      : `La session avec ${partnerName} est maintenant "${status}".`;
-    sendPushToUser(recipientId, pushTitle, pushBody, "/mon-espace").catch(console.error);
+    const { data: changed, error: updateError } = await db.from("bookings")
+      .update({ status, cancelled_by: status === "cancelled" ? (isPatient ? "patient" : "psychologist") : null, updated_at: nowIso() })
+      .eq("id", booking_id).eq("status", booking.status)
+      .select("id");
+    if (updateError) return res.status(500).json({ error: "Échec de la mise à jour." });
+    if (!changed || changed.length === 0) return res.status(409).json({ error: "La séance a changé entre-temps. Rechargez la page." });
 
-    res.json({ success: true, booking_id, status });
+    // A patient abandoning their own unpaid reservation: nothing else to do.
+    if (booking.status === "pending") {
+      await db.from("payments").update({ status: "cancelled", updated_at: nowIso() })
+        .eq("booking_id", booking.id).in("status", ["initiated"]);
+      return res.json({ success: true, booking_id, status });
+    }
+
+    let policy = { refundPercent: 0, compensationPercent: 0 };
+    if (status === "cancelled") {
+      policy = isTherapist ? { refundPercent: 100, compensationPercent: 0 } : calculateRefund(refundBasis(booking), new Date());
+      await recordRefund(db, booking, policy.refundPercent, policy.compensationPercent, isTherapist ? "therapist_cancel" : "patient_cancel");
+    }
+
+    const recipientId = isPatient ? booking.psychologist_id : booking.patient_id;
+    const [recipient, sender] = await Promise.all([getContact(db, recipientId), getContact(db, user.id)]);
+    const dateStr = formatAlgiersLong(booking.booked_at);
+    if (recipient.email) {
+      if (status === "cancelled") {
+        await sendCancellationConfirmation({
+          recipientEmail: recipient.email,
+          recipientName: recipient.name || "Utilisateur",
+          partnerName: sender.name || "Utilisateur",
+          date: dateStr,
+          refundPercent: policy.refundPercent,
+          compensationPercent: policy.compensationPercent,
+          // The e-mail goes to the OTHER party (was inverted for patient cancellations).
+          userType: isPatient ? "psychologue" : "patient",
+        }).catch(console.error);
+      } else {
+        await sendBookingStatusUpdate({
+          recipientEmail: recipient.email,
+          recipientName: recipient.name || "Utilisateur",
+          partnerName: sender.name || "Utilisateur",
+          date: dateStr,
+          status,
+          userType: isPatient ? "psychologue" : "patient",
+        }).catch(console.error);
+      }
+    }
+    // The in-app notification is written by the status trigger; push it now.
+    await flushPushes(db, [recipientId]).catch(console.error);
+
+    res.json({ success: true, booking_id, status, refund_percent: policy.refundPercent });
   } catch (err: any) {
     console.error("Update status endpoint error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const action = req.query.action as string;
-
-  switch (action) {
-    case "reschedule":
-      return rescheduleHandler(req, res);
-    case "update-status":
-      return updateStatusHandler(req, res);
-    default:
-      return res.status(400).json({ error: "Unknown or missing action" });
+  switch (req.query.action as string) {
+    case "reschedule": return rescheduleHandler(req, res);
+    case "update-status": return updateStatusHandler(req, res);
+    default: return res.status(400).json({ error: "Unknown or missing action" });
   }
 }

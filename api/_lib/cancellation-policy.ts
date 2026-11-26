@@ -8,19 +8,21 @@ export interface RefundResult {
  * Calculate refund and compensation percentages based on
  * how many hours before the session the cancellation occurred.
  *
- * Policy:
- *   > 24h  → 100% refund to patient, 100% compensation to therapist
- *   > 2h   → 70% refund to patient, 100% compensation to therapist
- *   < 2h   → 0% refund to patient, 100% compensation to therapist
- *   no-show → 0% refund to patient, 100% compensation to therapist (automatic)
+ * Policy (what the patient paid is either returned or goes to the therapist —
+ * never both; the previous table paid the therapist 100 % even when the patient
+ * was refunded 100 %, i.e. the platform paid out twice):
+ *   > 24h   → 100% refund to patient,   0% compensation to therapist
+ *   > 2h    →  70% refund to patient,  30% compensation to therapist
+ *   < 2h    →   0% refund to patient, 100% compensation to therapist
+ *   no-show →   0% refund to patient, 100% compensation to therapist
  */
 export function calculateRefund(sessionTime: Date, cancellationTime: Date): RefundResult {
   const hoursUntilSession = (sessionTime.getTime() - cancellationTime.getTime()) / (1000 * 60 * 60);
 
   if (hoursUntilSession > 24) {
-    return { refundPercent: 100, compensationPercent: 100, policyTier: 'full-refund' };
+    return { refundPercent: 100, compensationPercent: 0, policyTier: 'full-refund' };
   } else if (hoursUntilSession > 2) {
-    return { refundPercent: 70, compensationPercent: 100, policyTier: 'partial-refund' };
+    return { refundPercent: 70, compensationPercent: 30, policyTier: 'partial-refund' };
   } else if (hoursUntilSession > 0) {
     return { refundPercent: 0, compensationPercent: 100, policyTier: 'no-refund' };
   } else {

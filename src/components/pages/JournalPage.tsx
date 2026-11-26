@@ -6,14 +6,15 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import CrisisHelpline from "./CrisisHelpline";
 
-const MIGRATION_ERROR = "Erreur de sauvegarde. Veuillez exécuter la migration SQL.";
+const SAVE_ERROR = "Erreur de sauvegarde. Vérifiez votre connexion et réessayez.";
+const isUuid = (id: string) => /^[0-9a-f-]{36}$/i.test(id);
 
 type JournalRow = { id: string; created_at: string; mood: string; text: string };
 
 export default function JournalPage() {
   const { t, lang } = useLanguage();
   const { user } = useAuth();
-  const locale = lang === "ar" ? "ar-SA" : "fr-FR";
+  const locale = lang === "ar" ? "ar-DZ" : "fr-FR";
   const [journalEntries, setJournalEntries] = useState<{ id: string; date: string; mood: string; text: string }[]>([]);
   const [selectedMood, setSelectedMood] = useState<string>("calm");
   const [journalText, setJournalText] = useState<string>("");
@@ -61,6 +62,7 @@ export default function JournalPage() {
   }, [user]);
 
   const saveJournalEntry = () => {
+    if (!user) return;
     if (!journalText.trim()) {
       toast.error("Veuillez écrire quelque chose avant d'enregistrer.");
       return;
@@ -79,21 +81,31 @@ export default function JournalPage() {
     supabase
       .from("journal_entries")
       .insert({ user_id: user.id, mood: newEntry.mood, text: newEntry.text })
-      .then(({ error }) => {
-        if (error) {
+      .select("id")
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data) {
           console.error(error);
-          toast.error(MIGRATION_ERROR);
-        } else {
-          toast.success("Entrée de journal enregistrée avec succès !");
+          toast.error(SAVE_ERROR);
+          return;
         }
+        // Swap the temporary id for the real one so the entry can be deleted.
+        setJournalEntries(prev => {
+          const next = prev.map(e => e.id === newEntry.id ? { ...e, id: data.id } : e);
+          localStorage.setItem(`majal_journal_entries_${user.id}`, JSON.stringify(next));
+          return next;
+        });
+        toast.success("Entrée de journal enregistrée avec succès !");
       });
   };
 
   const deleteEntry = (id: string) => {
+    if (!user) return;
     const updated = journalEntries.filter(e => e.id !== id);
     setJournalEntries(updated);
     localStorage.setItem(`majal_journal_entries_${user.id}`, JSON.stringify(updated));
     toast.success("Entrée supprimée.");
+    if (!isUuid(id)) return;
 
     supabase
       .from("journal_entries")
@@ -103,7 +115,7 @@ export default function JournalPage() {
       .then(({ error }) => {
         if (error) {
           console.error(error);
-          toast.error(MIGRATION_ERROR);
+          toast.error(SAVE_ERROR);
         }
       });
   };

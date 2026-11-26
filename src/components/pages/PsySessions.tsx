@@ -114,11 +114,11 @@ export default function PsySessions({
                 )}
                 <div>
                   <div className="font-semibold text-sm text-foreground">{s.patient_name}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{new Date(s.booked_at).toLocaleDateString("fr-FR")} · {s.duration_minutes} min</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{new Date(s.booked_at).toLocaleDateString("fr-FR", { timeZone: "Africa/Algiers" })} · {s.duration_minutes} min</div>
                 </div>
               </div>
               <div className="text-sm font-semibold text-foreground w-20 text-center font-sans">
-                {new Date(s.booked_at).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}
+                {new Date(s.booked_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Algiers" })}
               </div>
 
               <div className="flex items-center gap-3.5 flex-wrap">
@@ -154,7 +154,7 @@ export default function PsySessions({
                         );
                       })()}
                       <button onClick={() => updateBookingStatus(s.id, "done")} disabled={updating === s.id || new Date(s.booked_at).getTime() > Date.now()} title={new Date(s.booked_at).getTime() > Date.now() ? "Disponible une fois la séance commencée" : undefined} className="bg-muted text-foreground border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-accent/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">{t("psy.dashboard.markDone")}</button>
-                      <button onClick={() => updateBookingStatus(s.id, "cancelled")} disabled={updating === s.id} className="bg-destructive/10 text-destructive border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-destructive/10 transition-all disabled:opacity-50 shadow-sm">{t("space.cancel")}</button>
+                      <button onClick={() => { if (window.confirm(t("psy.sessions.cancelConfirm"))) updateBookingStatus(s.id, "cancelled"); }} disabled={updating === s.id} className="bg-destructive/10 text-destructive border-none rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-destructive/10 transition-all disabled:opacity-50 shadow-sm">{t("space.cancel")}</button>
                     </>
                   )}
                 </div>

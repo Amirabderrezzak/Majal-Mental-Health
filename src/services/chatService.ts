@@ -119,7 +119,9 @@ export const resolveAttachmentUrl = async (fileUrl: string): Promise<string | nu
 
 export const subscribeToMessages = (userId: string, callback: (payload: any) => void) => {
   const channel = supabase
-    .channel('messages-db-changes')
+    // Unique per subscriber: two chat windows sharing one channel name made the
+    // second subscription silently replace the first.
+    .channel(`messages:${userId}:${Math.random().toString(36).slice(2)}`)
     .on(
       'postgres_changes',
       {

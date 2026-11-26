@@ -8,7 +8,6 @@ import { toast } from "sonner";
 interface PsySettingsPageProps {
   clinicSettings: {
     vacationMode: boolean;
-    autoConfirm: boolean;
     acceptingNew: boolean;
     startHour: string;
     endHour: string;
@@ -20,7 +19,6 @@ interface PsySettingsPageProps {
     newBookings: boolean;
     reminders: boolean;
     messages: boolean;
-    payments: boolean;
   };
   updateNotificationPreference: (key: string, value: boolean) => void;
   isAvailableNow: boolean;
@@ -48,8 +46,8 @@ export default function PsySettingsPage({
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 6) {
-      toast.error("Le mot de passe doit contenir au moins 6 caractères.");
+    if (newPassword.length < 8) {
+      toast.error("Le mot de passe doit contenir au moins 8 caractères.");
       return;
     }
     setChangingPassword(true);
@@ -73,7 +71,6 @@ export default function PsySettingsPage({
         <div className="space-y-4">
           {[
             { title: t("psy.settings.vacation.title"), desc: t("psy.settings.vacation.desc"), key: "vacationMode", checked: clinicSettings.vacationMode },
-            { title: t("psy.settings.autoconfirm.title"), desc: t("psy.settings.autoconfirm.desc"), key: "autoConfirm", checked: clinicSettings.autoConfirm },
             { title: t("psy.settings.accepting.title"), desc: t("psy.settings.accepting.desc"), key: "acceptingNew", checked: clinicSettings.acceptingNew }
           ].map((s) => (
             <div key={s.key} className="flex items-center justify-between py-2.5">
@@ -81,8 +78,9 @@ export default function PsySettingsPage({
                 <h4 className="text-sm font-semibold text-foreground">{s.title}</h4>
                 <p className="text-xs text-muted-foreground mt-1 leading-normal font-sans">{s.desc}</p>
               </div>
-              <label htmlFor="psysettingspage-f1" className="relative w-12 h-[26px] shrink-0">
-                <input id="psysettingspage-f1"
+              <label htmlFor={`clinic-${s.key}`} className="relative w-12 h-[26px] shrink-0">
+                <span className="sr-only">{s.title}</span>
+                <input id={`clinic-${s.key}`}
                   type="checkbox"
                   checked={s.checked}
                   onChange={(e) => updateClinicSetting(s.key, e.target.checked)}
@@ -229,15 +227,15 @@ export default function PsySettingsPage({
             { key: "newBookings", title: t("psy.settings.notif.newBookingsTitle"), desc: t("psy.settings.notif.newBookingsDesc"), checked: notificationPreferences.newBookings },
             { key: "reminders",   title: t("psy.settings.notif.remindersTitle"),   desc: t("psy.settings.notif.remindersDesc"),   checked: notificationPreferences.reminders },
             { key: "messages",    title: t("psy.settings.notif.messagesTitle"),    desc: t("psy.settings.notif.messagesDesc"),    checked: notificationPreferences.messages },
-            { key: "payments",    title: t("psy.settings.notif.paymentsTitle"),    desc: t("psy.settings.notif.paymentsDesc"),    checked: notificationPreferences.payments },
           ].map((n, i, arr) => (
             <div key={n.key} className={`flex items-center justify-between py-4 ${i < arr.length - 1 ? "border-b border-border/30" : ""}`}>
               <div className="pe-4">
                 <h4 className="text-sm font-semibold text-foreground">{n.title}</h4>
                 <p className="text-xs text-muted-foreground mt-1 leading-normal font-sans">{n.desc}</p>
               </div>
-              <label htmlFor="psysettingspage-f6" className="relative w-12 h-[26px] shrink-0">
-                <input id="psysettingspage-f6"
+              <label htmlFor={`notif-${n.key}`} className="relative w-12 h-[26px] shrink-0">
+                <span className="sr-only">{n.title}</span>
+                <input id={`notif-${n.key}`}
                   type="checkbox"
                   checked={n.checked}
                   onChange={(e) => updateNotificationPreference(n.key, e.target.checked)}

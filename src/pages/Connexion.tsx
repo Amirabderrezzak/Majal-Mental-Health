@@ -18,13 +18,14 @@ const Connexion = () => {
 
   /** Resolve the redirect destination based on user_type and admin status */
   const getRedirectPath = async (userId: string): Promise<string> => {
-    const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
-    if (from && from !== "/connexion") return from;
+    // Keep the query string too (e.g. /payment/return?payment_id=…), not just the path.
+    const fromLoc = (location.state as { from?: { pathname: string; search?: string } })?.from;
+    if (fromLoc?.pathname && fromLoc.pathname !== "/connexion") return fromLoc.pathname + (fromLoc.search ?? "");
     const { data } = await supabase
       .from("profiles")
       .select("user_type, is_admin")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
     if (data?.is_admin) return "/admin";
     return data?.user_type === "psychologue" ? "/espace-psy" : "/mon-espace";
   };

@@ -28,7 +28,7 @@ export const CATEGORIES = [
   },
   {
     id: "couple",
-    label: { fr: "Séance couple", ar: "جلسة זוגית" },
+    label: { fr: "Séance couple", ar: "جلسة زوجية" },
     icon: Heart,
     subcategories: [
       { id: "communication-conflicts", label: { fr: "Communication & conflits", ar: "التواصل والنزاعات" } },

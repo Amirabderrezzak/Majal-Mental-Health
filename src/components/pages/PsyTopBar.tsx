@@ -16,7 +16,7 @@ interface PsyTopBarProps {
     type: string;
     is_read: boolean;
     created_at: string;
-    link?: string;
+    link?: string | null;
   }[];
   markAsRead: (id: string) => Promise<any>;
   markAllAsRead: () => Promise<any>;
