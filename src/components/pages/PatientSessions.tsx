@@ -412,13 +412,13 @@ export default function PatientSessions({
             className={`px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer border-none ${
               viewMode === "list" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"
             }`}
-          >Liste</button>
+          >{t("common.viewList")}</button>
           <button
             onClick={() => setViewMode("calendar")}
             className={`px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer border-none ${
               viewMode === "calendar" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"
             }`}
-          >Calendrier</button>
+          >{t("common.viewCalendar")}</button>
         </div>
       </div>
 
