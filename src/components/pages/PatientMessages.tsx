@@ -1,5 +1,6 @@
 import { MessageSquare, ChevronLeft } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useConversations, mergeContacts } from "@/hooks/useConversations";
 import ChatWindow from "@/components/ChatWindow";
 
 interface Booking {
@@ -40,7 +41,9 @@ export default function PatientMessages({
     }
   });
 
-  const uniqueTherapists = Array.from(therapistDetails.entries());
+  // Includes therapists contacted before any booking.
+  const conversations = useConversations(activeChatUserId);
+  const uniqueTherapists = mergeContacts(therapistDetails, conversations, t("space.defaultTherapistName"));
 
   return (
     <div className="flex h-[calc(100vh-80px)] animate-in fade-in duration-500">

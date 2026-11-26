@@ -2,6 +2,7 @@ import { MessageSquare, ChevronLeft } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getInitials } from "@/lib/utils";
 import ChatWindow from "@/components/ChatWindow";
+import { useConversations, mergeContacts } from "@/hooks/useConversations";
 
 interface Booking {
   id: string;
@@ -38,7 +39,9 @@ export default function PsyMessages({
     }
   });
 
-  const uniquePatients = Array.from(patientDetails.entries());
+  // Includes patients who wrote before booking (they were invisible here).
+  const conversations = useConversations(activeChatUserId);
+  const uniquePatients = mergeContacts(patientDetails, conversations, t("psy.dashboard.defaultPatientName"));
 
   return (
     <div className="flex h-full min-h-[500px] animate-in fade-in duration-500">

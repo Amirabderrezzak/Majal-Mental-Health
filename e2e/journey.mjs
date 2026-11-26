@@ -289,6 +289,14 @@ await step("Patient sends a message before booking", async () => {
   return await snap(patient, "messages");
 });
 
+await step("Therapist finds that pre-booking message in their inbox and can open it", async () => {
+  await psyPage.goto(`${APP}/espace-psy?page=messages`);
+  await psyPage.getByRole("button", { name: PAT.name }).first().click({ timeout: 10000 });
+  await psyPage.getByText(/première séance/).first().waitFor({ timeout: 10000 });
+  await audit(psyPage, "psy inbox");
+  return await snap(psyPage, "psy-inbox-prebooking");
+});
+
 log("\n5 · Booking & payment");
 const day = nextWorkingDay();
 const s1 = algiers(day.y, day.mo, day.d, 9);

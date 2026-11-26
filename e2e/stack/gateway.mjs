@@ -229,8 +229,14 @@ export function createGateway({ connectionString, port = 54321 }) {
       if (rpc) {
         const args = rawBody ? JSON.parse(rawBody) : {};
         const named = Object.entries(args).map(([k, v]) => { params.push(toParam(v)); return `${ident(k)} => $${params.length}`; });
-        const { rows: r } = await db.query(`SELECT ${ident(rpc[1])}(${named.join(", ")}) AS result`, params);
-        rows = r[0]?.result ?? null;
+        // Set-returning functions come back as an array of rows (as PostgREST does).
+        const { rows: meta } = await db.query("SELECT bool_or(proretset) AS retset FROM pg_proc WHERE proname = $1 AND pronamespace = 'public'::regnamespace", [rpc[1]]);
+        if (meta[0]?.retset) {
+          rows = (await db.query(`SELECT * FROM ${ident(rpc[1])}(${named.join(", ")})`, params)).rows;
+        } else {
+          const { rows: r } = await db.query(`SELECT ${ident(rpc[1])}(${named.join(", ")}) AS result`, params);
+          rows = r[0]?.result ?? null;
+        }
         return;
       }
       const table = ident(path.replace(/^\//, "").split("/")[0]);

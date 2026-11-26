@@ -1271,6 +1271,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_approved_psychologist: { Args: { p_id: string }; Returns: boolean }
       is_psychologist: { Args: { p_id: string }; Returns: boolean }
+      my_conversations: { Args: never; Returns: string[] }
       public_stats: { Args: never; Returns: Json }
     }
     Enums: {
